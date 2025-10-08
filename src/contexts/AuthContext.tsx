@@ -28,11 +28,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-
-      // Redirect to dashboard on signin
-      if (event === "SIGNED_IN" && session) {
-        navigate("/");
-      }
     });
 
     // THEN check for existing session
@@ -50,6 +45,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       email,
       password,
     });
+    
+    // Redirect to dashboard only on successful login
+    if (!error) {
+      navigate("/");
+    }
+    
     return { error };
   };
 
