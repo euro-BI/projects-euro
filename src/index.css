@@ -112,4 +112,19 @@ All colors MUST be HSL.
   .hover-lift:hover {
     transform: translateY(-2px);
   }
+
+  /* Custom styles for date input calendar icons */
+  input[type="date"] {
+    color-scheme: dark;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+
+  input[type="date"]::-webkit-inner-spin-button,
+  input[type="date"]::-webkit-clear-button {
+    display: none;
+  }
 }

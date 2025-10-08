@@ -83,6 +83,12 @@ interface Subactivity {
   comment: string | null;
 }
 
+interface UserProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
 export default function ProjectActivities() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -90,6 +96,7 @@ export default function ProjectActivities() {
   const [project, setProject] = useState<any>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [subactivities, setSubactivities] = useState<Record<string, Subactivity[]>>({});
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [completeModalData, setCompleteModalData] = useState<{
@@ -177,8 +184,30 @@ export default function ProjectActivities() {
   useEffect(() => {
     if (projectId) {
       loadProjectData();
+      loadUsers();
     }
   }, [projectId]);
+
+  const loadUsers = async () => {
+    try {
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .order("first_name", { ascending: true });
+
+      if (error) throw error;
+
+      setUsers(profiles || []);
+    } catch (error) {
+      console.error("Error loading users:", error);
+      toast.error("Erro ao carregar usuários");
+    }
+  };
+
+  const getUserDisplayName = (user: UserProfile) => {
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+    return fullName || "Usuário sem nome";
+  };
 
   const loadProjectData = async () => {
     if (!projectId) return;
@@ -199,22 +228,27 @@ export default function ProjectActivities() {
       setProject(projectResult.data);
       setActivities((activitiesResult.data as Activity[]) || []);
 
-      // Load subactivities for all activities
+      // Load subactivities for each activity
       if (activitiesResult.data && activitiesResult.data.length > 0) {
-        const activityIds = activitiesResult.data.map((a) => a.id);
-        const { data: subs } = await supabase
+        const activityIds = activitiesResult.data.map((activity: Activity) => activity.id);
+        const { data: subactivitiesData, error: subactivitiesError } = await supabase
           .from("subactivities")
           .select("*")
-          .in("activity_id", activityIds);
+          .in("activity_id", activityIds)
+          .order("created_at", { ascending: true });
 
-        if (subs) {
-          const grouped = (subs as Subactivity[]).reduce((acc, sub) => {
-            if (!acc[sub.activity_id]) acc[sub.activity_id] = [];
-            acc[sub.activity_id].push(sub);
-            return acc;
-          }, {} as Record<string, Subactivity[]>);
-          setSubactivities(grouped);
-        }
+        if (subactivitiesError) throw subactivitiesError;
+
+        // Group subactivities by activity_id
+        const groupedSubactivities: Record<string, Subactivity[]> = {};
+        (subactivitiesData as Subactivity[])?.forEach((sub) => {
+          if (!groupedSubactivities[sub.activity_id]) {
+            groupedSubactivities[sub.activity_id] = [];
+          }
+          groupedSubactivities[sub.activity_id].push(sub);
+        });
+
+        setSubactivities(groupedSubactivities);
       }
     } catch (error) {
       console.error("Error loading project data:", error);
@@ -230,13 +264,21 @@ export default function ProjectActivities() {
       return;
     }
 
+    // Validação de datas
+    if (newActivity.start_date && newActivity.end_date) {
+      if (new Date(newActivity.end_date) < new Date(newActivity.start_date)) {
+        toast.error("A data fim não pode ser anterior à data início");
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase.from("activities").insert({
         project_id: projectId,
         title: newActivity.title,
         description: newActivity.description || null,
         status: newActivity.status,
-        responsible: newActivity.responsible || null,
+        responsible: newActivity.responsible === "none" ? null : newActivity.responsible || null,
         start_date: newActivity.start_date || null,
         end_date: newActivity.end_date || null,
       });
@@ -535,6 +577,14 @@ export default function ProjectActivities() {
       return;
     }
 
+    // Validação de datas
+    if (data.start_date && data.end_date) {
+      if (new Date(data.end_date) < new Date(data.start_date)) {
+        toast.error("A data fim não pode ser anterior à data início");
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from("activities")
@@ -542,7 +592,7 @@ export default function ProjectActivities() {
           title: data.title,
           description: data.description || null,
           status: data.status,
-          responsible: data.responsible || null,
+          responsible: data.responsible === "none" ? null : data.responsible || null,
           start_date: data.start_date || null,
         })
         .eq("id", activityId);
@@ -608,7 +658,7 @@ export default function ProjectActivities() {
         title: activity.title,
         description: activity.description || "",
         status: activity.status,
-        responsible: activity.responsible || "",
+        responsible: activity.responsible || "none",
         start_date: activity.start_date || "",
       }
     });
@@ -715,99 +765,131 @@ export default function ProjectActivities() {
               <AccordionItem
                 key={activity.id}
                 value={activity.id}
-                className="glass-card border-border overflow-hidden"
+                className="glass-card border-border overflow-hidden relative"
               >
-                <AccordionTrigger className="px-6 py-4 hover:no-underline group">
-                  <div className="flex items-center gap-4 flex-1 text-left">
-                    <StatusBadge status={activity.status} />
-                    
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold group-hover:text-primary transition-colors">
-                        {activity.title}
-                      </h3>
+                <div className="relative">
+                  <AccordionTrigger 
+                    className="px-4 md:px-6 py-4 hover:no-underline group pr-20 md:pr-32"
+                    hideChevron={true}
+                  >
+                    <div className="flex items-center gap-3 md:gap-4 flex-1 text-left min-w-0">
+                      <StatusBadge 
+                        status={activity.status} 
+                        iconOnly={isMobile}
+                        className="flex-shrink-0"
+                      />
                       
-                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                        {activity.responsible && (
-                          <div className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {activity.responsible}
-                          </div>
-                        )}
-                        {activity.start_date && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {format(createLocalDate(activity.start_date), "dd/MM/yyyy")}
-                            {activity.end_date && (
-                              <span className="text-muted-foreground">
-                                {" - "}
-                                {format(createLocalDate(activity.end_date), "dd/MM/yyyy")}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base md:text-lg font-semibold group-hover:text-primary transition-colors truncate">
+                          {activity.title}
+                        </h3>
+                        
+                        <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4 mt-1 md:mt-2 text-xs md:text-sm text-muted-foreground">
+                          {activity.responsible && (
+                            <div className="flex items-center gap-1 truncate">
+                              <User className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">
+                                {(() => {
+                                  const user = users.find(u => u.id === activity.responsible);
+                                  return user ? getUserDisplayName(user) : activity.responsible;
+                                })()}
                               </span>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          )}
+                          {activity.start_date && (
+                            <div className="flex items-center gap-1 truncate">
+                              <Calendar className="w-3 h-3 flex-shrink-0 text-white" />
+                              <span className="truncate">
+                                {format(createLocalDate(activity.start_date), "dd/MM/yyyy")}
+                                {activity.end_date && (
+                                  <span className="text-muted-foreground">
+                                    {" - "}
+                                    {format(createLocalDate(activity.end_date), "dd/MM/yyyy")}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      {activity.status !== "Concluído" && (
+                  </AccordionTrigger>
+                  
+                  <div className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+                    {!isMobile && activity.status !== "Concluído" && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCompleteModalData({
+                            open: true,
+                            activityId: activity.id,
+                            activityTitle: activity.title,
+                          });
+                        }}
+                        className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Concluir
+                      </Button>
+                    )}
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
                           size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCompleteModalData({
-                              open: true,
-                              activityId: activity.id,
-                              activityTitle: activity.title,
-                            });
-                          }}
-                          className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
+                          variant="ghost"
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-8 w-8 p-0 hover:bg-secondary/50"
                         >
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Concluir
+                          <MoreVertical className="w-4 h-4" />
                         </Button>
-                      )}
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-8 w-8 p-0 hover:bg-secondary/50"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="glass-card border-primary/30">
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="glass-card border-primary/30">
+                        {isMobile && activity.status !== "Concluído" && (
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              openEditActivityDialog(activity);
-                            }}
-                            className="hover:bg-secondary/50"
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteActivityDialog({
+                              setCompleteModalData({
                                 open: true,
                                 activityId: activity.id,
                                 activityTitle: activity.title,
                               });
                             }}
-                            className="hover:bg-red-500/10 text-red-400"
+                            className="hover:bg-green-500/10 text-green-400"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Deletar
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Concluir
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                        )}
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditActivityDialog(activity);
+                          }}
+                          className="hover:bg-secondary/50"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteActivityDialog({
+                              open: true,
+                              activityId: activity.id,
+                              activityTitle: activity.title,
+                            });
+                          }}
+                          className="hover:bg-red-500/10 text-red-400"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Deletar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </AccordionTrigger>
+                </div>
 
                 <AccordionContent className="px-6 pb-4">
                   {activity.description && (
@@ -961,14 +1043,24 @@ export default function ProjectActivities() {
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">Responsável</label>
-                  <Input
-                    placeholder="Nome do responsável"
+                  <Select
                     value={newActivity.responsible}
-                    onChange={(e) =>
-                      setNewActivity({ ...newActivity, responsible: e.target.value })
+                    onValueChange={(value) =>
+                      setNewActivity({ ...newActivity, responsible: value })
                     }
-                    className="glass"
-                  />
+                  >
+                    <SelectTrigger className="glass">
+                      <SelectValue placeholder="Selecione um responsável" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-card border-primary/20">
+                      <SelectItem value="none">Nenhum responsável</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {getUserDisplayName(user)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -990,6 +1082,7 @@ export default function ProjectActivities() {
                   <Input
                     type="date"
                     value={newActivity.end_date}
+                    min={newActivity.start_date || undefined}
                     onChange={(e) =>
                       setNewActivity({ ...newActivity, end_date: e.target.value })
                     }
@@ -1136,17 +1229,27 @@ export default function ProjectActivities() {
                   <label className="text-sm font-medium mb-2 block">
                     Responsável
                   </label>
-                  <Input
-                    placeholder="Nome do responsável"
+                  <Select
                     value={editActivityDialog.data.responsible || ""}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       setEditActivityDialog({
                         ...editActivityDialog,
-                        data: { ...editActivityDialog.data, responsible: e.target.value }
+                        data: { ...editActivityDialog.data, responsible: value }
                       })
                     }
-                    className="glass"
-                  />
+                  >
+                    <SelectTrigger className="glass">
+                      <SelectValue placeholder="Selecione um responsável" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-card border-primary/20">
+                      <SelectItem value="none">Nenhum responsável</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {getUserDisplayName(user)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
