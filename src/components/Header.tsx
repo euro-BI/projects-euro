@@ -1,9 +1,10 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,7 @@ export const Header = () => {
   const isMobile = useIsMobile();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -159,6 +161,13 @@ export const Header = () => {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
+                    onClick={() => setIsChangePasswordModalOpen(true)}
+                    className="cursor-pointer hover:bg-primary/10"
+                  >
+                    <Lock className="w-4 h-4 mr-2" />
+                    Alterar Senha
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     onClick={signOut}
                     className="cursor-pointer hover:bg-destructive/10 hover:text-destructive"
                   >
@@ -225,6 +234,14 @@ export const Header = () => {
                     </Button>
                   )}
                   <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => setIsChangePasswordModalOpen(true)}
+                  >
+                    <Lock className="w-4 h-4 mr-2" />
+                    Alterar Senha
+                  </Button>
+                  <Button
                     variant="destructive"
                     className="justify-start"
                     onClick={signOut}
@@ -239,7 +256,10 @@ export const Header = () => {
         </div>
       </header>
 
-
+      <ChangePasswordModal
+        open={isChangePasswordModalOpen}
+        onOpenChange={setIsChangePasswordModalOpen}
+      />
     </>
   );
 };

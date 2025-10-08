@@ -61,6 +61,7 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { createLocalDate } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 
 interface Activity {
@@ -374,9 +375,60 @@ export default function ProjectActivities() {
           
           toast.success("Checklist marcado como concluído! Atividade movida para 'Em andamento'.");
         }
-      }
-      
-      loadProjectData();
+
+        // Verificar se todos os checklists da atividade estão concluídos
+        const { data: allSubactivities, error: allSubError } = await supabase
+          .from("subactivities")
+          .select("status")
+          .eq("activity_id", subactivity.activity_id);
+
+        if (allSubError) throw allSubError;
+
+        // Se existem checklists e todos estão concluídos, marcar atividade como concluída
+        if (allSubactivities && allSubactivities.length > 0) {
+          const allCompleted = allSubactivities.every(sub => sub.status === "Concluído");
+          
+          if (allCompleted && activity.status !== "Concluído") {
+            const { error: completeError } = await supabase
+              .from("activities")
+              .update({ status: "Concluído" })
+              .eq("id", subactivity.activity_id);
+
+            if (completeError) throw completeError;
+            
+            // Disparar confetti para celebrar a conclusão automática
+            confettiRef.current?.sideCannons(5000);
+            
+            toast.success("🎉 Todos os checklists concluídos! Atividade marcada como concluída automaticamente.");
+          }
+         }
+       }
+
+       // Se a subatividade foi desmarcada (voltou para Pendente) e a atividade estava concluída
+       if (newStatus === "Pendente") {
+         // Obter a atividade atual
+         const { data: activity, error: activityError } = await supabase
+           .from("activities")
+           .select("status")
+           .eq("id", subactivity.activity_id)
+           .single();
+
+         if (activityError) throw activityError;
+
+         // Se a atividade estava concluída, voltar para "Em andamento"
+         if (activity.status === "Concluído") {
+           const { error: updateError } = await supabase
+             .from("activities")
+             .update({ status: "Em andamento" })
+             .eq("id", subactivity.activity_id);
+
+           if (updateError) throw updateError;
+           
+           toast.info("Checklist desmarcado. Atividade voltou para 'Em andamento'.");
+         }
+       }
+       
+       loadProjectData();
     } catch (error) {
       console.error("Error updating subactivity:", error);
       toast.error("Erro ao atualizar subatividade");
@@ -684,7 +736,13 @@ export default function ProjectActivities() {
                         {activity.start_date && (
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {format(new Date(activity.start_date), "dd/MM/yyyy")}
+                            {format(createLocalDate(activity.start_date), "dd/MM/yyyy")}
+                            {activity.end_date && (
+                              <span className="text-muted-foreground">
+                                {" - "}
+                                {format(createLocalDate(activity.end_date), "dd/MM/yyyy")}
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
