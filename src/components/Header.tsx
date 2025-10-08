@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users } from "lucide-react";
+import { LogOut, User, Users, Menu, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -10,10 +10,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 export const Header = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   if (!user) return null;
 
@@ -22,12 +31,13 @@ export const Header = () => {
       <div className="container mx-auto h-full flex items-center justify-between px-4">
         <button 
           onClick={() => navigate("/")}
-          className="text-lg font-bold text-gradient-cyan hover:opacity-80 transition-opacity"
+          className="text-lg md:text-xl font-bold text-gradient-cyan hover:opacity-80 transition-opacity truncate"
         >
-          Sistema de Gestão
+          {isMobile ? "ConsultArc" : "Sistema de Gestão"}
         </button>
         
-        <div className="flex items-center gap-4">
+        {/* Desktop actions */}
+        <div className="hidden md:flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
@@ -62,6 +72,48 @@ export const Header = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+
+        {/* Mobile actions */}
+        <div className="flex md:hidden items-center">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="glass">
+                <Menu className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="glass-card">
+              <SheetHeader>
+                <SheetTitle>Navegação</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4 grid gap-2">
+                <Button
+                  variant="ghost"
+                  className="justify-start"
+                  onClick={() => navigate("/")}
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Dashboard
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="justify-start"
+                  onClick={() => navigate("/users")}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Usuários
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="justify-start"
+                  onClick={signOut}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>

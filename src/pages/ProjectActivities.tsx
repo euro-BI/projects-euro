@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/accordion";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   ArrowLeft,
   PlusCircle,
@@ -35,6 +36,7 @@ import {
   User,
   CheckCircle2,
   ListTodo,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -91,6 +93,14 @@ export default function ProjectActivities() {
     start_date: "",
     end_date: "",
   });
+
+  // Mobile pull-to-refresh state
+  const isMobile = useIsMobile();
+  const [pullStartY, setPullStartY] = useState<number | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const maxPull = 120;
+  const threshold = 80;
 
   useEffect(() => {
     if (projectId) {
@@ -178,6 +188,76 @@ export default function ProjectActivities() {
     }
   };
 
+  // Confetti em tela cheia ao concluir atividade (menos confetes, 5s)
+  const triggerConfetti = async () => {
+    const { default: confetti } = await import("canvas-confetti");
+    const myConfetti = confetti.create(undefined, { resize: true, useWorker: true });
+    const duration = 5000; // 5 segundos
+    const end = Date.now() + duration;
+    const colors = ["#22d3ee", "#f59e0b", "#10b981", "#ef4444"];
+
+    (function frame() {
+      // twin narrow jets from bottom corners, low spread
+      myConfetti({
+        particleCount: 20,
+        angle: 60,
+        spread: 15,
+        startVelocity: 45,
+        ticks: 160,
+        origin: { x: 0, y: 1 },
+        colors,
+        scalar: 0.9,
+      });
+      myConfetti({
+        particleCount: 20,
+        angle: 120,
+        spread: 15,
+        startVelocity: 45,
+        ticks: 160,
+        origin: { x: 1, y: 1 },
+        colors,
+        scalar: 0.9,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  };
+
+  // Pull-to-refresh (mobile)
+  const handleTouchStart = (e: any) => {
+    if (!isMobile || isRefreshing) return;
+    if (window.scrollY > 0) return;
+    setPullStartY(e.touches?.[0]?.clientY ?? null);
+    setPullDistance(0);
+  };
+
+  const handleTouchMove = (e: any) => {
+    if (!isMobile || isRefreshing) return;
+    if (pullStartY === null) return;
+    const currentY = e.touches?.[0]?.clientY ?? 0;
+    const delta = currentY - pullStartY;
+    if (delta > 0 && window.scrollY === 0) {
+      try { e.preventDefault(); } catch {}
+      setPullDistance(Math.min(delta * 0.5, maxPull));
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (!isMobile) {
+      setPullStartY(null);
+      setPullDistance(0);
+      return;
+    }
+    if (pullDistance > threshold && !isRefreshing) {
+      setIsRefreshing(true);
+      try {
+        await loadProjectData();
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+    setPullStartY(null);
+    setPullDistance(0);
+  };
   const handleCompleteActivity = async (activityId: string, comment: string) => {
     try {
       // Update activity status
@@ -198,6 +278,7 @@ export default function ProjectActivities() {
       if (commentError) throw commentError;
 
       toast.success("Atividade concluída!");
+      triggerConfetti();
       loadProjectData();
     } catch (error) {
       console.error("Error completing activity:", error);
@@ -257,8 +338,35 @@ export default function ProjectActivities() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-16">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div
+      className="min-h-screen bg-background pt-16"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {isMobile && (
+        <div
+          className={`fixed top-16 left-0 right-0 z-50 flex justify-center pointer-events-none ${
+            isRefreshing || pullDistance > 30 ? "opacity-100" : "opacity-0"
+          } transition-opacity`}
+        >
+          <div className="rounded-full bg-secondary/70 px-3 py-1 text-xs flex items-center gap-2 shadow">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Atualizando...
+          </div>
+        </div>
+      )}
+      <div
+        className="container mx-auto px-4 py-8 max-w-7xl relative"
+        style={
+          isMobile
+            ? {
+                transform: `translateY(${pullDistance}px)`,
+                transition: isRefreshing ? "transform 0.2s ease" : "none",
+              }
+            : undefined
+        }
+      >
         {/* Header */}
         <div className="mb-8 animate-fade-in">
           <Button

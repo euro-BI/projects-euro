@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
@@ -53,8 +54,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Erro ao sair:", error);
+        toast.error("Não foi possível sair. Limpando sessão...");
+      }
+    } catch (err) {
+      console.error("Erro inesperado ao sair:", err);
+      toast.error("Erro inesperado ao sair");
+    } finally {
+      // Garante que limpamos a sessão local mesmo se a chamada falhar
+      setUser(null);
+      setSession(null);
+      navigate("/auth", { replace: true });
+    }
   };
 
   return (

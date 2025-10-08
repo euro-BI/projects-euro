@@ -91,7 +91,6 @@ export default function Users() {
         const userRole = roles?.find((r) => r.user_id === profile.id);
         return {
           id: profile.id,
-          email: "-",
           first_name: profile.first_name ?? null,
           last_name: profile.last_name ?? null,
           phone: profile.phone ?? null,
@@ -188,7 +187,7 @@ export default function Users() {
         </div>
 
         <Card className="glass-card p-6 animate-slide-up">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -230,6 +229,43 @@ export default function Users() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile list */}
+          <div className="md:hidden grid gap-3">
+            {users.map((userItem) => (
+              <div key={userItem.id} className="glass-card rounded-lg p-4 flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium">
+                    {([userItem.first_name, userItem.last_name].filter(Boolean).join(" ") || "-")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {userItem.phone || "-"}
+                  </div>
+                  <div>
+                    {getRoleBadge(userItem.role)}
+                  </div>
+                </div>
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedUserId(userItem.id);
+                      setFormData({
+                        firstName: userItem.first_name || "",
+                        lastName: userItem.last_name || "",
+                        phone: userItem.phone || "",
+                        role: userItem.role || "user",
+                      });
+                      setOpen(true);
+                    }}
+                  >
+                    Editar
+                  </Button>
+                )}
+              </div>
+            ))}
           </div>
         </Card>
 

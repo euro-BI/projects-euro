@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420" aria-label="ConsultArc App Icon">
+  <!-- Background rounded square -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6C63FF"/>
+      <stop offset="50%" stop-color="#8A6CFF"/>
+      <stop offset="100%" stop-color="#FF9F43"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#00000033"/>
+    </filter>
+  </defs>
+
+  <rect x="20" y="20" width="380" height="380" rx="88" fill="url(#bg)" filter="url(#softShadow)"/>
+
+  <!-- Stylized mobile + tiles motif inspired by the provided illustration -->
+  <!-- Phone frame -->
+  <rect x="120" y="95" width="180" height="260" rx="24" fill="#ffffff" opacity="0.18"/>
+  <rect x="130" y="105" width="160" height="240" rx="20" fill="#ffffff" opacity="0.28"/>
+
+  <!-- App tiles -->
+  <g transform="translate(72,120)">
+    <rect width="84" height="84" rx="18" fill="#F59E0B"/>
+    <path d="M28 54c0-9 7-16 16-16s16 7 16 16" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(264,120)">
+    <rect width="84" height="84" rx="18" fill="#A78BFA"/>
+    <polygon points="30,22 64,42 30,62" fill="#fff"/>
+  </g>
+  <g transform="translate(72,224)">
+    <rect width="84" height="84" rx="18" fill="#8B5CF6"/>
+    <rect x="22" y="22" width="40" height="40" rx="8" fill="#fff"/>
+  </g>
+  <g transform="translate(264,224)">
+    <rect width="84" height="84" rx="18" fill="#EF4444"/>
+    <path d="M26 34 h32 v28 h-32 z" fill="#fff"/>
+    <path d="M30 34 l18 14 l18 -14" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Brand mark: arc stroke -->
+  <path d="M70 320c40-96 132-142 210-142" stroke="#00B5FF" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+</svg>
