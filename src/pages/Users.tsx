@@ -35,7 +35,6 @@ import { Badge } from "@/components/ui/badge";
 
 interface UserProfile {
   id: string;
-  email: string;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
@@ -76,28 +75,27 @@ export default function Users() {
 
   const loadUsers = async () => {
     try {
-      const { data: authUsers, error: authError } =
-        await supabase.auth.admin.listUsers();
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, phone");
 
-      if (authError) throw authError;
+      if (profilesError) throw profilesError;
 
-      const { data: profiles } = await supabase.from("profiles").select("*");
-
-      const { data: roles } = await supabase
+      const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id, role");
 
-      const usersWithData = authUsers.users.map((authUser) => {
-        const profile = profiles?.find((p) => p.id === authUser.id);
-        const userRole = roles?.find((r) => r.user_id === authUser.id);
+      if (rolesError) throw rolesError;
 
+      const usersWithData: UserProfile[] = (profiles ?? []).map((profile) => {
+        const userRole = roles?.find((r) => r.user_id === profile.id);
         return {
-          id: authUser.id,
-          email: authUser.email || "",
-          first_name: profile?.first_name || null,
-          last_name: profile?.last_name || null,
-          phone: profile?.phone || null,
-          role: userRole?.role || null,
+          id: profile.id,
+          email: "-",
+          first_name: profile.first_name ?? null,
+          last_name: profile.last_name ?? null,
+          phone: profile.phone ?? null,
+          role: userRole?.role ?? null,
         };
       });
 
@@ -194,28 +192,20 @@ export default function Users() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Sobrenome</TableHead>
                   <TableHead>Telefone</TableHead>
                   <TableHead>Tipo de Acesso</TableHead>
-                  <TableHead>UUID</TableHead>
                   {isAdmin && <TableHead>Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((userItem) => (
                   <TableRow key={userItem.id}>
-                    <TableCell className="font-medium">
-                      {userItem.email}
-                    </TableCell>
                     <TableCell>{userItem.first_name || "-"}</TableCell>
                     <TableCell>{userItem.last_name || "-"}</TableCell>
                     <TableCell>{userItem.phone || "-"}</TableCell>
                     <TableCell>{getRoleBadge(userItem.role)}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {userItem.id}
-                    </TableCell>
                     {isAdmin && (
                       <TableCell>
                         <Button

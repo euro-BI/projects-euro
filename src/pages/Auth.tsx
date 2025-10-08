@@ -82,7 +82,7 @@ export default function Auth() {
           <div>
             <label className="text-sm font-medium mb-2 block">Email</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white z-10" />
               <Input
                 type="email"
                 placeholder="seu@email.com"
@@ -98,7 +98,7 @@ export default function Auth() {
           <div>
             <label className="text-sm font-medium mb-2 block">Senha</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white z-10" />
               <Input
                 type="password"
                 placeholder="••••••••"
