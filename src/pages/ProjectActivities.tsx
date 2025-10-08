@@ -780,7 +780,7 @@ export default function ProjectActivities() {
                       />
                       
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base md:text-lg font-semibold group-hover:text-primary transition-colors truncate">
+                        <h3 className="text-base md:text-lg font-semibold group-hover:text-primary transition-colors md:truncate break-words">
                           {activity.title}
                         </h3>
                         
