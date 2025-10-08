@@ -21,6 +21,7 @@ interface Project {
   name: string;
   description: string | null;
   created_at: string;
+  activities_count?: number;
 }
 
 export default function Projects() {
@@ -42,11 +43,21 @@ export default function Projects() {
     try {
       const { data, error } = await supabase
         .from("projects")
-        .select("*")
+        .select(`
+          *,
+          activities_count:activities(count)
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setProjects(data || []);
+      
+      // Transform the data to include activities count
+      const projectsWithCount = (data || []).map(project => ({
+        ...project,
+        activities_count: project.activities_count?.[0]?.count || 0
+      }));
+      
+      setProjects(projectsWithCount);
     } catch (error) {
       console.error("Error loading projects:", error);
       toast.error("Erro ao carregar projetos");
@@ -151,6 +162,7 @@ export default function Projects() {
                 name={project.name}
                 description={project.description || undefined}
                 createdAt={project.created_at}
+                activitiesCount={project.activities_count}
               />
             ))}
           </div>
