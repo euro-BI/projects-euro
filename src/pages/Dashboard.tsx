@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { PlusCircle, FolderKanban, Activity, CheckCircle2, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { PageLayout } from "@/components/PageLayout";
 
 interface DashboardStats {
   totalProjects: number;
@@ -75,7 +77,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-background pt-16">
+    <PageLayout>
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 animate-fade-in">
@@ -132,12 +134,11 @@ export default function Dashboard() {
             <span className="text-4xl font-bold text-primary">{completionRate}%</span>
           </div>
           
-          <div className="w-full h-4 bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-primary to-blue-500 transition-all duration-1000 ease-out glow-cyan"
-              style={{ width: `${completionRate}%` }}
-            />
-          </div>
+          <Progress 
+            value={completionRate} 
+            useGradient={true}
+            className="w-full h-4"
+          />
           
           <div className="grid grid-cols-3 gap-4 mt-6 text-center">
             <div>
@@ -167,6 +168,6 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

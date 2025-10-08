@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { Confetti, type ConfettiRef } from "@/components/ui/confetti";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,22 @@ import {
 } from "@/components/ui/accordion";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   ArrowLeft,
@@ -37,10 +54,14 @@ import {
   CheckCircle2,
   ListTodo,
   Loader2,
+  Edit,
+  Trash2,
+  MoreVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { PageLayout } from "@/components/PageLayout";
 
 interface Activity {
   id: string;
@@ -92,6 +113,56 @@ export default function ProjectActivities() {
     responsible: "",
     start_date: "",
     end_date: "",
+  });
+
+  // Delete confirmation states
+  const [deleteActivityDialog, setDeleteActivityDialog] = useState<{
+    open: boolean;
+    activityId: string;
+    activityTitle: string;
+  }>({ open: false, activityId: "", activityTitle: "" });
+
+  const [deleteSubactivityDialog, setDeleteSubactivityDialog] = useState<{
+    open: boolean;
+    subactivityId: string;
+    subactivityTitle: string;
+  }>({ open: false, subactivityId: "", subactivityTitle: "" });
+
+  // Edit states
+  const [editActivityDialog, setEditActivityDialog] = useState<{
+    open: boolean;
+    activityId: string;
+    data: {
+      title: string;
+      description: string;
+      status: "Pendente" | "Em andamento" | "Concluído";
+      responsible: string;
+      start_date: string;
+    };
+  }>({ 
+    open: false, 
+    activityId: "", 
+    data: {
+      title: "",
+      description: "",
+      status: "Pendente",
+      responsible: "",
+      start_date: "",
+    }
+  });
+
+  const [editSubactivityDialog, setEditSubactivityDialog] = useState<{
+    open: boolean;
+    subactivityId: string;
+    data: {
+      title: string;
+    };
+  }>({ 
+    open: false, 
+    subactivityId: "", 
+    data: {
+      title: "",
+    }
   });
 
   // Mobile pull-to-refresh state
@@ -188,38 +259,12 @@ export default function ProjectActivities() {
     }
   };
 
-  // Confetti em tela cheia ao concluir atividade (menos confetes, 5s)
-  const triggerConfetti = async () => {
-    const { default: confetti } = await import("canvas-confetti");
-    const myConfetti = confetti.create(undefined, { resize: true, useWorker: true });
-    const duration = 5000; // 5 segundos
-    const end = Date.now() + duration;
-    const colors = ["#22d3ee", "#f59e0b", "#10b981", "#ef4444"];
+  const confettiRef = useRef<ConfettiRef>(null);
 
-    (function frame() {
-      // twin narrow jets from bottom corners, low spread
-      myConfetti({
-        particleCount: 20,
-        angle: 60,
-        spread: 15,
-        startVelocity: 45,
-        ticks: 160,
-        origin: { x: 0, y: 1 },
-        colors,
-        scalar: 0.9,
-      });
-      myConfetti({
-        particleCount: 20,
-        angle: 120,
-        spread: 15,
-        startVelocity: 45,
-        ticks: 160,
-        origin: { x: 1, y: 1 },
-        colors,
-        scalar: 0.9,
-      });
-      if (Date.now() < end) requestAnimationFrame(frame);
-    })();
+  // Confetti em tela cheia ao concluir atividade (menos confetes, 5s)
+  const triggerConfetti = () => {
+    // Usa os canhões laterais (igual ao comportamento anterior)
+    confettiRef.current?.sideCannons(5000);
   };
 
   // Pull-to-refresh (mobile)
@@ -290,12 +335,46 @@ export default function ProjectActivities() {
     const newStatus = currentStatus === "Pendente" ? "Concluído" : "Pendente";
     
     try {
+      // Primeiro, obter informações da subatividade para saber qual atividade ela pertence
+      const { data: subactivity, error: subError } = await supabase
+        .from("subactivities")
+        .select("activity_id")
+        .eq("id", subId)
+        .single();
+
+      if (subError) throw subError;
+
+      // Atualizar o status da subatividade
       const { error } = await supabase
         .from("subactivities")
         .update({ status: newStatus })
         .eq("id", subId);
 
       if (error) throw error;
+
+      // Se a subatividade foi marcada como concluída, verificar se a atividade está pendente
+      if (newStatus === "Concluído") {
+        // Obter a atividade atual
+        const { data: activity, error: activityError } = await supabase
+          .from("activities")
+          .select("status")
+          .eq("id", subactivity.activity_id)
+          .single();
+
+        if (activityError) throw activityError;
+
+        // Se a atividade está pendente, mudar para "Em andamento"
+        if (activity.status === "Pendente") {
+          const { error: updateError } = await supabase
+            .from("activities")
+            .update({ status: "Em andamento" })
+            .eq("id", subactivity.activity_id);
+
+          if (updateError) throw updateError;
+          
+          toast.success("Checklist marcado como concluído! Atividade movida para 'Em andamento'.");
+        }
+      }
       
       loadProjectData();
     } catch (error) {
@@ -311,6 +390,24 @@ export default function ProjectActivities() {
     }
 
     try {
+      // Verificar se a atividade está concluída
+      const { data: activity } = await supabase
+        .from("activities")
+        .select("status")
+        .eq("id", subactivityDialog.activityId)
+        .single();
+
+      // Se a atividade está concluída, voltar para "Em andamento"
+      if (activity?.status === "Concluído") {
+        const { error: updateError } = await supabase
+          .from("activities")
+          .update({ status: "Em andamento" })
+          .eq("id", subactivityDialog.activityId);
+
+        if (updateError) throw updateError;
+      }
+
+      // Criar o checklist
       const { error } = await supabase.from("subactivities").insert({
         activity_id: subactivityDialog.activityId,
         title: newSubactivity.title,
@@ -320,6 +417,10 @@ export default function ProjectActivities() {
       if (error) throw error;
 
       toast.success("Checklist adicionado com sucesso!");
+      if (activity?.status === "Concluído") {
+        toast.info("Atividade voltou para 'Em andamento' devido ao novo checklist");
+      }
+      
       setSubactivityDialog({ open: false, activityId: "" });
       setNewSubactivity({ title: "" });
       loadProjectData();
@@ -327,6 +428,148 @@ export default function ProjectActivities() {
       console.error("Error creating subactivity:", error);
       toast.error("Erro ao criar checklist");
     }
+  };
+
+  // Delete functions
+  const handleDeleteActivity = async () => {
+    try {
+      // First delete all subactivities
+      const { error: subError } = await supabase
+        .from("subactivities")
+        .delete()
+        .eq("activity_id", deleteActivityDialog.activityId);
+
+      if (subError) throw subError;
+
+      // Then delete the activity
+      const { error: activityError } = await supabase
+        .from("activities")
+        .delete()
+        .eq("id", deleteActivityDialog.activityId);
+
+      if (activityError) throw activityError;
+
+      toast.success("Atividade deletada com sucesso!");
+      setDeleteActivityDialog({ open: false, activityId: "", activityTitle: "" });
+      loadProjectData();
+    } catch (error) {
+      console.error("Error deleting activity:", error);
+      toast.error("Erro ao deletar atividade");
+    }
+  };
+
+  const handleDeleteSubactivity = async () => {
+    try {
+      const { error } = await supabase
+        .from("subactivities")
+        .delete()
+        .eq("id", deleteSubactivityDialog.subactivityId);
+
+      if (error) throw error;
+
+      toast.success("Checklist deletado com sucesso!");
+      setDeleteSubactivityDialog({ open: false, subactivityId: "", subactivityTitle: "" });
+      loadProjectData();
+    } catch (error) {
+      console.error("Error deleting subactivity:", error);
+      toast.error("Erro ao deletar checklist");
+    }
+  };
+
+  // Edit functions
+  const handleEditActivity = async (activityId: string, data: any) => {
+    if (!data.title.trim()) {
+      toast.error("Título da atividade é obrigatório");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("activities")
+        .update({
+          title: data.title,
+          description: data.description || null,
+          status: data.status,
+          responsible: data.responsible || null,
+          start_date: data.start_date || null,
+        })
+        .eq("id", activityId);
+
+      if (error) throw error;
+
+      toast.success("Atividade atualizada com sucesso!");
+      setEditActivityDialog({ 
+        open: false, 
+        activityId: "", 
+        data: {
+          title: "",
+          description: "",
+          status: "Pendente",
+          responsible: "",
+          start_date: "",
+        }
+      });
+      loadProjectData();
+    } catch (error) {
+      console.error("Error updating activity:", error);
+      toast.error("Erro ao atualizar atividade");
+    }
+  };
+
+  const handleEditSubactivity = async (subactivityId: string, data: any) => {
+    if (!data.title.trim()) {
+      toast.error("Título do checklist é obrigatório");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("subactivities")
+        .update({
+          title: data.title,
+        })
+        .eq("id", subactivityId);
+
+      if (error) throw error;
+
+      toast.success("Checklist atualizado com sucesso!");
+      setEditSubactivityDialog({ 
+        open: false, 
+        subactivityId: "", 
+        data: {
+          title: "",
+        }
+      });
+      loadProjectData();
+    } catch (error) {
+      console.error("Error updating subactivity:", error);
+      toast.error("Erro ao atualizar checklist");
+    }
+  };
+
+  // Helper functions to open edit dialogs
+  const openEditActivityDialog = (activity: Activity) => {
+    setEditActivityDialog({ 
+      open: true, 
+      activityId: activity.id,
+      data: {
+        title: activity.title,
+        description: activity.description || "",
+        status: activity.status,
+        responsible: activity.responsible || "",
+        start_date: activity.start_date || "",
+      }
+    });
+  };
+
+  const openEditSubactivityDialog = (subactivity: Subactivity) => {
+    setEditSubactivityDialog({ 
+      open: true, 
+      subactivityId: subactivity.id,
+      data: {
+        title: subactivity.title,
+      }
+    });
   };
 
   if (isLoading) {
@@ -338,12 +581,14 @@ export default function ProjectActivities() {
   }
 
   return (
-    <div
-      className="min-h-screen bg-background pt-16"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <>
+      <Confetti ref={confettiRef} />
+      <PageLayout>
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
       {isMobile && (
         <div
           className={`fixed top-16 left-0 right-0 z-50 flex justify-center pointer-events-none ${
@@ -445,23 +690,64 @@ export default function ProjectActivities() {
                       </div>
                     </div>
 
-                    {activity.status !== "Concluído" && (
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCompleteModalData({
-                            open: true,
-                            activityId: activity.id,
-                            activityTitle: activity.title,
-                          });
-                        }}
-                        className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
-                      >
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Concluir
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {activity.status !== "Concluído" && (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCompleteModalData({
+                              open: true,
+                              activityId: activity.id,
+                              activityTitle: activity.title,
+                            });
+                          }}
+                          className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Concluir
+                        </Button>
+                      )}
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-8 w-8 p-0 hover:bg-secondary/50"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="glass-card border-primary/30">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditActivityDialog(activity);
+                            }}
+                            className="hover:bg-secondary/50"
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteActivityDialog({
+                                open: true,
+                                activityId: activity.id,
+                                activityTitle: activity.title,
+                              });
+                            }}
+                            className="hover:bg-red-500/10 text-red-400"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Deletar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </AccordionTrigger>
 
@@ -496,7 +782,7 @@ export default function ProjectActivities() {
                       subactivities[activity.id].map((sub) => (
                         <div
                           key={sub.id}
-                          className="flex items-center gap-3 p-3 rounded-lg glass hover:bg-secondary/50 transition-colors"
+                          className="flex items-center gap-3 p-3 rounded-lg glass hover:bg-secondary/50 transition-colors group"
                         >
                           <Checkbox
                             checked={sub.status === "Concluído"}
@@ -505,14 +791,50 @@ export default function ProjectActivities() {
                             }
                           />
                           <span
-                            className={
+                            className={`flex-1 ${
                               sub.status === "Concluído"
                                 ? "line-through text-muted-foreground"
                                 : ""
-                            }
+                            }`}
                           >
                             {sub.title}
                           </span>
+                          
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-secondary/50"
+                                >
+                                  <MoreVertical className="w-3 h-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="glass-card border-primary/30">
+                                <DropdownMenuItem
+                                  onClick={() => openEditSubactivityDialog(sub)}
+                                  className="hover:bg-secondary/50"
+                                >
+                                  <Edit className="w-3 h-3 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setDeleteSubactivityDialog({
+                                      open: true,
+                                      subactivityId: sub.id,
+                                      subactivityTitle: sub.title,
+                                    });
+                                  }}
+                                  className="hover:bg-red-500/10 text-red-400"
+                                >
+                                  <Trash2 className="w-3 h-3 mr-2" />
+                                  Deletar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -646,6 +968,10 @@ export default function ProjectActivities() {
             handleCompleteActivity(completeModalData.activityId, comment)
           }
           activityTitle={completeModalData.activityTitle}
+          pendingChecklists={
+            (subactivities[completeModalData.activityId] || [])
+              .filter(sub => sub.status === "Pendente")
+          }
         />
 
         {/* Add Subactivity Dialog */}
@@ -699,7 +1025,260 @@ export default function ProjectActivities() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </div>
+
+        {/* Edit Activity Modal */}
+        <Dialog
+          open={editActivityDialog.open}
+          onOpenChange={(open) =>
+            setEditActivityDialog({ ...editActivityDialog, open })
+          }
+        >
+          <DialogContent className="glass-card border-primary/30 max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Editar Atividade</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Título da Atividade *
+                </label>
+                <Input
+                  placeholder="Ex: Desenvolver funcionalidade X"
+                  value={editActivityDialog.data.title}
+                  onChange={(e) =>
+                    setEditActivityDialog({
+                      ...editActivityDialog,
+                      data: { ...editActivityDialog.data, title: e.target.value }
+                    })
+                  }
+                  className="glass"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Descrição
+                </label>
+                <Textarea
+                  placeholder="Descreva os detalhes da atividade..."
+                  value={editActivityDialog.data.description || ""}
+                  onChange={(e) =>
+                    setEditActivityDialog({
+                      ...editActivityDialog,
+                      data: { ...editActivityDialog.data, description: e.target.value }
+                    })
+                  }
+                  className="glass min-h-[100px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Responsável
+                  </label>
+                  <Input
+                    placeholder="Nome do responsável"
+                    value={editActivityDialog.data.responsible || ""}
+                    onChange={(e) =>
+                      setEditActivityDialog({
+                        ...editActivityDialog,
+                        data: { ...editActivityDialog.data, responsible: e.target.value }
+                      })
+                    }
+                    className="glass"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Status
+                  </label>
+                  <Select
+                    value={editActivityDialog.data.status}
+                    onValueChange={(value: "Pendente" | "Em andamento" | "Concluído") =>
+                      setEditActivityDialog({
+                        ...editActivityDialog,
+                        data: { ...editActivityDialog.data, status: value }
+                      })
+                    }
+                  >
+                    <SelectTrigger className="glass">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="glass-card border-primary/30">
+                      <SelectItem value="Pendente">Pendente</SelectItem>
+                      <SelectItem value="Em andamento">Em andamento</SelectItem>
+                      <SelectItem value="Concluído">Concluído</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Data de Início
+                </label>
+                <Input
+                  type="date"
+                  value={editActivityDialog.data.start_date || ""}
+                  onChange={(e) =>
+                    setEditActivityDialog({
+                      ...editActivityDialog,
+                      data: { ...editActivityDialog.data, start_date: e.target.value }
+                    })
+                  }
+                  className="glass"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setEditActivityDialog({ open: false, activityId: "", data: {} as any })
+                }
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => handleEditActivity(editActivityDialog.activityId, editActivityDialog.data)}
+                disabled={!editActivityDialog.data.title?.trim()}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground glow-cyan-sm"
+              >
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Activity Confirmation Modal */}
+        <AlertDialog
+          open={deleteActivityDialog.open}
+          onOpenChange={(open) =>
+            setDeleteActivityDialog({ ...deleteActivityDialog, open })
+          }
+        >
+          <AlertDialogContent className="glass-card border-primary/30">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl">
+                Confirmar Exclusão
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
+                Tem certeza que deseja deletar a atividade "{deleteActivityDialog.activityTitle}"?
+                <br />
+                <span className="text-red-400 font-medium">
+                  Esta ação também deletará todos os checklists associados e não pode ser desfeita.
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="glass hover:bg-secondary/50">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleDeleteActivity(deleteActivityDialog.activityId)}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Deletar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Edit Subactivity Modal */}
+        <Dialog
+          open={editSubactivityDialog.open}
+          onOpenChange={(open) =>
+            setEditSubactivityDialog({ ...editSubactivityDialog, open })
+          }
+        >
+          <DialogContent className="glass-card border-primary/30 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Editar Checklist</DialogTitle>
+            </DialogHeader>
+
+            <div className="py-4">
+              <label className="text-sm font-medium mb-2 block">
+                Título do Checklist *
+              </label>
+              <Input
+                placeholder="Ex: Revisar documentação, Validar com cliente..."
+                value={editSubactivityDialog.data.title}
+                onChange={(e) =>
+                  setEditSubactivityDialog({
+                    ...editSubactivityDialog,
+                    data: { ...editSubactivityDialog.data, title: e.target.value }
+                  })
+                }
+                className="glass"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && editSubactivityDialog.data.title?.trim()) {
+                    handleEditSubactivity(editSubactivityDialog.subactivityId, editSubactivityDialog.data);
+                  }
+                }}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setEditSubactivityDialog({ open: false, subactivityId: "", data: {} as any })
+                }
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => handleEditSubactivity(editSubactivityDialog.subactivityId, editSubactivityDialog.data)}
+                disabled={!editSubactivityDialog.data.title?.trim()}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground glow-cyan-sm"
+              >
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Subactivity Confirmation Modal */}
+        <AlertDialog
+          open={deleteSubactivityDialog.open}
+          onOpenChange={(open) =>
+            setDeleteSubactivityDialog({ ...deleteSubactivityDialog, open })
+          }
+        >
+          <AlertDialogContent className="glass-card border-primary/30">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl">
+                Confirmar Exclusão
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
+                Tem certeza que deseja deletar o checklist "{deleteSubactivityDialog.subactivityTitle}"?
+                <br />
+                <span className="text-red-400 font-medium">
+                  Esta ação não pode ser desfeita.
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="glass hover:bg-secondary/50">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleDeleteSubactivity(deleteSubactivityDialog.subactivityId)}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Deletar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        </div>
+        </div>
+      </PageLayout>
+    </>
   );
 }

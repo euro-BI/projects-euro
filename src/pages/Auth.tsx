@@ -67,14 +67,18 @@ export default function Auth() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="glass-card w-full max-w-md p-8 animate-fade-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border border-primary/20 mb-4 glow-cyan-sm">
-            <Lock className="w-8 h-8 text-primary" />
+          <div className="inline-block mb-4">
+            <img
+              src="https://kseespnvbkzxxgdjklbi.supabase.co/storage/v1/object/public/profile-images/projects2.png"
+              alt="EuroProjects Logo"
+              className="w-20 h-20 object-cover object-center border-2 border-primary rounded-lg shadow-lg shadow-primary/50"
+            />
           </div>
           <h1 className="text-3xl font-bold mb-2 text-gradient-cyan">
-            ConsultArc
+            EuroProjects
           </h1>
           <p className="text-muted-foreground">
-            Sistema de Gestão de Projetos BI
+            Sistema de Gestão de Projetos
           </p>
         </div>
 

@@ -15,10 +15,10 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
-      includeAssets: ["favicon.ico", "robots.txt", "icons/app-icon.svg"],
+      includeAssets: ["favicon.ico", "robots.txt", "icons/app-icon.png"],
       manifest: {
-        name: "ConsultArc - Gestão de Projetos BI",
-        short_name: "ConsultArc",
+        name: "EuroProjects - Gestão de Projetos",
+        short_name: "EuroProjects",
         start_url: "/",
         display: "standalone",
         background_color: "#ffffff",
@@ -26,9 +26,9 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait",
         icons: [
           {
-            src: "icons/app-icon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
+            src: "icons/app-icon.png",
+            sizes: "512x512",
+            type: "image/png",
             purpose: "any maskable",
           },
         ],

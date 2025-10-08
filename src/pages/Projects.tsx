@@ -14,6 +14,7 @@ import {
 import { PlusCircle, ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { PageLayout } from "@/components/PageLayout";
 
 interface Project {
   id: string;
@@ -83,7 +84,7 @@ export default function Projects() {
   );
 
   return (
-    <div className="min-h-screen bg-background pt-16">
+    <PageLayout>
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 animate-fade-in">
@@ -97,7 +98,7 @@ export default function Projects() {
               Dashboard
             </Button>
             <h1 className="text-4xl font-bold mb-2 text-gradient-cyan">Projetos</h1>
-            <p className="text-muted-foreground">Gerencie seus projetos de consultoria BI</p>
+            <p className="text-muted-foreground">Gerencie seus projetos de consultoria</p>
           </div>
 
           <Button
@@ -205,6 +206,6 @@ export default function Projects() {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+    </PageLayout>
   );
 }

@@ -7,15 +7,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
+
+interface Subactivity {
+  id: string;
+  title: string;
+  status: "Pendente" | "Concluído";
+}
 
 interface CompleteActivityModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: (comment: string) => Promise<void>;
   activityTitle: string;
+  pendingChecklists?: Subactivity[];
 }
 
 export const CompleteActivityModal = ({
@@ -23,18 +40,34 @@ export const CompleteActivityModal = ({
   onOpenChange,
   onComplete,
   activityTitle,
+  pendingChecklists = [],
 }: CompleteActivityModalProps) => {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showChecklistWarning, setShowChecklistWarning] = useState(false);
+
+  const hasPendingChecklists = pendingChecklists.length > 0;
 
   const handleComplete = async () => {
     if (!comment.trim()) return;
     
+    // Se há checklists pendentes, mostrar aviso e não permitir conclusão
+    if (hasPendingChecklists) {
+      setShowChecklistWarning(true);
+      return;
+    }
+    
+    // Se não há checklists pendentes, concluir diretamente
+    await completeActivity();
+  };
+
+  const completeActivity = async () => {
     setIsSubmitting(true);
     try {
       await onComplete(comment);
       setComment("");
       onOpenChange(false);
+      setShowChecklistWarning(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -87,6 +120,42 @@ export const CompleteActivityModal = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Aviso sobre Checklists Pendentes */}
+      <AlertDialog open={showChecklistWarning} onOpenChange={setShowChecklistWarning}>
+        <AlertDialogContent className="glass-card border-red-500/30">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <AlertDialogTitle className="text-xl">Não é possível concluir</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-muted-foreground">
+              Esta atividade possui <span className="font-medium text-foreground">{pendingChecklists.length}</span> checklist(s) pendente(s) que devem ser concluídos primeiro:
+              <div className="mt-3 space-y-2">
+                {pendingChecklists.map((checklist) => (
+                  <div key={checklist.id} className="flex items-center gap-2 p-2 rounded bg-secondary/30">
+                    <div className="w-2 h-2 rounded-full bg-red-400" />
+                    <span className="text-sm">{checklist.title}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 text-sm font-medium text-red-400">
+                ⚠️ Conclua todos os checklists antes de finalizar a atividade.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setShowChecklistWarning(false)}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
