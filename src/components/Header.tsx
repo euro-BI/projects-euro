@@ -48,7 +48,7 @@ export const Header = () => {
 
     try {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("projects_profiles")
         .select("first_name, last_name, profile_image_url")
         .eq("id", user.id)
         .single();
@@ -65,7 +65,7 @@ export const Header = () => {
 
     try {
       const { data } = await supabase
-        .from("user_roles")
+        .from("projects_user_roles")
         .select("role")
         .eq("user_id", user.id)
         .eq("role", "admin")
@@ -95,7 +95,7 @@ export const Header = () => {
             className="flex items-center gap-3 text-lg md:text-xl font-bold text-gradient-cyan hover:opacity-80 transition-opacity"
           >
             <img
-              src="https://kseespnvbkzxxgdjklbi.supabase.co/storage/v1/object/public/profile-images/projects2.png"
+              src="https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos-assessores/normal/projects2.png"
               alt="EuroProjects Logo"
               className="w-10 h-10 object-cover object-center"
             />

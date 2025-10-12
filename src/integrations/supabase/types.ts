@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      activities: {
+      projects_activities: {
         Row: {
           created_at: string
           description: string | null
@@ -53,15 +53,15 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "activities_project_id_fkey"
+            foreignKeyName: "projects_activities_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "projects_projects"
             referencedColumns: ["id"]
           },
         ]
       }
-      comments: {
+      projects_comments: {
         Row: {
           activity_id: string
           author: string
@@ -85,15 +85,15 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "comments_activity_id_fkey"
+            foreignKeyName: "projects_comments_activity_id_fkey"
             columns: ["activity_id"]
             isOneToOne: false
-            referencedRelation: "activities"
+            referencedRelation: "projects_activities"
             referencedColumns: ["id"]
           },
         ]
       }
-      profiles: {
+      projects_profiles: {
         Row: {
           created_at: string
           first_name: string | null
@@ -118,9 +118,17 @@ export type Database = {
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "projects_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      projects: {
+      projects_projects: {
         Row: {
           created_at: string
           description: string | null
@@ -141,7 +149,7 @@ export type Database = {
         }
         Relationships: []
       }
-      subactivities: {
+      projects_subactivities: {
         Row: {
           activity_id: string
           comment: string | null
@@ -168,15 +176,15 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "subactivities_activity_id_fkey"
+            foreignKeyName: "projects_subactivities_activity_id_fkey"
             columns: ["activity_id"]
             isOneToOne: false
-            referencedRelation: "activities"
+            referencedRelation: "projects_activities"
             referencedColumns: ["id"]
           },
         ]
       }
-      user_roles: {
+      projects_user_roles: {
         Row: {
           created_at: string
           id: string

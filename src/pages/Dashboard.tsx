@@ -34,9 +34,9 @@ export default function Dashboard() {
   const loadStats = async () => {
     try {
       const [projectsResult, activitiesResult] = await Promise.all([
-        supabase.from("projects").select("id", { count: "exact" }),
-        supabase.from("activities").select("status", { count: "exact" }),
-      ]);
+      supabase.from("projects_projects").select("id", { count: "exact" }),
+      supabase.from("projects_activities").select("status", { count: "exact" }),
+    ]);
 
       if (projectsResult.error) throw projectsResult.error;
       if (activitiesResult.error) throw activitiesResult.error;

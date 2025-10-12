@@ -191,7 +191,7 @@ export default function ProjectActivities() {
   const loadUsers = async () => {
     try {
       const { data: profiles, error } = await supabase
-        .from("profiles")
+        .from("projects_profiles")
         .select("id, first_name, last_name")
         .order("first_name", { ascending: true });
 
@@ -214,9 +214,9 @@ export default function ProjectActivities() {
 
     try {
       const [projectResult, activitiesResult] = await Promise.all([
-        supabase.from("projects").select("*").eq("id", projectId).single(),
+        supabase.from("projects_projects").select("*").eq("id", projectId).single(),
         supabase
-          .from("activities")
+          .from("projects_activities")
           .select("*")
           .eq("project_id", projectId)
           .order("created_at", { ascending: false }),
@@ -232,7 +232,7 @@ export default function ProjectActivities() {
       if (activitiesResult.data && activitiesResult.data.length > 0) {
         const activityIds = activitiesResult.data.map((activity: Activity) => activity.id);
         const { data: subactivitiesData, error: subactivitiesError } = await supabase
-          .from("subactivities")
+          .from("projects_subactivities")
           .select("*")
           .in("activity_id", activityIds)
           .order("created_at", { ascending: true });
@@ -273,7 +273,7 @@ export default function ProjectActivities() {
     }
 
     try {
-      const { error } = await supabase.from("activities").insert({
+      const { error } = await supabase.from("projects_activities").insert({
         project_id: projectId,
         title: newActivity.title,
         description: newActivity.description || null,
@@ -350,14 +350,14 @@ export default function ProjectActivities() {
     try {
       // Update activity status
       const { error: activityError } = await supabase
-        .from("activities")
+        .from("projects_activities")
         .update({ status: "Concluído" })
         .eq("id", activityId);
 
       if (activityError) throw activityError;
 
       // Add comment
-      const { error: commentError } = await supabase.from("comments").insert({
+      const { error: commentError } = await supabase.from("projects_comments").insert({
         activity_id: activityId,
         author: "Usuário",
         comment,
@@ -380,7 +380,7 @@ export default function ProjectActivities() {
     try {
       // Primeiro, obter informações da subatividade para saber qual atividade ela pertence
       const { data: subactivity, error: subError } = await supabase
-        .from("subactivities")
+        .from("projects_subactivities")
         .select("activity_id")
         .eq("id", subId)
         .single();
@@ -389,7 +389,7 @@ export default function ProjectActivities() {
 
       // Atualizar o status da subatividade
       const { error } = await supabase
-        .from("subactivities")
+        .from("projects_subactivities")
         .update({ status: newStatus })
         .eq("id", subId);
 
@@ -399,7 +399,7 @@ export default function ProjectActivities() {
       if (newStatus === "Concluído") {
         // Obter a atividade atual
         const { data: activity, error: activityError } = await supabase
-          .from("activities")
+          .from("projects_activities")
           .select("status")
           .eq("id", subactivity.activity_id)
           .single();
@@ -409,7 +409,7 @@ export default function ProjectActivities() {
         // Se a atividade está pendente, mudar para "Em andamento"
         if (activity.status === "Pendente") {
           const { error: updateError } = await supabase
-            .from("activities")
+            .from("projects_activities")
             .update({ status: "Em andamento" })
             .eq("id", subactivity.activity_id);
 
@@ -420,7 +420,7 @@ export default function ProjectActivities() {
 
         // Verificar se todos os checklists da atividade estão concluídos
         const { data: allSubactivities, error: allSubError } = await supabase
-          .from("subactivities")
+          .from("projects_subactivities")
           .select("status")
           .eq("activity_id", subactivity.activity_id);
 
@@ -432,7 +432,7 @@ export default function ProjectActivities() {
           
           if (allCompleted && activity.status !== "Concluído") {
             const { error: completeError } = await supabase
-              .from("activities")
+              .from("projects_activities")
               .update({ status: "Concluído" })
               .eq("id", subactivity.activity_id);
 
@@ -450,7 +450,7 @@ export default function ProjectActivities() {
        if (newStatus === "Pendente") {
          // Obter a atividade atual
          const { data: activity, error: activityError } = await supabase
-           .from("activities")
+           .from("projects_activities")
            .select("status")
            .eq("id", subactivity.activity_id)
            .single();
@@ -460,7 +460,7 @@ export default function ProjectActivities() {
          // Se a atividade estava concluída, voltar para "Em andamento"
          if (activity.status === "Concluído") {
            const { error: updateError } = await supabase
-             .from("activities")
+             .from("projects_activities")
              .update({ status: "Em andamento" })
              .eq("id", subactivity.activity_id);
 
@@ -486,7 +486,7 @@ export default function ProjectActivities() {
     try {
       // Verificar se a atividade está concluída
       const { data: activity } = await supabase
-        .from("activities")
+        .from("projects_activities")
         .select("status")
         .eq("id", subactivityDialog.activityId)
         .single();
@@ -494,7 +494,7 @@ export default function ProjectActivities() {
       // Se a atividade está concluída, voltar para "Em andamento"
       if (activity?.status === "Concluído") {
         const { error: updateError } = await supabase
-          .from("activities")
+          .from("projects_activities")
           .update({ status: "Em andamento" })
           .eq("id", subactivityDialog.activityId);
 
@@ -502,7 +502,7 @@ export default function ProjectActivities() {
       }
 
       // Criar o checklist
-      const { error } = await supabase.from("subactivities").insert({
+      const { error } = await supabase.from("projects_subactivities").insert({
         activity_id: subactivityDialog.activityId,
         title: newSubactivity.title,
         status: "Pendente",
@@ -529,7 +529,7 @@ export default function ProjectActivities() {
     try {
       // First delete all subactivities
       const { error: subError } = await supabase
-        .from("subactivities")
+        .from("projects_subactivities")
         .delete()
         .eq("activity_id", deleteActivityDialog.activityId);
 
@@ -537,7 +537,7 @@ export default function ProjectActivities() {
 
       // Then delete the activity
       const { error: activityError } = await supabase
-        .from("activities")
+        .from("projects_activities")
         .delete()
         .eq("id", deleteActivityDialog.activityId);
 
@@ -555,7 +555,7 @@ export default function ProjectActivities() {
   const handleDeleteSubactivity = async () => {
     try {
       const { error } = await supabase
-        .from("subactivities")
+        .from("projects_subactivities")
         .delete()
         .eq("id", deleteSubactivityDialog.subactivityId);
 
@@ -587,7 +587,7 @@ export default function ProjectActivities() {
 
     try {
       const { error } = await supabase
-        .from("activities")
+        .from("projects_activities")
         .update({
           title: data.title,
           description: data.description || null,
@@ -626,7 +626,7 @@ export default function ProjectActivities() {
 
     try {
       const { error } = await supabase
-        .from("subactivities")
+        .from("projects_subactivities")
         .update({
           title: data.title,
         })

@@ -69,7 +69,7 @@ export default function Auth() {
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
             <img
-              src="https://kseespnvbkzxxgdjklbi.supabase.co/storage/v1/object/public/profile-images/projects2.png"
+              src="https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos-assessores/normal/projects2.png"
               alt="EuroProjects Logo"
               className="w-20 h-20 object-cover object-center border-2 border-primary rounded-lg shadow-lg shadow-primary/50"
             />

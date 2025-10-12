@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Header } from "@/components/Header";
+import { MigrationTest } from "@/components/MigrationTest";
+import { ProjectsDebugTest } from "@/components/ProjectsDebugTest";
+import { InsertTestData } from "@/components/InsertTestData";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectActivities from "./pages/ProjectActivities";
@@ -55,6 +58,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Users />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/migration-test"
+              element={
+                <div className="container mx-auto p-6">
+                  <MigrationTest />
+                  <ProjectsDebugTest />
+                  <InsertTestData />
+                </div>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

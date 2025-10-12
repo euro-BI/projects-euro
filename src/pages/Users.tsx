@@ -72,7 +72,7 @@ export default function Users() {
     if (!user) return;
 
     const { data } = await supabase
-      .from("user_roles")
+      .from("projects_user_roles")
       .select("role")
       .eq("user_id", user.id)
       .eq("role", "admin")
@@ -124,18 +124,19 @@ export default function Users() {
       // Criar nome único para o arquivo
       const fileExt = file.name.split('.').pop();
       const fileName = `${selectedUserId}-${Date.now()}.${fileExt}`;
+      const filePath = `fotos-assessores/normal/${fileName}`;
 
-      // Upload para o bucket profile-images
+      // Upload para o bucket fotos
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('profile-images')
-        .upload(fileName, file);
+        .from('fotos')
+        .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       // Obter URL pública
       const { data: { publicUrl } } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(fileName);
+        .from('fotos')
+        .getPublicUrl(filePath);
 
       // Atualizar preview
       setPreviewImage(publicUrl);
@@ -161,14 +162,14 @@ export default function Users() {
   const loadUsers = async () => {
     try {
       const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
+        .from("projects_profiles")
         .select("id, first_name, last_name, phone, profile_image_url");
 
       if (profilesError) throw profilesError;
 
       const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
+      .from("projects_user_roles")
+      .select("user_id, role");
 
       if (rolesError) throw rolesError;
 
@@ -201,7 +202,7 @@ export default function Users() {
 
     try {
       const { error: profileError } = await supabase
-        .from("profiles")
+        .from("projects_profiles")
         .update({
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -214,7 +215,7 @@ export default function Users() {
 
       // Primeiro, verificar se já existe um role para este usuário
       const { data: existingRole } = await supabase
-        .from("user_roles")
+        .from("projects_user_roles")
         .select("id, role")
         .eq("user_id", selectedUserId)
         .maybeSingle();
@@ -224,14 +225,14 @@ export default function Users() {
       if (existingRole) {
         // Se já existe um role, atualizar
         const { error } = await supabase
-          .from("user_roles")
+          .from("projects_user_roles")
           .update({ role: formData.role as "admin" | "user" })
           .eq("user_id", selectedUserId);
         roleError = error;
       } else {
         // Se não existe, inserir novo
         const { error } = await supabase
-          .from("user_roles")
+          .from("projects_user_roles")
           .insert({
             user_id: selectedUserId,
             role: formData.role as "admin" | "user",

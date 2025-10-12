@@ -42,10 +42,10 @@ export default function Projects() {
   const loadProjects = async () => {
     try {
       const { data, error } = await supabase
-        .from("projects")
+        .from("projects_projects")
         .select(`
           *,
-          activities_count:activities(count)
+          activities_count:projects_activities(count)
         `)
         .order("created_at", { ascending: false });
 
@@ -73,7 +73,7 @@ export default function Projects() {
     }
 
     try {
-      const { error } = await supabase.from("projects").insert({
+      const { error } = await supabase.from("projects_projects").insert({
         name: newProject.name,
         description: newProject.description || null,
       });
