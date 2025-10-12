@@ -1,0 +1,369 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Checkbox } from "./ui/checkbox";
+import { Label } from "./ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+
+interface ColumnMapping {
+  excelColumn: string;
+  dbColumn: string | null;
+  isRequired: boolean;
+  isSelected: boolean;
+}
+
+interface ColumnMappingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (mapping: ColumnMapping[]) => void;
+  excelColumns: string[];
+}
+
+const DATABASE_COLUMNS = [
+  { key: 'data_captacao', label: 'Data Captação', required: true },
+  { key: 'cod_assessor', label: 'Código Assessor', required: true },
+  { key: 'cod_cliente', label: 'Código Cliente', required: true },
+  { key: 'tipo_captacao', label: 'Tipo Captação', required: true },
+  { key: 'aux', label: 'Aux', required: true },
+  { key: 'valor_captacao', label: 'Valor Captação', required: true },
+  { key: 'data_atualizacao', label: 'Data Atualização', required: true },
+  { key: 'tipo_pessoa', label: 'Tipo Pessoa', required: true },
+];
+
+export function ColumnMappingModal({ isOpen, onClose, onConfirm, excelColumns }: ColumnMappingModalProps) {
+  const [mappings, setMappings] = useState<ColumnMapping[]>([]);
+
+  // Auto-mapeamento ativado: inicializa mapeamentos com melhor tentativa de correspondência e marca "Importar"
+  useEffect(() => {
+    if (excelColumns.length > 0) {
+      // Inicializar mapeamentos zerados
+      const initialMappings: ColumnMapping[] = excelColumns.map(excelCol => ({
+        excelColumn: excelCol,
+        dbColumn: null,
+        isRequired: false,
+        isSelected: false,
+      }));
+
+      // Dicionário de correspondência
+      const directMappings: { [key: string]: string } = {
+        'data': 'data_captacao',
+        'assessor': 'cod_assessor',
+        'cód do cliente': 'cod_cliente',
+        'codigo do cliente': 'cod_cliente',
+        'código do cliente': 'cod_cliente',
+        'cod cliente': 'cod_cliente',
+        'tipo de captação': 'tipo_captacao',
+        'tipo captacao': 'tipo_captacao',
+        'aux': 'aux',
+        'captação': 'valor_captacao',
+        'captacao': 'valor_captacao',
+        'valor de captação': 'valor_captacao',
+        'valor captacao': 'valor_captacao',
+        'data atualização': 'data_atualizacao',
+        'data atualizacao': 'data_atualizacao',
+        'tipo pessoa': 'tipo_pessoa'
+      };
+
+      // Evitar colunas de banco duplicadas
+      const usedDbKeys = new Set<string>();
+
+      // Primeiro, mapear correspondências exatas
+      const afterExact = initialMappings.map(m => {
+        const normalizedExcel = m.excelColumn.toLowerCase().trim();
+        const exact = directMappings[normalizedExcel] || null;
+        if (exact && !usedDbKeys.has(exact)) {
+          usedDbKeys.add(exact);
+          const required = !!DATABASE_COLUMNS.find(db => db.key === exact)?.required;
+          return { ...m, dbColumn: exact, isSelected: true, isRequired: required };
+        }
+        return m;
+      });
+
+      // Depois, mapear por similaridade para o que sobrou
+      const autoMapped = afterExact.map(m => {
+        if (m.dbColumn) return m; // já mapeado
+        const normalizedExcel = m.excelColumn.toLowerCase().trim();
+        let partial: string | null = null;
+        for (const [excelKey, dbKey] of Object.entries(directMappings)) {
+          if ((normalizedExcel.includes(excelKey) || excelKey.includes(normalizedExcel)) && !usedDbKeys.has(dbKey)) {
+            partial = dbKey;
+            break;
+          }
+        }
+        if (partial) {
+          usedDbKeys.add(partial);
+          const required = !!DATABASE_COLUMNS.find(db => db.key === partial)?.required;
+          return { ...m, dbColumn: partial, isSelected: true, isRequired: required };
+        }
+        return m;
+      });
+
+      setMappings(autoMapped);
+    }
+  }, [excelColumns]);
+
+  const findBestMatch = (excelColumn: string): string | null => {
+    const normalizedExcel = excelColumn.toLowerCase().trim();
+    
+    // Mapeamentos diretos baseados nos nomes fornecidos
+    const directMappings: { [key: string]: string } = {
+      'data': 'data_captacao',
+      'assessor': 'cod_assessor',
+      'cód do cliente': 'cod_cliente',
+      'tipo de captação': 'tipo_captacao',
+      'aux': 'aux',
+      'captação': 'valor_captacao',
+      'data atualização': 'data_atualizacao',
+      'tipo pessoa': 'tipo_pessoa'
+    };
+
+    // Verificar mapeamento direto
+    if (directMappings[normalizedExcel]) {
+      return directMappings[normalizedExcel];
+    }
+
+    // Verificar similaridade parcial
+    for (const [excelKey, dbKey] of Object.entries(directMappings)) {
+      if (normalizedExcel.includes(excelKey) || excelKey.includes(normalizedExcel)) {
+        return dbKey;
+      }
+    }
+
+    return null;
+  };
+
+  const handleMappingChange = (index: number, dbColumn: string | null) => {
+    const newMappings = [...mappings];
+    newMappings[index].dbColumn = dbColumn;
+    newMappings[index].isRequired = dbColumn ? DATABASE_COLUMNS.find(db => db.key === dbColumn)?.required || false : false;
+    setMappings(newMappings);
+  };
+
+  const handleSelectionChange = (index: number, isSelected: boolean) => {
+    const newMappings = [...mappings];
+    newMappings[index].isSelected = isSelected;
+    setMappings(newMappings);
+  };
+
+  const getAvailableDbColumns = (currentIndex: number) => {
+    // Só considerar como "usadas" as colunas que estão selecionadas para importação
+    const usedColumns = mappings
+      .filter((_, index) => index !== currentIndex)
+      .filter(m => m.isSelected) // Só considerar colunas que estão selecionadas para importação
+      .map(m => m.dbColumn)
+      .filter(Boolean);
+    
+    return DATABASE_COLUMNS.filter(col => !usedColumns.includes(col.key));
+  };
+
+  const validateMappings = () => {
+    const selectedMappings = mappings.filter(m => m.isSelected && m.dbColumn);
+    const requiredColumns = DATABASE_COLUMNS.filter(col => col.required).map(col => col.key);
+    const mappedRequiredColumns = selectedMappings.map(m => m.dbColumn).filter(Boolean);
+    
+    const missingRequired = requiredColumns.filter(req => !mappedRequiredColumns.includes(req));
+    
+    return {
+      isValid: missingRequired.length === 0,
+      missingRequired
+    };
+  };
+
+  const handleConfirm = () => {
+    const validation = validateMappings();
+    
+    if (!validation.isValid) {
+      alert(`Colunas obrigatórias não mapeadas: ${validation.missingRequired.map(col => 
+        DATABASE_COLUMNS.find(db => db.key === col)?.label
+      ).join(', ')}`);
+      return;
+    }
+
+    onConfirm(mappings.filter(m => m.isSelected && m.dbColumn));
+  };
+
+  const validation = validateMappings();
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Mapeamento de Colunas</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="text-base text-blue-900">📋 Instruções</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-blue-800">
+              <div className="space-y-1">
+                <p>• <strong>Selecione</strong> quais colunas do Excel devem ser importadas</p>
+                <p>• <strong>Mapeie</strong> cada coluna do Excel para a coluna correspondente no banco de dados</p>
+                <p>• Colunas marcadas como <span className="text-red-600 font-semibold">"Obrigatória"</span> devem ser mapeadas para prosseguir</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-3">
+            {mappings.map((mapping, index) => (
+              <Card key={index} className={`transition-all duration-200 ${
+                mapping.isSelected 
+                  ? 'border-green-300 bg-green-50 shadow-md' 
+                  : 'border-gray-300 bg-white hover:border-gray-400'
+              }`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2 min-w-[100px]">
+                      <Checkbox
+                        id={`select-${index}`}
+                        checked={mapping.isSelected}
+                        onCheckedChange={(checked) => handleSelectionChange(index, checked as boolean)}
+                        className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                      />
+                      <Label htmlFor={`select-${index}`} className={`text-sm font-semibold ${
+                        mapping.isSelected ? 'text-green-800' : 'text-gray-700'
+                      }`}>
+                        Importar
+                      </Label>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        Coluna do Excel:
+                      </Label>
+                      <div className={`font-semibold text-sm mt-1 p-2 rounded-md ${
+                        mapping.isSelected 
+                          ? 'bg-white text-gray-900 border border-green-200' 
+                          : 'bg-gray-100 text-gray-800 border border-gray-200'
+                      }`}>
+                        {mapping.excelColumn}
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        Mapear para:
+                      </Label>
+                      <div className="flex gap-2 mt-1">
+                        <Select
+                          value={mapping.dbColumn || undefined}
+                          onValueChange={(value) => handleMappingChange(index, value || null)}
+                          disabled={!mapping.isSelected}
+                        >
+                          <SelectTrigger className={`${
+                            mapping.isSelected 
+                              ? 'border-green-300 bg-white text-black' 
+                              : 'border-gray-300 bg-gray-50 text-gray-600'
+                          }`}>
+                            <SelectValue 
+                              placeholder="Selecione uma coluna do banco"
+                              className="text-black"
+                            />
+                          </SelectTrigger>
+                          <SelectContent className="z-50 bg-white border border-gray-300 shadow-lg">
+                            {getAvailableDbColumns(index).map(col => (
+                              <SelectItem 
+                                key={col.key} 
+                                value={col.key}
+                                className="cursor-pointer"
+                              >
+                                <span className="font-medium">{col.label}</span>
+                                {col.required && <span className="text-red-600 font-bold ml-1">*</span>}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {mapping.dbColumn && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleMappingChange(index, null)}
+                            disabled={!mapping.isSelected}
+                            className="px-2 hover:bg-red-50 hover:border-red-300 hover:text-red-700"
+                          >
+                            ✕
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {mapping.isRequired && (
+                      <div className="bg-red-100 border border-red-300 rounded-md px-3 py-1">
+                        <div className="text-red-700 text-xs font-bold uppercase tracking-wide">
+                          Obrigatória
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {!validation.isValid && (
+            <Card className="border-red-400 bg-red-50 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="text-red-600 text-xl">⚠️</div>
+                  <div className="text-red-800">
+                    <div className="font-bold text-base mb-2">Atenção: Mapeamento Incompleto</div>
+                    <p className="text-sm mb-3">As seguintes colunas obrigatórias não foram mapeadas:</p>
+                    <ul className="space-y-1">
+                      {validation.missingRequired.map(col => (
+                        <li key={col} className="flex items-center space-x-2">
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          <span className="font-medium">
+                            {DATABASE_COLUMNS.find(db => db.key === col)?.label}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {validation.isValid && mappings.some(m => m.isSelected) && (
+            <Card className="border-green-400 bg-green-50 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="text-green-600 text-xl">✅</div>
+                  <div className="text-green-800">
+                    <div className="font-bold text-base">Mapeamento Válido</div>
+                    <p className="text-sm">
+                      {mappings.filter(m => m.isSelected).length} colunas selecionadas para importação
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <DialogFooter className="space-x-2 pt-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+            className="hover:bg-gray-100 border-gray-300"
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleConfirm}
+            disabled={!validation.isValid}
+            className={`${
+              validation.isValid 
+                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {validation.isValid ? '✓ Confirmar Mapeamento' : 'Mapeamento Incompleto'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       password,
     });
     
-    // Redirect to dashboard only on successful login
+    // Navigate to dashboard on successful login
     if (!error) {
       navigate("/");
     }

@@ -124,7 +124,7 @@ export default function Users() {
       // Criar nome único para o arquivo
       const fileExt = file.name.split('.').pop();
       const fileName = `${selectedUserId}-${Date.now()}.${fileExt}`;
-      const filePath = `fotos-assessores/normal/${fileName}`;
+      const filePath = `fotos/fotos-assessores/normal/${fileName}`;
 
       // Upload para o bucket fotos
       const { data: uploadData, error: uploadError } = await supabase.storage

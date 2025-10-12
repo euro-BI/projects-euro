@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
@@ -31,10 +31,29 @@ interface UserProfile {
 export const Header = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobile();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+
+  // Função para obter o nome da página atual
+  const getCurrentPageName = () => {
+    if (location.pathname === '/' || location.pathname === '/dashboard') return 'Dashboard';
+    if (location.pathname.startsWith('/projects')) return 'Projetos';
+    if (location.pathname === '/bi-dashboard') return 'BI Dashboard';
+    if (location.pathname === '/users') return 'Usuários';
+    return 'Dashboard';
+  };
+
+  // Função para obter o ícone da página atual
+  const getCurrentPageIcon = () => {
+    if (location.pathname === '/' || location.pathname === '/dashboard') return Home;
+    if (location.pathname.startsWith('/projects')) return FolderKanban;
+    if (location.pathname === '/bi-dashboard') return BarChart3;
+    if (location.pathname === '/users') return Users;
+    return Home;
+  };
 
   useEffect(() => {
     if (user) {
@@ -106,6 +125,44 @@ export const Header = () => {
           
           {/* Desktop actions */}
           <div className="hidden md:flex items-center gap-4">
+            {/* Dropdown de Navegação */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5 hover:text-white"
+                >
+                  {(() => {
+                    const IconComponent = getCurrentPageIcon();
+                    return <IconComponent className="w-4 h-4 mr-2" />;
+                  })()}
+                  {getCurrentPageName()}
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Navegar para</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/')}>
+                  <Home className="w-4 h-4 mr-2" />
+                  Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/projects')}>
+                  <FolderKanban className="w-4 h-4 mr-2" />
+                  Projetos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  BI Dashboard
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/users')}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Usuários
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -230,9 +287,26 @@ export const Header = () => {
                       onClick={() => navigate("/users")}
                     >
                       <Users className="w-4 h-4 mr-2" />
-                      Usuários
+                      Gerenciar Usuários
                     </Button>
                   )}
+                  {/* Navegação mobile */}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => navigate('/projects')}
+                  >
+                    <FolderKanban className="w-4 h-4 mr-2" />
+                    Projetos
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => navigate('/bi-dashboard')}
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    BI Dashboard
+                  </Button>
                   <Button
                     variant="ghost"
                     className="justify-start"
@@ -242,8 +316,8 @@ export const Header = () => {
                     Alterar Senha
                   </Button>
                   <Button
-                    variant="destructive"
-                    className="justify-start"
+                    variant="ghost"
+                    className="justify-start text-destructive hover:text-destructive"
                     onClick={signOut}
                   >
                     <LogOut className="w-4 h-4 mr-2" />

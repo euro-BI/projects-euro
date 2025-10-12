@@ -161,11 +161,12 @@ export default function Dashboard() {
           <Button
             variant="outline"
             onClick={() => navigate("/projects")}
-            className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5"
+            className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5 hover:text-white"
           >
             <FolderKanban className="w-4 h-4 mr-2" />
             Ver Projetos
           </Button>
+          {/* Removido: Alterar Área de Trabalho (agora no cabeçalho) */}
         </div>
       </div>
     </PageLayout>

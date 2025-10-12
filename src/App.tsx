@@ -15,6 +15,7 @@ import ProjectActivities from "./pages/ProjectActivities";
 import Users from "./pages/Users";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import BIDashboard from "./pages/BIDashboard";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Users />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bi-dashboard"
+              element={
+                <ProtectedRoute>
+                  <BIDashboard />
                 </ProtectedRoute>
               }
             />
