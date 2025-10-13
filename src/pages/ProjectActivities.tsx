@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CompleteActivityModal } from "@/components/CompleteActivityModal";
 import {
@@ -57,12 +58,23 @@ import {
   Edit,
   Trash2,
   MoreVertical,
+  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { createLocalDate } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
+
+// Constante com os pesos padrão
+const PESO_OPTIONS = [
+  { value: 0, label: "0 - Calcular com IA" },
+  { value: 1, label: "1 - Muito fácil" },
+  { value: 2, label: "2 - Fácil" },
+  { value: 3, label: "3 - Médio" },
+  { value: 5, label: "5 - Difícil" },
+  { value: 8, label: "8 - Muito difícil / crítico" },
+];
 
 interface Activity {
   id: string;
@@ -81,6 +93,8 @@ interface Subactivity {
   title: string;
   status: "Pendente" | "Concluído";
   comment: string | null;
+  peso: number;
+  data_realizacao: string | null;
 }
 
 interface UserProfile {
@@ -98,6 +112,7 @@ export default function ProjectActivities() {
   const [subactivities, setSubactivities] = useState<Record<string, Subactivity[]>>({});
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCalculatingAI, setIsCalculatingAI] = useState(false);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [completeModalData, setCompleteModalData] = useState<{
     open: boolean;
@@ -112,6 +127,7 @@ export default function ProjectActivities() {
   
   const [newSubactivity, setNewSubactivity] = useState({
     title: "",
+    peso: 0,
   });
   
   const [newActivity, setNewActivity] = useState({
@@ -164,12 +180,14 @@ export default function ProjectActivities() {
     subactivityId: string;
     data: {
       title: string;
+      peso: number;
     };
   }>({ 
     open: false, 
     subactivityId: "", 
     data: {
       title: "",
+      peso: 0,
     }
   });
 
@@ -180,6 +198,27 @@ export default function ProjectActivities() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const maxPull = 120;
   const threshold = 80;
+
+  // Função para calcular progresso ponderado
+  const calculateWeightedProgress = (activityId: string): number => {
+    const activitySubactivities = subactivities[activityId] || [];
+    
+    if (activitySubactivities.length === 0) {
+      return 0;
+    }
+
+    const totalWeight = activitySubactivities.reduce((sum, sub) => sum + sub.peso, 0);
+    
+    if (totalWeight === 0) {
+      return 0;
+    }
+
+    const completedWeight = activitySubactivities
+      .filter(sub => sub.status === "Concluído")
+      .reduce((sum, sub) => sum + sub.peso, 0);
+
+    return Math.round((completedWeight / totalWeight) * 100);
+  };
 
   useEffect(() => {
     if (projectId) {
@@ -387,10 +426,21 @@ export default function ProjectActivities() {
 
       if (subError) throw subError;
 
+      // Preparar dados para atualização da subatividade
+      const updateData: { status: string; data_realizacao?: string } = { status: newStatus };
+      
+      // Se está sendo marcada como concluída, adicionar data de realização
+      if (newStatus === "Concluído") {
+        updateData.data_realizacao = new Date().toISOString();
+      } else {
+        // Se está sendo desmarcada (voltando para Pendente), limpar data de realização
+        updateData.data_realizacao = null;
+      }
+
       // Atualizar o status da subatividade
       const { error } = await supabase
         .from("projects_subactivities")
-        .update({ status: newStatus })
+        .update(updateData)
         .eq("id", subId);
 
       if (error) throw error;
@@ -506,6 +556,7 @@ export default function ProjectActivities() {
         activity_id: subactivityDialog.activityId,
         title: newSubactivity.title,
         status: "Pendente",
+        peso: newSubactivity.peso,
       });
 
       if (error) throw error;
@@ -516,7 +567,7 @@ export default function ProjectActivities() {
       }
       
       setSubactivityDialog({ open: false, activityId: "" });
-      setNewSubactivity({ title: "" });
+      setNewSubactivity({ title: "", peso: 0 });
       loadProjectData();
     } catch (error) {
       console.error("Error creating subactivity:", error);
@@ -629,6 +680,7 @@ export default function ProjectActivities() {
         .from("projects_subactivities")
         .update({
           title: data.title,
+          peso: data.peso,
         })
         .eq("id", subactivityId);
 
@@ -640,6 +692,7 @@ export default function ProjectActivities() {
         subactivityId: "", 
         data: {
           title: "",
+          peso: 0,
         }
       });
       loadProjectData();
@@ -670,8 +723,101 @@ export default function ProjectActivities() {
       subactivityId: subactivity.id,
       data: {
         title: subactivity.title,
+        peso: subactivity.peso,
       }
     });
+  };
+
+  // Função para calcular pesos com IA
+  const handleCalculateWithAI = async (activityId: string) => {
+    try {
+      setIsCalculatingAI(true);
+      
+      // Filtrar subatividades com peso = 0 da atividade específica
+      const subactivitiesWithZeroWeight = subactivities[activityId]?.filter(sub => sub.peso === 0) || [];
+      
+      if (subactivitiesWithZeroWeight.length === 0) {
+        toast.info("Não há subatividades com peso 0 para calcular");
+        return;
+      }
+
+      // Preparar dados para enviar à Edge Function do Supabase
+      const dataToSend = subactivitiesWithZeroWeight.map(sub => ({
+        id: sub.id,
+        title: sub.title,
+        description: sub.comment || ""
+      }));
+
+      let aiResponse;
+      
+      try {
+        // Invocar Edge Function hospedada no Supabase
+        const { data, error } = await supabase.functions.invoke('calculate-weights', {
+          body: {
+            subactivities: dataToSend,
+            project_id: projectId,
+            // Passar a chave do .env para desenvolvimento local
+            openai_api_key: import.meta.env.VITE_OPENROUTER_API_KEY
+          }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        aiResponse = data;
+        
+        // Verificar se a resposta tem o formato esperado
+        if (!aiResponse || !Array.isArray(aiResponse.weights)) {
+          throw new Error("Formato de resposta inválido da Edge Function");
+        }
+        
+      } catch (fetchError) {
+        console.warn("Erro ao invocar Edge Function, usando simulação:", fetchError);
+        
+        // Fallback: usar simulação se a chamada falhar
+        const allowedWeights = [1, 2, 3, 5, 8];
+        aiResponse = {
+          weights: dataToSend.map(item => ({
+            id: item.id,
+            peso: allowedWeights[Math.floor(Math.random() * allowedWeights.length)],
+            justificativa: "Simulação aleatória (configure OPENROUTER_API_KEY)"
+          })),
+          usingAI: false
+        };
+      }
+
+      // Atualizar pesos e justificativas no banco de dados
+      for (const item of aiResponse.weights) {
+        const updateData: any = { peso: item.peso };
+        
+        // Se há justificativa, atualizar o campo comment
+        if (item.justificativa) {
+          updateData.comment = item.justificativa;
+        }
+        
+        const { error } = await supabase
+          .from("projects_subactivities")
+          .update(updateData)
+          .eq("id", item.id);
+
+        if (error) throw error;
+      }
+
+      // Mostrar notificação baseada se usou IA ou simulação
+      if (aiResponse.usingAI) {
+        toast.success(`Pesos calculados com IA (OpenRouter/GPT-4o-mini) para ${aiResponse.weights.length} subatividades!`);
+      } else {
+        toast.info(`Pesos calculados por simulação para ${aiResponse.weights.length} subatividades`);
+      }
+      loadProjectData();
+      
+    } catch (error) {
+      console.error("Error calculating with AI:", error);
+      toast.error("Erro ao calcular pesos com IA");
+    } finally {
+      setIsCalculatingAI(false);
+    }
   };
 
   if (isLoading) {
@@ -811,27 +957,59 @@ export default function ProjectActivities() {
                             </div>
                           )}
                         </div>
+                        
+                        {/* Barra de Progresso */}
+                        {subactivities[activity.id] && subactivities[activity.id].length > 0 && (
+                          <div className="mt-3 space-y-1 mr-4 md:mr-80">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>Progresso</span>
+                              <span>{calculateWeightedProgress(activity.id)}%</span>
+                            </div>
+                            <Progress 
+                              value={calculateWeightedProgress(activity.id)} 
+                              className="h-2"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </AccordionTrigger>
                   
                   <div className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
                     {!isMobile && activity.status !== "Concluído" && (
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCompleteModalData({
-                            open: true,
-                            activityId: activity.id,
-                            activityTitle: activity.title,
-                          });
-                        }}
-                        className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
-                      >
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Concluir
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCalculateWithAI(activity.id);
+                          }}
+                          disabled={isCalculatingAI}
+                          className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30"
+                        >
+                          {isCalculatingAI ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Brain className="w-4 h-4 mr-2" />
+                          )}
+                          Calcular com IA
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCompleteModalData({
+                              open: true,
+                              activityId: activity.id,
+                              activityTitle: activity.title,
+                            });
+                          }}
+                          className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Concluir
+                        </Button>
+                      </>
                     )}
                     
                     <DropdownMenu>
@@ -847,20 +1025,37 @@ export default function ProjectActivities() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="glass-card border-primary/30">
                         {isMobile && activity.status !== "Concluído" && (
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCompleteModalData({
-                                open: true,
-                                activityId: activity.id,
-                                activityTitle: activity.title,
-                              });
-                            }}
-                            className="hover:bg-green-500/10 text-green-400"
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Concluir
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCalculateWithAI(activity.id);
+                              }}
+                              disabled={isCalculatingAI}
+                              className="hover:bg-blue-500/10 text-blue-400"
+                            >
+                              {isCalculatingAI ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Brain className="w-4 h-4 mr-2" />
+                              )}
+                              Calcular com IA
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCompleteModalData({
+                                  open: true,
+                                  activityId: activity.id,
+                                  activityTitle: activity.title,
+                                });
+                              }}
+                              className="hover:bg-green-500/10 text-green-400"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              Concluir
+                            </DropdownMenuItem>
+                          </>
                         )}
                         <DropdownMenuItem
                           onClick={(e) => {
@@ -930,15 +1125,27 @@ export default function ProjectActivities() {
                               handleToggleSubactivity(sub.id, sub.status)
                             }
                           />
-                          <span
-                            className={`flex-1 ${
-                              sub.status === "Concluído"
-                                ? "line-through text-muted-foreground"
-                                : ""
-                            }`}
-                          >
-                            {sub.title}
-                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`${
+                                  sub.status === "Concluído"
+                                    ? "line-through text-muted-foreground"
+                                    : ""
+                                }`}
+                              >
+                                {sub.title}
+                              </span>
+                              <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full font-medium">
+                                {isMobile ? sub.peso : `Peso: ${sub.peso}`}
+                              </span>
+                            </div>
+                            {sub.status === "Concluído" && sub.data_realizacao && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Concluído em: {format(new Date(sub.data_realizacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </div>
+                            )}
+                          </div>
                           
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                             <DropdownMenu>
@@ -1137,24 +1344,53 @@ export default function ProjectActivities() {
               <DialogTitle className="text-xl">Adicionar Checklist</DialogTitle>
             </DialogHeader>
 
-            <div className="py-4">
-              <label className="text-sm font-medium mb-2 block">
-                Título do Checklist *
-              </label>
-              <Input
-                placeholder="Ex: Revisar documentação, Validar com cliente..."
-                value={newSubactivity.title}
-                onChange={(e) =>
-                  setNewSubactivity({ title: e.target.value })
-                }
-                className="glass"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newSubactivity.title.trim()) {
-                    handleCreateSubactivity();
+            <div className="py-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Título do Checklist *
+                </label>
+                <Input
+                  placeholder="Ex: Revisar documentação, Validar com cliente..."
+                  value={newSubactivity.title}
+                  onChange={(e) =>
+                    setNewSubactivity({ ...newSubactivity, title: e.target.value })
                   }
-                }}
-              />
+                  className="glass"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newSubactivity.title.trim()) {
+                      handleCreateSubactivity();
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Peso da Subatividade
+                </label>
+                <Select
+                  value={newSubactivity.peso.toString()}
+                  onValueChange={(value) =>
+                    setNewSubactivity({ ...newSubactivity, peso: parseInt(value) })
+                  }
+                >
+                  <SelectTrigger className="glass">
+                    <SelectValue placeholder="Selecione o peso" />
+                  </SelectTrigger>
+                  <SelectContent className="glass-card border-primary/20">
+                    {PESO_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value.toString()}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="text-xs text-muted-foreground bg-secondary/20 p-2 rounded">
+                💡 <strong>Dica:</strong> Peso 0 indica que será calculado automaticamente pela IA baseado no título da subatividade.
+              </div>
             </div>
 
             <DialogFooter>
@@ -1361,27 +1597,55 @@ export default function ProjectActivities() {
               <DialogTitle className="text-xl">Editar Checklist</DialogTitle>
             </DialogHeader>
 
-            <div className="py-4">
-              <label className="text-sm font-medium mb-2 block">
-                Título do Checklist *
-              </label>
-              <Input
-                placeholder="Ex: Revisar documentação, Validar com cliente..."
-                value={editSubactivityDialog.data.title}
-                onChange={(e) =>
-                  setEditSubactivityDialog({
-                    ...editSubactivityDialog,
-                    data: { ...editSubactivityDialog.data, title: e.target.value }
-                  })
-                }
-                className="glass"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && editSubactivityDialog.data.title?.trim()) {
-                    handleEditSubactivity(editSubactivityDialog.subactivityId, editSubactivityDialog.data);
+            <div className="py-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Título do Checklist *
+                </label>
+                <Input
+                  placeholder="Ex: Revisar documentação, Validar com cliente..."
+                  value={editSubactivityDialog.data.title}
+                  onChange={(e) =>
+                    setEditSubactivityDialog({
+                      ...editSubactivityDialog,
+                      data: { ...editSubactivityDialog.data, title: e.target.value }
+                    })
                   }
-                }}
-              />
+                  className="glass"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && editSubactivityDialog.data.title?.trim()) {
+                      handleEditSubactivity(editSubactivityDialog.subactivityId, editSubactivityDialog.data);
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Peso
+                </label>
+                <Select
+                  value={editSubactivityDialog.data.peso.toString()}
+                  onValueChange={(value) =>
+                    setEditSubactivityDialog({
+                      ...editSubactivityDialog,
+                      data: { ...editSubactivityDialog.data, peso: parseInt(value) }
+                    })
+                  }
+                >
+                  <SelectTrigger className="glass">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PESO_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value.toString()}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <DialogFooter>

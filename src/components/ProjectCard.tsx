@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Calendar, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -10,6 +11,7 @@ interface ProjectCardProps {
   description?: string;
   createdAt: string;
   activitiesCount?: number;
+  progress?: number;
 }
 
 export const ProjectCard = ({
@@ -18,6 +20,7 @@ export const ProjectCard = ({
   description,
   createdAt,
   activitiesCount = 0,
+  progress = 0,
 }: ProjectCardProps) => {
   const navigate = useNavigate();
 
@@ -52,6 +55,14 @@ export const ProjectCard = ({
               <span className="font-medium text-primary">{activitiesCount}</span>
               <span>atividades</span>
             </div>
+          </div>
+          
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-muted-foreground">Progresso</span>
+              <span className="font-medium">{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
         </div>
       </div>

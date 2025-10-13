@@ -22,6 +22,7 @@ interface Project {
   description: string | null;
   created_at: string;
   activities_count?: number;
+  progress?: number;
 }
 
 export default function Projects() {
@@ -39,25 +40,53 @@ export default function Projects() {
     loadProjects();
   }, []);
 
+  const calculateProjectProgress = (activities: any[]) => {
+    if (!activities || activities.length === 0) return 0;
+
+    let totalWeight = 0;
+    let completedWeight = 0;
+
+    activities.forEach(activity => {
+      if (activity.projects_subactivities && activity.projects_subactivities.length > 0) {
+        activity.projects_subactivities.forEach((sub: any) => {
+          totalWeight += sub.peso || 0;
+          if (sub.status === "Concluído") {
+            completedWeight += sub.peso || 0;
+          }
+        });
+      }
+    });
+
+    return totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
+  };
+
   const loadProjects = async () => {
     try {
       const { data, error } = await supabase
         .from("projects_projects")
         .select(`
           *,
-          activities_count:projects_activities(count)
+          activities_count:projects_activities(count),
+          projects_activities(
+            id,
+            projects_subactivities(
+              peso,
+              status
+            )
+          )
         `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       
-      // Transform the data to include activities count
-      const projectsWithCount = (data || []).map(project => ({
+      // Transform the data to include activities count and progress
+      const projectsWithData = (data || []).map(project => ({
         ...project,
-        activities_count: project.activities_count?.[0]?.count || 0
+        activities_count: project.activities_count?.[0]?.count || 0,
+        progress: calculateProjectProgress(project.projects_activities || [])
       }));
       
-      setProjects(projectsWithCount);
+      setProjects(projectsWithData);
     } catch (error) {
       console.error("Error loading projects:", error);
       toast.error("Erro ao carregar projetos");
@@ -163,6 +192,7 @@ export default function Projects() {
                 description={project.description || undefined}
                 createdAt={project.created_at}
                 activitiesCount={project.activities_count}
+                progress={project.progress}
               />
             ))}
           </div>

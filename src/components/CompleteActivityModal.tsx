@@ -25,6 +25,7 @@ interface Subactivity {
   id: string;
   title: string;
   status: "Pendente" | "Concluído";
+  peso: number;
 }
 
 interface CompleteActivityModalProps {

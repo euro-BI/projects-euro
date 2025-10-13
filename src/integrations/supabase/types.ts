@@ -155,6 +155,7 @@ export type Database = {
           comment: string | null
           created_at: string
           id: string
+          peso: number
           status: string
           title: string
         }
@@ -163,6 +164,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          peso?: number
           status?: string
           title: string
         }
@@ -171,6 +173,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          peso?: number
           status?: string
           title?: string
         }
