@@ -69,7 +69,7 @@ const normalizeExcelDateToISO = (value: any): string | null => {
 };
 
 // Helper para construir uma chave única do registro (usada para identificar duplicados)
-const buildRecordKey = (r: any) => `${r.data_captacao}|${r.data_atualizacao}|${r.cod_cliente}|${r.tipo_captacao}|${r.cod_assessor}|${r.valor_captacao}`;
+const buildRecordKey = (r: any) => `${r.data_captacao}|${r.cod_cliente}|${r.tipo_captacao}|${r.cod_assessor}|${r.valor_captacao}`;
 
 interface UploadResult {
   success: boolean;
