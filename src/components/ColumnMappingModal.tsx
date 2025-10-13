@@ -13,14 +13,21 @@ interface ColumnMapping {
   isSelected: boolean;
 }
 
+interface DatabaseColumn {
+  key: string;
+  label: string;
+  required: boolean;
+}
+
 interface ColumnMappingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (mapping: ColumnMapping[]) => void;
   excelColumns: string[];
+  databaseColumns?: DatabaseColumn[];
 }
 
-const DATABASE_COLUMNS = [
+const DEFAULT_DATABASE_COLUMNS = [
   { key: 'data_captacao', label: 'Data Captação', required: true },
   { key: 'cod_assessor', label: 'Código Assessor', required: true },
   { key: 'cod_cliente', label: 'Código Cliente', required: true },
@@ -31,112 +38,140 @@ const DATABASE_COLUMNS = [
   { key: 'tipo_pessoa', label: 'Tipo Pessoa', required: true },
 ];
 
-export function ColumnMappingModal({ isOpen, onClose, onConfirm, excelColumns }: ColumnMappingModalProps) {
+export function ColumnMappingModal({ isOpen, onClose, onConfirm, excelColumns, databaseColumns = DEFAULT_DATABASE_COLUMNS }: ColumnMappingModalProps) {
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
 
   // Auto-mapeamento ativado: inicializa mapeamentos com melhor tentativa de correspondência e marca "Importar"
   useEffect(() => {
     if (excelColumns.length > 0) {
-      // Inicializar mapeamentos zerados
-      const initialMappings: ColumnMapping[] = excelColumns.map(excelCol => ({
-        excelColumn: excelCol,
-        dbColumn: null,
-        isRequired: false,
-        isSelected: false,
+      const normalize = (s: string) => s
+        .normalize('NFD')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+
+      const tokenize = (s: string) => s
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean);
+
+      // Metadados das colunas do banco (key, label, tokens)
+      const dbMeta = databaseColumns.map(db => ({
+        key: db.key,
+        label: db.label,
+        required: db.required,
+        keyNorm: normalize(db.key),
+        labelNorm: normalize(db.label),
+        tokens: Array.from(new Set([
+          ...tokenize(db.label),
+          ...db.key.split('_').map(tokenize).flat()
+        ]))
       }));
 
-      // Dicionário de correspondência
-      const directMappings: { [key: string]: string } = {
-        'data': 'data_captacao',
-        'assessor': 'cod_assessor',
-        'cód do cliente': 'cod_cliente',
-        'codigo do cliente': 'cod_cliente',
-        'código do cliente': 'cod_cliente',
-        'cod cliente': 'cod_cliente',
-        'tipo de captação': 'tipo_captacao',
-        'tipo captacao': 'tipo_captacao',
-        'aux': 'aux',
-        'captação': 'valor_captacao',
-        'captacao': 'valor_captacao',
-        'valor de captação': 'valor_captacao',
-        'valor captacao': 'valor_captacao',
-        'data atualização': 'data_atualizacao',
-        'data atualizacao': 'data_atualizacao',
-        'tipo pessoa': 'tipo_pessoa'
-      };
-
-      // Evitar colunas de banco duplicadas
       const usedDbKeys = new Set<string>();
 
-      // Primeiro, mapear correspondências exatas
-      const afterExact = initialMappings.map(m => {
-        const normalizedExcel = m.excelColumn.toLowerCase().trim();
-        const exact = directMappings[normalizedExcel] || null;
-        if (exact && !usedDbKeys.has(exact)) {
-          usedDbKeys.add(exact);
-          const required = !!DATABASE_COLUMNS.find(db => db.key === exact)?.required;
-          return { ...m, dbColumn: exact, isSelected: true, isRequired: required };
-        }
-        return m;
-      });
+      const initialMappings: ColumnMapping[] = excelColumns.map(excelCol => {
+        const n = normalize(excelCol);
+        const excelTokens = tokenize(excelCol);
+        let best: { key: string; required: boolean; score: number } | null = null;
 
-      // Depois, mapear por similaridade para o que sobrou
-      const autoMapped = afterExact.map(m => {
-        if (m.dbColumn) return m; // já mapeado
-        const normalizedExcel = m.excelColumn.toLowerCase().trim();
-        let partial: string | null = null;
-        for (const [excelKey, dbKey] of Object.entries(directMappings)) {
-          if ((normalizedExcel.includes(excelKey) || excelKey.includes(normalizedExcel)) && !usedDbKeys.has(dbKey)) {
-            partial = dbKey;
-            break;
+        for (const db of dbMeta) {
+          if (usedDbKeys.has(db.key)) continue;
+
+          let score = 0;
+          if (n === db.keyNorm) score = 1.0;
+          else if (n === db.labelNorm) score = 0.98;
+          else if (n.includes(db.keyNorm) || db.keyNorm.includes(n) || n.includes(db.labelNorm) || db.labelNorm.includes(n)) score = 0.9;
+          else {
+            const setExcel = new Set(excelTokens);
+            let overlap = 0;
+            for (const tk of db.tokens) {
+              if (setExcel.has(tk)) overlap++;
+            }
+            const denom = Math.max(1, Math.max(excelTokens.length, db.tokens.length));
+            const jacc = overlap / denom;
+            if (jacc >= 0.6) score = 0.85;
+            else if (overlap >= 1) score = 0.75;
+          }
+
+          if (!best || score > best.score) {
+            best = { key: db.key, required: db.required, score };
           }
         }
-        if (partial) {
-          usedDbKeys.add(partial);
-          const required = !!DATABASE_COLUMNS.find(db => db.key === partial)?.required;
-          return { ...m, dbColumn: partial, isSelected: true, isRequired: required };
+
+        if (best && best.score >= 0.75) {
+          usedDbKeys.add(best.key);
+          return { excelColumn: excelCol, dbColumn: best.key, isSelected: true, isRequired: best.required };
         }
-        return m;
+
+        return { excelColumn: excelCol, dbColumn: null, isSelected: false, isRequired: false };
       });
 
-      setMappings(autoMapped);
+      setMappings(initialMappings);
     }
-  }, [excelColumns]);
+  }, [excelColumns, databaseColumns]);
 
   const findBestMatch = (excelColumn: string): string | null => {
-    const normalizedExcel = excelColumn.toLowerCase().trim();
-    
-    // Mapeamentos diretos baseados nos nomes fornecidos
-    const directMappings: { [key: string]: string } = {
-      'data': 'data_captacao',
-      'assessor': 'cod_assessor',
-      'cód do cliente': 'cod_cliente',
-      'tipo de captação': 'tipo_captacao',
-      'aux': 'aux',
-      'captação': 'valor_captacao',
-      'data atualização': 'data_atualizacao',
-      'tipo pessoa': 'tipo_pessoa'
-    };
+    const normalize = (s: string) => s
+      .normalize('NFD')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
 
-    // Verificar mapeamento direto
-    if (directMappings[normalizedExcel]) {
-      return directMappings[normalizedExcel];
-    }
+    const tokenize = (s: string) => s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
 
-    // Verificar similaridade parcial
-    for (const [excelKey, dbKey] of Object.entries(directMappings)) {
-      if (normalizedExcel.includes(excelKey) || excelKey.includes(normalizedExcel)) {
-        return dbKey;
+    const n = normalize(excelColumn);
+    const excelTokens = tokenize(excelColumn);
+
+    let bestKey: string | null = null;
+    let bestScore = 0;
+
+    for (const db of databaseColumns) {
+      const keyNorm = normalize(db.key);
+      const labelNorm = normalize(db.label);
+      const dbTokens = Array.from(new Set([
+        ...tokenize(db.label),
+        ...db.key.split('_').map(tokenize).flat()
+      ]));
+
+      let score = 0;
+      if (n === keyNorm) score = 1.0;
+      else if (n === labelNorm) score = 0.98;
+      else if (n.includes(keyNorm) || keyNorm.includes(n) || n.includes(labelNorm) || labelNorm.includes(n)) score = 0.9;
+      else {
+        const setExcel = new Set(excelTokens);
+        let overlap = 0;
+        for (const tk of dbTokens) {
+          if (setExcel.has(tk)) overlap++;
+        }
+        const denom = Math.max(1, Math.max(excelTokens.length, dbTokens.length));
+        const jacc = overlap / denom;
+        if (jacc >= 0.6) score = 0.85;
+        else if (overlap >= 1) score = 0.75;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestKey = db.key;
       }
     }
 
-    return null;
+    return bestScore >= 0.75 ? bestKey : null;
   };
 
   const handleMappingChange = (index: number, dbColumn: string | null) => {
     const newMappings = [...mappings];
     newMappings[index].dbColumn = dbColumn;
-    newMappings[index].isRequired = dbColumn ? DATABASE_COLUMNS.find(db => db.key === dbColumn)?.required || false : false;
+    newMappings[index].isRequired = dbColumn ? databaseColumns.find(db => db.key === dbColumn)?.required || false : false;
     setMappings(newMappings);
   };
 
@@ -154,12 +189,12 @@ export function ColumnMappingModal({ isOpen, onClose, onConfirm, excelColumns }:
       .map(m => m.dbColumn)
       .filter(Boolean);
     
-    return DATABASE_COLUMNS.filter(col => !usedColumns.includes(col.key));
+    return databaseColumns.filter(col => !usedColumns.includes(col.key));
   };
 
   const validateMappings = () => {
     const selectedMappings = mappings.filter(m => m.isSelected && m.dbColumn);
-    const requiredColumns = DATABASE_COLUMNS.filter(col => col.required).map(col => col.key);
+    const requiredColumns = databaseColumns.filter(col => col.required).map(col => col.key);
     const mappedRequiredColumns = selectedMappings.map(m => m.dbColumn).filter(Boolean);
     
     const missingRequired = requiredColumns.filter(req => !mappedRequiredColumns.includes(req));
@@ -175,7 +210,7 @@ export function ColumnMappingModal({ isOpen, onClose, onConfirm, excelColumns }:
     
     if (!validation.isValid) {
       alert(`Colunas obrigatórias não mapeadas: ${validation.missingRequired.map(col => 
-        DATABASE_COLUMNS.find(db => db.key === col)?.label
+        databaseColumns.find(db => db.key === col)?.label
       ).join(', ')}`);
       return;
     }
@@ -267,9 +302,9 @@ export function ColumnMappingModal({ isOpen, onClose, onConfirm, excelColumns }:
                               <SelectItem 
                                 key={col.key} 
                                 value={col.key}
-                                className="cursor-pointer"
+                                className="cursor-pointer text-black"
                               >
-                                <span className="font-medium">{col.label}</span>
+                                <span className="font-medium text-black">{col.label}</span>
                                 {col.required && <span className="text-red-600 font-bold ml-1">*</span>}
                               </SelectItem>
                             ))}
@@ -315,7 +350,7 @@ export function ColumnMappingModal({ isOpen, onClose, onConfirm, excelColumns }:
                         <li key={col} className="flex items-center space-x-2">
                           <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                           <span className="font-medium">
-                            {DATABASE_COLUMNS.find(db => db.key === col)?.label}
+                            {databaseColumns.find(db => db.key === col)?.label}
                           </span>
                         </li>
                       ))}
