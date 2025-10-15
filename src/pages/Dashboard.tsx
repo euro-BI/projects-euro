@@ -14,6 +14,8 @@ interface DashboardStats {
   completedActivities: number;
   inProgressActivities: number;
   pendingActivities: number;
+  totalWeight: number;
+  completedWeight: number;
 }
 
 export default function Dashboard() {
@@ -24,6 +26,8 @@ export default function Dashboard() {
     completedActivities: 0,
     inProgressActivities: 0,
     pendingActivities: 0,
+    totalWeight: 0,
+    completedWeight: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -33,15 +37,24 @@ export default function Dashboard() {
 
   const loadStats = async () => {
     try {
-      const [projectsResult, activitiesResult] = await Promise.all([
-      supabase.from("projects_projects").select("id", { count: "exact" }),
-      supabase.from("projects_activities").select("status", { count: "exact" }),
-    ]);
+      const [projectsResult, activitiesResult, subactivitiesResult] = await Promise.all([
+        supabase.from("projects_projects").select("id", { count: "exact" }),
+        supabase.from("projects_activities").select("status", { count: "exact" }),
+        supabase.from("projects_subactivities").select("peso, status")
+      ]);
 
       if (projectsResult.error) throw projectsResult.error;
       if (activitiesResult.error) throw activitiesResult.error;
+      if (subactivitiesResult.error) throw subactivitiesResult.error;
 
       const activities = activitiesResult.data || [];
+      const subactivities = subactivitiesResult.data || [];
+      
+      // Calcular pesos totais e concluídos
+      const totalWeight = subactivities.reduce((sum, sub) => sum + (sub.peso || 0), 0);
+      const completedWeight = subactivities
+        .filter(sub => sub.status === "Concluído")
+        .reduce((sum, sub) => sum + (sub.peso || 0), 0);
       
       setStats({
         totalProjects: projectsResult.count || 0,
@@ -49,6 +62,8 @@ export default function Dashboard() {
         completedActivities: activities.filter((a) => a.status === "Concluído").length,
         inProgressActivities: activities.filter((a) => a.status === "Em andamento").length,
         pendingActivities: activities.filter((a) => a.status === "Pendente").length,
+        totalWeight,
+        completedWeight,
       });
     } catch (error) {
       console.error("Error loading stats:", error);
@@ -58,8 +73,9 @@ export default function Dashboard() {
     }
   };
 
-  const completionRate = stats.totalActivities > 0
-    ? Math.round((stats.completedActivities / stats.totalActivities) * 100)
+  // Calcular progresso ponderado baseado nos pesos das subatividades
+  const completionRate = stats.totalWeight > 0
+    ? Math.round((stats.completedWeight / stats.totalWeight) * 100)
     : 0;
 
   const StatCard = ({ icon: Icon, label, value, color }: any) => (
@@ -130,7 +146,12 @@ export default function Dashboard() {
         {/* Progress Card */}
         <Card className="glass-card p-8 mb-8 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold">Progresso Geral</h2>
+            <div>
+              <h2 className="text-2xl font-semibold">Progresso Geral</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Baseado nos pesos das subatividades ({stats.completedWeight}/{stats.totalWeight} pontos)
+              </p>
+            </div>
             <span className="text-4xl font-bold text-primary">{completionRate}%</span>
           </div>
           
