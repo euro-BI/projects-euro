@@ -750,41 +750,25 @@ export default function ProjectActivities() {
 
       let aiResponse;
       
-      try {
-        // Invocar Edge Function hospedada no Supabase
-        const { data, error } = await supabase.functions.invoke('calculate-weights', {
-          body: {
-            subactivities: dataToSend,
-            project_id: projectId,
-            // Passar a chave do .env para desenvolvimento local
-            openai_api_key: import.meta.env.VITE_OPENROUTER_API_KEY
-          }
-        });
-
-        if (error) {
-          throw error;
+      // Invocar Edge Function hospedada no Supabase
+      const { data, error } = await supabase.functions.invoke('calculate-weights', {
+        body: {
+          subactivities: dataToSend,
+          project_id: projectId,
+          // Passar a chave do .env para desenvolvimento local
+          openai_api_key: import.meta.env.VITE_OPENROUTER_API_KEY
         }
+      });
 
-        aiResponse = data;
-        
-        // Verificar se a resposta tem o formato esperado
-        if (!aiResponse || !Array.isArray(aiResponse.weights)) {
-          throw new Error("Formato de resposta inválido da Edge Function");
-        }
-        
-      } catch (fetchError) {
-        console.warn("Erro ao invocar Edge Function, usando simulação:", fetchError);
-        
-        // Fallback: usar simulação se a chamada falhar
-        const allowedWeights = [1, 2, 3, 5, 8];
-        aiResponse = {
-          weights: dataToSend.map(item => ({
-            id: item.id,
-            peso: allowedWeights[Math.floor(Math.random() * allowedWeights.length)],
-            justificativa: "Simulação aleatória (configure OPENROUTER_API_KEY)"
-          })),
-          usingAI: false
-        };
+      if (error) {
+        throw error;
+      }
+
+      aiResponse = data;
+      
+      // Verificar se a resposta tem o formato esperado
+      if (!aiResponse || !Array.isArray(aiResponse.weights)) {
+        throw new Error("Formato de resposta inválido da Edge Function");
       }
 
       // Atualizar pesos e justificativas no banco de dados
@@ -804,17 +788,13 @@ export default function ProjectActivities() {
         if (error) throw error;
       }
 
-      // Mostrar notificação baseada se usou IA ou simulação
-      if (aiResponse.usingAI) {
-        toast.success(`Pesos calculados com IA (OpenRouter/GPT-4o-mini) para ${aiResponse.weights.length} subatividades!`);
-      } else {
-        toast.info(`Pesos calculados por simulação para ${aiResponse.weights.length} subatividades`);
-      }
+      // Mostrar notificação de sucesso
+      toast.success(`Pesos calculados com IA para ${aiResponse.weights.length} subatividades!`);
       loadProjectData();
       
     } catch (error) {
       console.error("Error calculating with AI:", error);
-      toast.error("Erro ao calcular pesos com IA");
+      toast.error("Não foi possível calcular com a IA. Verifique a configuração ou tente novamente mais tarde.");
     } finally {
       setIsCalculatingAI(false);
     }
