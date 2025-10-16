@@ -16,6 +16,10 @@ interface DashboardStats {
   pendingActivities: number;
   totalWeight: number;
   completedWeight: number;
+  totalSubactivities: number;
+  completedSubactivities: number;
+  inProgressSubactivities: number;
+  pendingSubactivities: number;
 }
 
 export default function Dashboard() {
@@ -28,6 +32,10 @@ export default function Dashboard() {
     pendingActivities: 0,
     totalWeight: 0,
     completedWeight: 0,
+    totalSubactivities: 0,
+    completedSubactivities: 0,
+    inProgressSubactivities: 0,
+    pendingSubactivities: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,6 +64,12 @@ export default function Dashboard() {
         .filter(sub => sub.status === "Concluído")
         .reduce((sum, sub) => sum + (sub.peso || 0), 0);
       
+      // Calcular contagem de subatividades por status
+      const totalSubactivities = subactivities.length;
+      const completedSubactivities = subactivities.filter(sub => sub.status === "Concluído").length;
+      const inProgressSubactivities = subactivities.filter(sub => sub.status === "Em andamento").length;
+      const pendingSubactivities = subactivities.filter(sub => sub.status === "Pendente").length;
+      
       setStats({
         totalProjects: projectsResult.count || 0,
         totalActivities: activities.length,
@@ -64,6 +78,10 @@ export default function Dashboard() {
         pendingActivities: activities.filter((a) => a.status === "Pendente").length,
         totalWeight,
         completedWeight,
+        totalSubactivities,
+        completedSubactivities,
+        inProgressSubactivities,
+        pendingSubactivities,
       });
     } catch (error) {
       console.error("Error loading stats:", error);
@@ -78,15 +96,20 @@ export default function Dashboard() {
     ? Math.round((stats.completedWeight / stats.totalWeight) * 100)
     : 0;
 
-  const StatCard = ({ icon: Icon, label, value, color }: any) => (
+  const StatCard = ({ icon: Icon, label, value, color, subValue, subLabel }: any) => (
     <Card className="glass-card p-6 hover-lift">
       <div className="flex items-center gap-4">
         <div className={`p-3 rounded-lg ${color} border`}>
           <Icon className="w-6 h-6" />
         </div>
-        <div>
+        <div className="flex-1">
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="text-3xl font-bold text-foreground">{value}</p>
+          {subValue !== undefined && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {subLabel}: {subValue}
+            </p>
+          )}
         </div>
       </div>
     </Card>
@@ -128,18 +151,24 @@ export default function Dashboard() {
             label="Total de Atividades"
             value={stats.totalActivities}
             color="bg-blue-500/10 border-blue-500/20 text-blue-400"
+            subValue={stats.totalSubactivities}
+            subLabel="subatividades"
           />
           <StatCard
             icon={Clock}
             label="Em Andamento"
             value={stats.inProgressActivities}
             color="bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+            subValue={stats.inProgressSubactivities}
+            subLabel="subatividades"
           />
           <StatCard
             icon={CheckCircle2}
             label="Concluídas"
             value={stats.completedActivities}
             color="bg-green-500/10 border-green-500/20 text-green-400"
+            subValue={stats.completedSubactivities}
+            subLabel="subatividades"
           />
         </div>
 

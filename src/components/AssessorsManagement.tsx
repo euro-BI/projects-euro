@@ -22,27 +22,41 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit, Trash2, Upload, X, User, Phone } from "lucide-react";
+import { Edit, Trash2, Upload, X, User, Phone, Search } from "lucide-react";
 import { toast } from "sonner";
 
 interface Assessor {
   id: string;
   nome_completo: string;
-  nome_exibicao: string;
   telefone: string;
   foto_url?: string;
   created_at?: string;
+  cod_assessor?: string | null;
+  filial?: string | null;
+  status?: string | null; // Campo correto 'status' da tabela dados_colaboradores
 }
+
+// Função para formatar telefone no padrão (xx) X XXXX-XXXX
+const formatPhone = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 3)} ${cleaned.slice(3, 7)}-${cleaned.slice(7)}`;
+  } else if (cleaned.length === 10) {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+  }
+  return phone;
+};
 
 export function AssessorsManagement() {
   const [assessors, setAssessors] = useState<Assessor[]>([]);
+  const [filteredAssessors, setFilteredAssessors] = useState<Assessor[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssessor, setEditingAssessor] = useState<Assessor | null>(null);
   const [formData, setFormData] = useState({
     nome_completo: "",
-    nome_exibicao: "",
     telefone: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -53,19 +67,35 @@ export function AssessorsManagement() {
     loadAssessors();
   }, []);
 
+  // Filtrar colaboradores baseado no termo de busca
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredAssessors(assessors);
+    } else {
+      const filtered = assessors.filter(assessor =>
+        assessor.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assessor.telefone.includes(searchTerm) ||
+        (assessor.cod_assessor && assessor.cod_assessor.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      // Manter ordenação alfabética nos resultados filtrados
+      filtered.sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+      setFilteredAssessors(filtered);
+    }
+  }, [assessors, searchTerm]);
+
   const loadAssessors = async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from("dados_assessores")
+        .from("dados_colaboradores")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("nome_completo", { ascending: true });
 
       if (error) throw error;
       setAssessors(data || []);
     } catch (error) {
-      console.error("Erro ao carregar assessores:", error);
-      toast.error("Erro ao carregar assessores");
+      console.error("Erro ao carregar colaboradores:", error);
+      toast.error("Erro ao carregar colaboradores");
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +147,7 @@ export function AssessorsManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nome_completo || !formData.nome_exibicao || !formData.telefone) {
+    if (!formData.nome_completo || !formData.telefone) {
       toast.error("Todos os campos são obrigatórios");
       return;
     }
@@ -133,14 +163,13 @@ export function AssessorsManagement() {
 
       const assessorData = {
         nome_completo: formData.nome_completo,
-        nome_exibicao: formData.nome_exibicao,
         telefone: formData.telefone,
         foto_url: fotoUrl,
       };
 
       if (editingAssessor) {
         const { error } = await supabase
-          .from('dados_assessores')
+          .from('dados_colaboradores')
           .update(assessorData)
           .eq('id', editingAssessor.id);
 
@@ -148,7 +177,7 @@ export function AssessorsManagement() {
         toast.success('Assessor atualizado com sucesso!');
       } else {
         const { error } = await supabase
-          .from('dados_assessores')
+          .from('dados_colaboradores')
           .insert([assessorData]);
 
         if (error) throw error;
@@ -169,7 +198,6 @@ export function AssessorsManagement() {
   const resetForm = () => {
     setFormData({
       nome_completo: "",
-      nome_exibicao: "",
       telefone: "",
     });
     setSelectedFile(null);
@@ -205,7 +233,6 @@ export function AssessorsManagement() {
     setEditingAssessor(assessor);
     setFormData({
       nome_completo: assessor.nome_completo,
-      nome_exibicao: assessor.nome_exibicao,
       telefone: assessor.telefone,
     });
     setPreviewUrl(assessor.foto_url || null);
@@ -217,7 +244,7 @@ export function AssessorsManagement() {
 
     try {
       const { error } = await supabase
-        .from('dados_assessores')
+        .from('dados_colaboradores')
         .delete()
         .eq('id', id);
 
@@ -242,15 +269,24 @@ export function AssessorsManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Gerenciar Assessores</h2>
+          <h2 className="text-2xl font-bold">Gerenciar Colaboradores</h2>
           <p className="text-muted-foreground">
-            Cadastre e gerencie os assessores do sistema BI
+            Cadastre e gerencie os colaboradores do sistema BI
           </p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <PlusCircle className="w-4 h-4 mr-2" />
-          Novo Assessor
-        </Button>
+      </div>
+
+      {/* Campo de busca */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Input
+            placeholder="Buscar por nome, telefone ou código..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
       </div>
 
       <Card className="p-6">
@@ -259,9 +295,9 @@ export function AssessorsManagement() {
             <TableRow>
               <TableHead>Foto</TableHead>
               <TableHead>Nome Completo</TableHead>
-              <TableHead>Nome de Exibição</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Telefone</TableHead>
-              <TableHead>Data de Cadastro</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -269,54 +305,48 @@ export function AssessorsManagement() {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8">
-                  Carregando assessores...
+                  Carregando colaboradores...
                 </TableCell>
               </TableRow>
-            ) : assessors.length === 0 ? (
+            ) : filteredAssessors.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2">
                     <User className="w-8 h-8 text-muted-foreground" />
-                    <p className="text-muted-foreground">Nenhum assessor cadastrado</p>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsDialogOpen(true)}
-                      className="mt-2"
-                    >
-                      <PlusCircle className="w-4 h-4 mr-2" />
-                      Cadastrar Primeiro Assessor
-                    </Button>
+                    <p className="text-muted-foreground">
+                      {searchTerm ? "Nenhum colaborador encontrado" : "Nenhum colaborador cadastrado"}
+                    </p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              assessors.map((assessor) => (
+              filteredAssessors.map((assessor) => (
                 <TableRow key={assessor.id}>
                   <TableCell>
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={assessor.foto_url} alt={assessor.nome_exibicao} />
+                      <AvatarImage src={assessor.foto_url} alt={assessor.nome_completo} />
                       <AvatarFallback>
-                        {assessor.nome_exibicao.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        {assessor.nome_completo.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                   </TableCell>
-                  <TableCell className="font-medium">{assessor.nome_completo}</TableCell>
+                  <TableCell className="font-medium">{assessor.nome_completo.toUpperCase()}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{assessor.nome_exibicao}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {assessor.telefone ? (
-                      <div className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {assessor.telefone}
-                      </div>
+                    {assessor.cod_assessor ? (
+                      <Badge variant="secondary">{assessor.cod_assessor}</Badge>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell>
-                    {assessor.created_at ? new Date(assessor.created_at).toLocaleDateString('pt-BR') : '-'}
+                    <Badge 
+                      variant={assessor.status === 'ATIVO' ? 'default' : 'secondary'}
+                      className={assessor.status === 'ATIVO' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600 text-white'}
+                    >
+                      {assessor.status === 'ATIVO' ? 'ATIVO' : 'DESLIGADO'}
+                    </Badge>
                   </TableCell>
+                  <TableCell>{formatPhone(assessor.telefone)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button
@@ -421,17 +451,7 @@ export function AssessorsManagement() {
               />
             </div>
 
-            {/* Nome de Exibição */}
-            <div className="space-y-2">
-              <Label htmlFor="nome_exibicao">Nome de Exibição *</Label>
-              <Input
-                id="nome_exibicao"
-                placeholder="Ex: João Silva"
-                value={formData.nome_exibicao}
-                onChange={(e) => setFormData({ ...formData, nome_exibicao: e.target.value })}
-                required
-              />
-            </div>
+            {/* Removido: Nome de Exibição (não existe na tabela dados_colaboradores) */}
 
             {/* Telefone */}
             <div className="space-y-2">
@@ -457,7 +477,7 @@ export function AssessorsManagement() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || !formData.nome_completo.trim() || !formData.nome_exibicao.trim() || !formData.telefone.trim()}
+                disabled={isSubmitting || !formData.nome_completo.trim() || !formData.telefone.trim()}
               >
                 {isSubmitting ? "Salvando..." : editingAssessor ? "Atualizar" : "Criar"}
               </Button>

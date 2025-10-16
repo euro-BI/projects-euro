@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Users, TrendingUp, Database, Upload } from "lucide-react";
+import { BarChart3, Users, Upload, UserCheck, FileSpreadsheet, Shield } from "lucide-react";
 import { AssessorsManagement } from "@/components/AssessorsManagement";
 import { DataUploadManagement } from "@/components/DataUploadManagement";
 
@@ -21,7 +21,7 @@ export default function BIDashboard() {
             </TabsTrigger>
             <TabsTrigger value="assessors" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Assessores
+              Colaboradores
             </TabsTrigger>
             <TabsTrigger value="data-upload" className="flex items-center gap-2">
               <Upload className="w-4 h-4" />
@@ -32,43 +32,45 @@ export default function BIDashboard() {
           <TabsContent value="welcome" className="space-y-6">
             <div className="text-center space-y-4">
               <div className="flex justify-center">
-                <div className="p-4 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-primary/30">
-                  <BarChart3 className="w-12 h-12 text-primary" />
+                <div className="p-4 rounded-full bg-gradient-to-br from-blue-500/20 to-green-500/20 border border-primary/30">
+                  <UserCheck className="w-12 h-12 text-primary" />
                 </div>
               </div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Bem-vindo ao BI Dashboard
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">
+                Sistema de Gerenciamento de Colaboradores
               </h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Gerencie dados de inteligência de negócios, assessores e relatórios analíticos
-                de forma centralizada e eficiente.
+                Plataforma centralizada para gerenciar informações de colaboradores, 
+                realizar upload de dados e manter o banco de dados sempre atualizado.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="glass-card border-primary/30 p-6 hover:scale-105 transition-transform duration-200">
+              <Card className="glass-card border-primary/30 p-6 hover:scale-105 transition-transform duration-200 cursor-pointer" 
+                    onClick={() => setActiveTab("assessors")}>
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
                     <Users className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Assessores</h3>
+                    <h3 className="font-semibold text-lg">Gerenciar Colaboradores</h3>
                     <p className="text-sm text-muted-foreground">
-                      Gerencie informações dos assessores
+                      Cadastre, edite e organize informações dos colaboradores
                     </p>
                   </div>
                 </div>
               </Card>
 
-              <Card className="glass-card border-primary/30 p-6 hover:scale-105 transition-transform duration-200">
+              <Card className="glass-card border-primary/30 p-6 hover:scale-105 transition-transform duration-200 cursor-pointer"
+                    onClick={() => setActiveTab("data-upload")}>
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                    <TrendingUp className="w-6 h-6 text-green-400" />
+                    <FileSpreadsheet className="w-6 h-6 text-green-400" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Relatórios</h3>
+                    <h3 className="font-semibold text-lg">Upload de Dados</h3>
                     <p className="text-sm text-muted-foreground">
-                      Análises e métricas detalhadas
+                      Importe planilhas e atualize o banco de dados
                     </p>
                   </div>
                 </div>
@@ -77,50 +79,17 @@ export default function BIDashboard() {
               <Card className="glass-card border-primary/30 p-6 hover:scale-105 transition-transform duration-200">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
-                    <Database className="w-6 h-6 text-purple-400" />
+                    <Shield className="w-6 h-6 text-purple-400" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Dados</h3>
+                    <h3 className="font-semibold text-lg">Controle de Dados</h3>
                     <p className="text-sm text-muted-foreground">
-                      Gestão centralizada de informações
+                      Validação e integridade das informações
                     </p>
                   </div>
                 </div>
               </Card>
             </div>
-
-            <Card className="glass-card border-primary/30 p-6">
-              <h2 className="text-xl font-semibold mb-4">Funcionalidades Disponíveis</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <h3 className="font-medium text-primary">Gestão de Assessores</h3>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Cadastro completo de assessores</li>
-                    <li>• Upload de fotos de perfil</li>
-                    <li>• Informações de contato</li>
-                    <li>• Histórico de atividades</li>
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-medium text-primary">Relatórios e Análises</h3>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Dashboards interativos</li>
-                    <li>• Métricas de performance</li>
-                    <li>• Exportação de dados</li>
-                    <li>• Análises personalizadas</li>
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-medium text-primary">Atualização de Dados</h3>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Upload de planilhas Excel</li>
-                    <li>• Dados de captações</li>
-                    <li>• Dados de positivador</li>
-                    <li>• Validação automática</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
           </TabsContent>
 
           <TabsContent value="assessors">
