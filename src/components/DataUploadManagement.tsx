@@ -127,7 +127,18 @@ export function DataUploadManagement() {
       formData.append('selected_name', selectedUploadName);
       formData.append('user_id', user.id);
       
-      const response = await fetch('https://n8n-n8n.ffder9.easypanel.host/webhook/uploads', {
+      // Determinar qual webhook usar baseado na seleção
+      let webhookUrl;
+      if (selectedUploadName === 'positivador') {
+        webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook-test/positivador';
+      } else if (selectedUploadName === 'dados_captacoes') {
+        webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
+      } else {
+        // Para outros tipos, usar o webhook padrão
+        webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
+      }
+      
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         body: formData,
       });
