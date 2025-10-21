@@ -114,29 +114,36 @@ export function DataUploadManagement() {
     setN8nResult(null);
     setN8nError(false);
     
+    // Determinar qual webhook usar baseado na seleção (fora do try-catch)
+    let webhookUrl: string = '';
+    if (selectedUploadName === 'positivador') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook-test/positivador';
+    } else if (selectedUploadName === 'dados_captacoes') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
+    } else if (selectedUploadName === 'cetipados') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook-test/cetipados';
+    } else {
+      // Para outros tipos, usar o webhook padrão
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
+    }
+    
     try {
+      // Verificar se o arquivo ainda é válido
+      if (!webhookFile || webhookFile.size === 0) {
+        throw new Error('Arquivo inválido ou vazio. Por favor, selecione o arquivo novamente.');
+      }
+      
+      // Criar FormData diretamente com o arquivo original para evitar problemas de leitura
       const formData = new FormData();
       
-      // Renomear o arquivo com o nome selecionado
+      // Renomear o arquivo apenas no FormData
       const fileExtension = webhookFile.name.split('.').pop();
-      const renamedFile = new File([webhookFile], `${selectedUploadName}.${fileExtension}`, {
-        type: webhookFile.type
-      });
+      const newFileName = `${selectedUploadName}.${fileExtension}`;
       
-      formData.append('file', renamedFile);
+      // Usar o arquivo original mas com nome modificado
+      formData.append('file', webhookFile, newFileName);
       formData.append('selected_name', selectedUploadName);
       formData.append('user_id', user.id);
-      
-      // Determinar qual webhook usar baseado na seleção
-      let webhookUrl;
-      if (selectedUploadName === 'positivador') {
-        webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook-test/positivador';
-      } else if (selectedUploadName === 'dados_captacoes') {
-        webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
-      } else {
-        // Para outros tipos, usar o webhook padrão
-        webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
-      }
       
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -235,8 +242,7 @@ export function DataUploadManagement() {
                 <SelectContent>
                   <SelectItem value="dados_captacoes">Dados de Captações</SelectItem>
                   <SelectItem value="positivador">Dados de Positivador</SelectItem>
-                  <SelectItem value="assessores">Dados de Assessores</SelectItem>
-                  <SelectItem value="clientes">Dados de Clientes</SelectItem>
+                  <SelectItem value="cetipados">Dados Cetipados</SelectItem>
                 </SelectContent>
               </Select>
             </div>
