@@ -117,11 +117,13 @@ export function DataUploadManagement() {
     // Determinar qual webhook usar baseado na seleção (fora do try-catch)
     let webhookUrl: string = '';
     if (selectedUploadName === 'positivador') {
-      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook-test/positivador';
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/positivador';
     } else if (selectedUploadName === 'dados_captacoes') {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
     } else if (selectedUploadName === 'cetipados') {
-      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook-test/cetipados';
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/cetipados';
+    } else if (selectedUploadName === 'dados_rv_executadas') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/rv-executadas';
     } else {
       // Para outros tipos, usar o webhook padrão
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
@@ -243,6 +245,7 @@ export function DataUploadManagement() {
                   <SelectItem value="dados_captacoes">Dados de Captações</SelectItem>
                   <SelectItem value="positivador">Dados de Positivador</SelectItem>
                   <SelectItem value="cetipados">Dados Cetipados</SelectItem>
+                  <SelectItem value="dados_rv_executadas">Dados RV Executadas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
