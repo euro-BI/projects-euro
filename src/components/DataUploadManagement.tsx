@@ -1,13 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Send } from "lucide-react";
+import { FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Send, Database, RefreshCw, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 
 export function DataUploadManagement() {
@@ -23,6 +24,19 @@ export function DataUploadManagement() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [fileLineCount, setFileLineCount] = useState<number>(0);
   const webhookFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Table monitoring states
+  interface TabelaInfo {
+    schema_name: string;
+    table_name: string;
+    ultima_atualizacao: string | null;
+    total_registros: number;
+    categoria: string;
+  }
+  
+  const [tabelasInfo, setTabelasInfo] = useState<TabelaInfo[]>([]);
+  const [isLoadingTabelas, setIsLoadingTabelas] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   // Função para contar linhas do arquivo Excel
   const countFileLines = async (file: File): Promise<number> => {
@@ -52,6 +66,35 @@ export function DataUploadManagement() {
       reader.readAsArrayBuffer(file);
     });
   };
+
+  // Função para buscar informações das tabelas
+  const fetchTabelasInfo = async () => {
+    setIsLoadingTabelas(true);
+    try {
+      const { data, error } = await supabase
+        .from('vw_tabelas_atualizacao')
+        .select('*')
+        .order('categoria', { ascending: true })
+        .order('table_name', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao buscar informações das tabelas:', error);
+        return;
+      }
+
+      setTabelasInfo(data || []);
+      setLastRefresh(new Date());
+    } catch (error) {
+      console.error('Erro ao buscar informações das tabelas:', error);
+    } finally {
+      setIsLoadingTabelas(false);
+    }
+  };
+
+  // Carregar dados das tabelas ao montar o componente
+  useEffect(() => {
+    fetchTabelasInfo();
+  }, []);
 
   // N8N Webhook handlers
   const handleWebhookFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,6 +357,95 @@ export function DataUploadManagement() {
               </AlertDescription>
             </Alert>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Seção de Monitoramento de Tabelas */}
+      <Card className="p-6">
+        <CardHeader className="p-0 pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Database className="w-5 h-5 text-green-400" />
+              Status das Tabelas
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchTabelasInfo}
+              disabled={isLoadingTabelas}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoadingTabelas ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
+          {lastRefresh && (
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <Calendar className="w-4 h-4" />
+              Última atualização: {lastRefresh.toLocaleString('pt-BR')}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoadingTabelas ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+              <span className="ml-2">Carregando informações das tabelas...</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {tabelasInfo.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Nenhuma informação de tabela encontrada. Verifique se a view 'vw_tabelas_atualizacao' foi criada no banco de dados.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  {['Dados de Upload', 'Dados Operacionais'].map((categoria) => {
+                    const tabelasCategoria = tabelasInfo.filter(t => t.categoria === categoria);
+                    if (tabelasCategoria.length === 0) return null;
+                    
+                    return (
+                      <div key={categoria} className="space-y-3">
+                        <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                          {categoria}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {tabelasCategoria.map((tabela) => (
+                            <div
+                              key={tabela.table_name}
+                              className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-sm">
+                                  {tabela.table_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </h4>
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {tabela.ultima_atualizacao 
+                                      ? new Date(tabela.ultima_atualizacao).toLocaleString('pt-BR')
+                                      : 'Nunca atualizada'
+                                    }
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Database className="w-3 h-3" />
+                                    {tabela.total_registros.toLocaleString('pt-BR')} registros
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
