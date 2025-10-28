@@ -27,11 +27,10 @@ export function DataUploadManagement() {
 
   // Table monitoring states
   interface TabelaInfo {
-    schema_name: string;
     table_name: string;
+    ultima_data_registro: string | null;
     ultima_atualizacao: string | null;
     total_registros: number;
-    categoria: string;
   }
   
   const [tabelasInfo, setTabelasInfo] = useState<TabelaInfo[]>([]);
@@ -74,7 +73,6 @@ export function DataUploadManagement() {
       const { data, error } = await supabase
         .from('vw_tabelas_atualizacao')
         .select('*')
-        .order('categoria', { ascending: true })
         .order('table_name', { ascending: true });
 
       if (error) {
@@ -402,47 +400,48 @@ export function DataUploadManagement() {
                   </AlertDescription>
                 </Alert>
               ) : (
-                <>
-                  {['Dados de Upload', 'Dados Operacionais'].map((categoria) => {
-                    const tabelasCategoria = tabelasInfo.filter(t => t.categoria === categoria);
-                    if (tabelasCategoria.length === 0) return null;
-                    
-                    return (
-                      <div key={categoria} className="space-y-3">
-                        <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                          {categoria}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {tabelasCategoria.map((tabela) => (
-                            <div
-                              key={tabela.table_name}
-                              className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="space-y-2">
-                                <h4 className="font-medium text-sm">
-                                  {tabela.table_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </h4>
-                                <div className="space-y-1 text-xs text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {tabela.ultima_atualizacao 
-                                      ? new Date(tabela.ultima_atualizacao).toLocaleString('pt-BR')
-                                      : 'Nunca atualizada'
-                                    }
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Database className="w-3 h-3" />
-                                    {tabela.total_registros.toLocaleString('pt-BR')} registros
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tabelasInfo.map((tabela) => (
+                    <div
+                      key={tabela.table_name}
+                      className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">
+                          {tabela.table_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </h4>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {tabela.ultima_data_registro ? (
+                              <>
+                                {new Date(tabela.ultima_data_registro).toLocaleDateString('pt-BR')}
+                                <span className="ml-1">• Último registro</span>
+                              </>
+                            ) : (
+                              'Sem registros'
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {tabela.ultima_atualizacao ? (
+                              <>
+                                {new Date(tabela.ultima_atualizacao).toLocaleDateString('pt-BR')}
+                                <span className="ml-1">• Última atualização</span>
+                              </>
+                            ) : (
+                              'Nunca atualizada'
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Database className="w-3 h-3" />
+                            {tabela.total_registros.toLocaleString('pt-BR')} registros
+                          </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
