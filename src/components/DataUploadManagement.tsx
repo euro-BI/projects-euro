@@ -377,12 +377,6 @@ export function DataUploadManagement() {
               Atualizar
             </Button>
           </div>
-          {lastRefresh && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
-              Última atualização: {lastRefresh.toLocaleString('pt-BR')}
-            </p>
-          )}
         </CardHeader>
         <CardContent className="p-0">
           {isLoadingTabelas ? (
