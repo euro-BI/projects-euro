@@ -124,6 +124,16 @@ export function DataUploadManagement() {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/cetipados';
     } else if (selectedUploadName === 'dados_rv_executadas') {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/rv-executadas';
+    } else if (selectedUploadName === 'dados_transferencias') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/transferencias';
+    } else if (selectedUploadName === 'dados_rf_fluxo') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/rf-fluxo';
+    } else if (selectedUploadName === 'dados_pj_custodia') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/pj-custodia';
+    } else if (selectedUploadName === 'dados_offshore_remessas') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/offshore-remessas';
+    } else if (selectedUploadName === 'dados_offshore_operacoes') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/offshore-operacoes';
     } else {
       // Para outros tipos, usar o webhook padrão
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
@@ -246,6 +256,11 @@ export function DataUploadManagement() {
                   <SelectItem value="positivador">Dados de Positivador</SelectItem>
                   <SelectItem value="cetipados">Dados Cetipados</SelectItem>
                   <SelectItem value="dados_rv_executadas">Dados RV Executadas</SelectItem>
+                  <SelectItem value="dados_transferencias">Dados Transferências</SelectItem>
+                  <SelectItem value="dados_rf_fluxo">Dados RF Fluxo</SelectItem>
+                  <SelectItem value="dados_pj_custodia">Dados PJ Custódia</SelectItem>
+                  <SelectItem value="dados_offshore_remessas">Dados Offshore Remessas</SelectItem>
+                  <SelectItem value="dados_offshore_operacoes">Dados Offshore Operações</SelectItem>
                 </SelectContent>
               </Select>
             </div>
