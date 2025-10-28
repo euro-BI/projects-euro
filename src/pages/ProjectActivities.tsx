@@ -59,6 +59,8 @@ import {
   Trash2,
   MoreVertical,
   Brain,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -196,6 +198,9 @@ export default function ProjectActivities() {
   const [pullStartY, setPullStartY] = useState<number | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Estado para controlar visibilidade dos checklists concluídos
+  const [showCompletedChecklists, setShowCompletedChecklists] = useState(false);
   const maxPull = 120;
   const threshold = 80;
 
@@ -1077,98 +1082,128 @@ export default function ProjectActivities() {
                       <h4 className="text-sm font-medium text-muted-foreground">
                         Checklists
                       </h4>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setSubactivityDialog({
-                            open: true,
-                            activityId: activity.id,
-                          })
-                        }
-                        className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5 h-7 text-xs"
-                      >
-                        <PlusCircle className="w-3 h-3 mr-1" />
-                        Adicionar
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowCompletedChecklists(!showCompletedChecklists)}
+                          className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5 h-7 text-xs"
+                          title={showCompletedChecklists ? "Ocultar concluídos" : "Mostrar concluídos"}
+                        >
+                          {showCompletedChecklists ? (
+                            <EyeOff className="w-3 h-3" />
+                          ) : (
+                            <Eye className="w-3 h-3" />
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setSubactivityDialog({
+                              open: true,
+                              activityId: activity.id,
+                            })
+                          }
+                          className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5 h-7 text-xs"
+                        >
+                          <PlusCircle className="w-3 h-3 mr-1" />
+                          Adicionar
+                        </Button>
+                      </div>
                     </div>
                     
-                    {subactivities[activity.id]?.length > 0 ? (
-                      subactivities[activity.id].map((sub) => (
-                        <div
-                          key={sub.id}
-                          className="flex items-center gap-3 p-3 rounded-lg glass hover:bg-secondary/50 transition-colors group"
-                        >
-                          <Checkbox
-                            checked={sub.status === "Concluído"}
-                            onCheckedChange={() =>
-                              handleToggleSubactivity(sub.id, sub.status)
-                            }
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`${
-                                  sub.status === "Concluído"
-                                    ? "line-through text-muted-foreground"
-                                    : ""
-                                }`}
-                              >
-                                {sub.title}
-                              </span>
-                              <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full font-medium">
-                                {isMobile ? sub.peso : `Peso: ${sub.peso}`}
-                              </span>
-                            </div>
-                            {sub.status === "Concluído" && sub.data_realizacao && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Concluído em: {format(new Date(sub.data_realizacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+{(() => {
+                      const allSubactivities = subactivities[activity.id] || [];
+                      const filteredSubactivities = allSubactivities.filter(
+                        (sub) => showCompletedChecklists || sub.status !== "Concluído"
+                      );
+                      
+                      if (allSubactivities.length > 0 && filteredSubactivities.length > 0) {
+                        return filteredSubactivities.map((sub) => (
+                          <div
+                            key={sub.id}
+                            className="flex items-center gap-3 p-3 rounded-lg glass hover:bg-secondary/50 transition-colors group"
+                          >
+                            <Checkbox
+                              checked={sub.status === "Concluído"}
+                              onCheckedChange={() =>
+                                handleToggleSubactivity(sub.id, sub.status)
+                              }
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`${
+                                    sub.status === "Concluído"
+                                      ? "line-through text-muted-foreground"
+                                      : ""
+                                  }`}
+                                >
+                                  {sub.title}
+                                </span>
+                                <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full font-medium">
+                                  {isMobile ? sub.peso : `Peso: ${sub.peso}`}
+                                </span>
                               </div>
-                            )}
+                              {sub.status === "Concluído" && sub.data_realizacao && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Concluído em: {format(new Date(sub.data_realizacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 hover:bg-secondary/50"
+                                  >
+                                    <MoreVertical className="w-3 h-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="glass-card border-primary/30">
+                                  <DropdownMenuItem
+                                    onClick={() => openEditSubactivityDialog(sub)}
+                                    className="hover:bg-secondary/50"
+                                  >
+                                    <Edit className="w-3 h-3 mr-2" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setDeleteSubactivityDialog({
+                                        open: true,
+                                        subactivityId: sub.id,
+                                        subactivityTitle: sub.title,
+                                      });
+                                    }}
+                                    className="hover:bg-red-500/10 text-red-400"
+                                  >
+                                    <Trash2 className="w-3 h-3 mr-2" />
+                                    Deletar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
-                          
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-secondary/50"
-                                >
-                                  <MoreVertical className="w-3 h-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="glass-card border-primary/30">
-                                <DropdownMenuItem
-                                  onClick={() => openEditSubactivityDialog(sub)}
-                                  className="hover:bg-secondary/50"
-                                >
-                                  <Edit className="w-3 h-3 mr-2" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setDeleteSubactivityDialog({
-                                      open: true,
-                                      subactivityId: sub.id,
-                                      subactivityTitle: sub.title,
-                                    });
-                                  }}
-                                  className="hover:bg-red-500/10 text-red-400"
-                                >
-                                  <Trash2 className="w-3 h-3 mr-2" />
-                                  Deletar
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic p-3">
-                        Nenhum checklist adicionado
-                      </p>
-                    )}
+                        ));
+                      } else if (allSubactivities.length > 0 && filteredSubactivities.length === 0) {
+                        return (
+                          <p className="text-xs text-muted-foreground italic p-3">
+                            Todos os checklists estão concluídos (ocultos)
+                          </p>
+                        );
+                      } else {
+                        return (
+                          <p className="text-xs text-muted-foreground italic p-3">
+                            Nenhum checklist adicionado
+                          </p>
+                        );
+                      }
+                    })()}
                   </div>
                 </AccordionContent>
               </AccordionItem>
