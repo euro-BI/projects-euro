@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Loader2, CheckCircle2, AlertCircle, X, BarChart3 } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, BarChart3 } from "lucide-react";
 import { 
   PowerBiPollingManager, 
   PowerBiStatusResponse,
@@ -32,6 +32,20 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
   // Refs para gerenciar timers e polling
   const pollingManagerRef = useRef<PowerBiPollingManager | null>(null);
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Função para formatar o status para exibição
+  const formatStatus = (status: string): string => {
+    switch (status) {
+      case 'em_andamento':
+        return 'Em andamento';
+      case 'disponivel':
+        return 'Disponível';
+      case 'iniciado':
+        return 'Iniciado';
+      default:
+        return status;
+    }
+  };
 
   // Limpar timers ao desmontar o componente
   useEffect(() => {
@@ -152,7 +166,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
           title: 'Iniciando Atualização',
           message: 'Iniciando atualização do Power BI...',
           showProgress: true,
-          showClose: false,
           showRetry: false,
         };
 
@@ -162,7 +175,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
           title: 'Atualizando Power BI',
           message: 'Atualizando dados do Power BI...',
           showProgress: true,
-          showClose: true,
           showRetry: false,
         };
 
@@ -172,7 +184,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
           title: 'Atualização Concluída',
           message: 'Atualização concluída com sucesso!',
           showProgress: false,
-          showClose: false,
           showRetry: false,
         };
 
@@ -182,7 +193,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
           title: 'Erro na Atualização',
           message: errorMessage || 'Erro ao conectar. Tente novamente.',
           showProgress: false,
-          showClose: true,
           showRetry: true,
         };
 
@@ -192,7 +202,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
           title: 'Timeout',
           message: errorMessage || 'A atualização demorou mais que o esperado',
           showProgress: false,
-          showClose: true,
           showRetry: true,
         };
 
@@ -202,7 +211,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
           title: 'Atualização em Andamento',
           message: 'Já existe uma atualização em andamento. Aguarde a conclusão.',
           showProgress: false,
-          showClose: true,
           showRetry: false,
         };
 
@@ -212,7 +220,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
           title: 'Power BI',
           message: 'Preparando atualização...',
           showProgress: false,
-          showClose: true,
           showRetry: false,
         };
     }
@@ -221,7 +228,7 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
   const content = getModalContent();
 
   return (
-    <Dialog open={isOpen} onOpenChange={content.showClose ? handleClose : undefined}>
+    <Dialog open={isOpen}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
@@ -274,7 +281,7 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <div className="space-y-1">
-                  <p><strong>Status:</strong> {currentStatus.status}</p>
+                  <p><strong>Status:</strong> {formatStatus(currentStatus.status)}</p>
                   <p><strong>Última atualização:</strong> {new Date(currentStatus.timestamp).toLocaleTimeString()}</p>
                 </div>
               </AlertDescription>
@@ -293,13 +300,6 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
 
           {/* Botões de ação */}
           <div className="flex justify-end gap-2">
-            {content.showClose && (
-              <Button variant="outline" onClick={handleClose}>
-                <X className="w-4 h-4 mr-2" />
-                Fechar
-              </Button>
-            )}
-            
             {content.showRetry && (
               <Button onClick={handleRetry}>
                 <Loader2 className="w-4 h-4 mr-2" />
