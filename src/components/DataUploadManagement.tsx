@@ -44,6 +44,21 @@ export function DataUploadManagement() {
   const [isLoadingTabelas, setIsLoadingTabelas] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
+  // Função para formatar data sem problemas de fuso horário
+  const formatDateSafe = (dateString: string | null): string => {
+    if (!dateString) return 'N/A';
+    
+    // Se a data está no formato YYYY-MM-DD, criar a data como local
+    if (dateString.includes('-') && dateString.length === 10) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('pt-BR');
+    }
+    
+    // Para outros formatos, usar o método padrão
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
   // Função para contar linhas do arquivo Excel
   const countFileLines = async (file: File): Promise<number> => {
     return new Promise((resolve, reject) => {
@@ -456,7 +471,7 @@ export function DataUploadManagement() {
                             <Calendar className="w-3 h-3" />
                             {tabela.ultima_data_registro ? (
                               <>
-                                {new Date(tabela.ultima_data_registro).toLocaleDateString('pt-BR')}
+                                {formatDateSafe(tabela.ultima_data_registro)}
                                 <span className="ml-1">• Último registro</span>
                               </>
                             ) : (
@@ -467,7 +482,7 @@ export function DataUploadManagement() {
                             <Calendar className="w-3 h-3" />
                             {tabela.ultima_atualizacao ? (
                               <>
-                                {new Date(tabela.ultima_atualizacao).toLocaleDateString('pt-BR')}
+                                {formatDateSafe(tabela.ultima_atualizacao)}
                                 <span className="ml-1">• Última atualização</span>
                               </>
                             ) : (
