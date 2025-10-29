@@ -4,15 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Send, Database, RefreshCw, Calendar } from "lucide-react";
+import { FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Send, Database, RefreshCw, Calendar, BarChart3 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { PowerBiUpdateModal } from "./PowerBiUpdateModal";
+import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 
 export function DataUploadManagement() {
   const { user } = useAuth();
+  const { toast } = useToast();
   
   // N8N Upload states
   const [selectedUploadName, setSelectedUploadName] = useState<string>("");
@@ -24,6 +27,10 @@ export function DataUploadManagement() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [fileLineCount, setFileLineCount] = useState<number>(0);
   const webhookFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Power BI Update states
+  const [showPowerBiModal, setShowPowerBiModal] = useState(false);
+  const [isPowerBiUpdating, setIsPowerBiUpdating] = useState(false);
 
   // Table monitoring states
   interface TabelaInfo {
@@ -95,6 +102,28 @@ export function DataUploadManagement() {
   useEffect(() => {
     fetchTabelasInfo();
   }, []);
+
+  // Power BI Update handlers
+  const handlePowerBiUpdate = () => {
+    setShowPowerBiModal(true);
+    setIsPowerBiUpdating(true);
+  };
+
+  const handlePowerBiModalClose = () => {
+    setShowPowerBiModal(false);
+    setIsPowerBiUpdating(false);
+  };
+
+  const handlePowerBiUpdateComplete = () => {
+    setIsPowerBiUpdating(false);
+    toast({
+      title: "Atualização Concluída",
+      description: "O painel Power BI foi atualizado com sucesso!",
+      variant: "default",
+    });
+    // Atualizar informações das tabelas após a atualização do Power BI
+    fetchTabelasInfo();
+  };
 
   // N8N Webhook handlers
   const handleWebhookFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -332,6 +361,20 @@ export function DataUploadManagement() {
                   <Send className="w-4 h-4" />
                 )}
                 {isWebhookSending ? 'Enviando...' : 'Enviar Dados'}
+              </Button>
+              
+              <Button
+                onClick={handlePowerBiUpdate}
+                disabled={isPowerBiUpdating}
+                variant="outline"
+                className="flex items-center gap-2 border-blue-500/30 hover:bg-blue-500/10"
+              >
+                {isPowerBiUpdating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <BarChart3 className="w-4 h-4" />
+                )}
+                {isPowerBiUpdating ? 'Atualizando...' : 'Atualizar Power BI'}
               </Button>
             </div>
 
@@ -572,6 +615,13 @@ export function DataUploadManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Atualização do Power BI */}
+      <PowerBiUpdateModal
+        isOpen={showPowerBiModal}
+        onClose={handlePowerBiModalClose}
+        onUpdateComplete={handlePowerBiUpdateComplete}
+      />
     </div>
   );
 }
