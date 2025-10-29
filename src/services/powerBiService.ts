@@ -3,7 +3,7 @@
  */
 
 // URLs dos webhooks
-const WEBHOOK_BASE_URL = 'https://n8n-n8n.ffder9.easypanel.host/webhook-test';
+const WEBHOOK_BASE_URL = 'https://n8n-n8n.ffder9.easypanel.host/webhook';
 const UPDATE_WEBHOOK_URL = `${WEBHOOK_BASE_URL}/atualizar-bi`;
 const STATUS_WEBHOOK_URL = `${WEBHOOK_BASE_URL}/status-bi`;
 
