@@ -294,24 +294,44 @@ export function DataUploadManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-          <Send className="w-6 h-6 text-blue-400" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+            <Send className="w-6 h-6 text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">Atualização de Dados</h2>
+            <p className="text-muted-foreground">
+              Envie arquivos Excel para processamento automático
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold">Atualização de Dados</h2>
-          <p className="text-muted-foreground">
-            Envie arquivos Excel para processamento automático
-          </p>
-        </div>
+        
+
       </div>
 
       <Card className="p-6">
         <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Send className="w-5 h-5 text-blue-400" />
-            Upload de Dados
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Send className="w-5 h-5 text-blue-400" />
+              Upload de Dados
+            </CardTitle>
+            <Button
+              onClick={handlePowerBiUpdate}
+              disabled={isPowerBiUpdating}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-blue-500/30 hover:bg-blue-500/10"
+            >
+              {isPowerBiUpdating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <BarChart3 className="w-4 h-4" />
+              )}
+              {isPowerBiUpdating ? 'Atualizando...' : 'Atualizar Power BI'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0 space-y-4">
           <div className="space-y-4">
@@ -347,34 +367,18 @@ export function DataUploadManagement() {
               />
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                onClick={showConfirmation}
-                disabled={!webhookFile || !selectedUploadName || isWebhookSending}
-                className="flex items-center gap-2"
-              >
-                {isWebhookSending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                {isWebhookSending ? 'Enviando...' : 'Enviar Dados'}
-              </Button>
-              
-              <Button
-                onClick={handlePowerBiUpdate}
-                disabled={isPowerBiUpdating}
-                variant="outline"
-                className="flex items-center gap-2 border-blue-500/30 hover:bg-blue-500/10"
-              >
-                {isPowerBiUpdating ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <BarChart3 className="w-4 h-4" />
-                )}
-                {isPowerBiUpdating ? 'Atualizando...' : 'Atualizar Power BI'}
-              </Button>
-            </div>
+            <Button
+              onClick={showConfirmation}
+              disabled={!webhookFile || !selectedUploadName || isWebhookSending}
+              className="flex items-center gap-2"
+            >
+              {isWebhookSending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              {isWebhookSending ? 'Enviando...' : 'Enviar Dados'}
+            </Button>
 
             {webhookFile && (
               <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
