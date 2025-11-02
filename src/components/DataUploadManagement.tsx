@@ -142,12 +142,15 @@ export function DataUploadManagement() {
   const handleWebhookFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Verificar se é um arquivo Excel
+      // Verificar se é um arquivo Excel ou CSV
       const validTypes = [
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel',
+        'text/csv',
+        'application/csv',
         '.xlsx',
-        '.xls'
+        '.xls',
+        '.csv'
       ];
       
       const isValidType = validTypes.some(type => 
@@ -219,6 +222,8 @@ export function DataUploadManagement() {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/offshore-remessas';
     } else if (selectedUploadName === 'dados_offshore_operacoes') {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/offshore-operacoes';
+    } else if (selectedUploadName === 'dados_fundos_novo') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/fundos';
     } else {
       // Para outros tipos, usar o webhook padrão
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
@@ -366,16 +371,17 @@ export function DataUploadManagement() {
                   <SelectItem value="dados_pj_custodia">Dados PJ Custódia</SelectItem>
                   <SelectItem value="dados_offshore_remessas">Dados Offshore Remessas</SelectItem>
                   <SelectItem value="dados_offshore_operacoes">Dados Offshore Operações</SelectItem>
+                  <SelectItem value="dados_fundos_novo">Dados Fundos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="webhook-file">Arquivo Excel</Label>
+              <Label htmlFor="webhook-file">Arquivo Excel/CSV</Label>
               <Input
                 id="webhook-file"
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 ref={webhookFileInputRef}
                 onChange={handleWebhookFileChange}
                 className="cursor-pointer"
