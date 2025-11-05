@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +154,10 @@ export const Header = () => {
                 <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
                   <BarChart3 className="w-4 h-4 mr-2" />
                   BI Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/investment-offers')}>
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Ofertas
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => navigate('/users')}>
