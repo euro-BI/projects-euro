@@ -42,6 +42,7 @@ export const Header = () => {
     if (location.pathname === '/' || location.pathname === '/dashboard') return 'Dashboard';
     if (location.pathname.startsWith('/projects')) return 'Projetos';
     if (location.pathname === '/bi-dashboard') return 'BI Dashboard';
+    if (location.pathname === '/investment-offers') return 'Ofertas';
     if (location.pathname === '/users') return 'Usuários';
     return 'Dashboard';
   };
@@ -51,6 +52,7 @@ export const Header = () => {
     if (location.pathname === '/' || location.pathname === '/dashboard') return Home;
     if (location.pathname.startsWith('/projects')) return FolderKanban;
     if (location.pathname === '/bi-dashboard') return BarChart3;
+    if (location.pathname === '/investment-offers') return Wallet;
     if (location.pathname === '/users') return Users;
     return Home;
   };

@@ -142,6 +142,18 @@ export default function InvestmentOffers() {
   const [faixas, setFaixas] = useState<FaixaFee[]>([]);
   const [loadingFaixas, setLoadingFaixas] = useState(false);
 
+  // Faixas actions popup
+  const [faixasActionDialogOpen, setFaixasActionDialogOpen] = useState(false);
+  const [faixasActionOferta, setFaixasActionOferta] = useState<OfertaAtiva | null>(null);
+
+  // Replicação de faixas
+  const [isReplicarDialogOpen, setIsReplicarDialogOpen] = useState(false);
+  const [replicateTarget, setReplicateTarget] = useState<OfertaAtiva | null>(null);
+  const [replicateSourceId, setReplicateSourceId] = useState<number | null>(null);
+  const [replicateSourceFaixas, setReplicateSourceFaixas] = useState<FaixaFee[]>([]);
+  const [loadingReplicateSource, setLoadingReplicateSource] = useState(false);
+  const [confirmReplicateOpen, setConfirmReplicateOpen] = useState(false);
+
   // Faixa form
   const [isFaixaDialogOpen, setIsFaixaDialogOpen] = useState(false);
   const [editingFaixa, setEditingFaixa] = useState<FaixaFee | null>(null);
@@ -180,6 +192,24 @@ export default function InvestmentOffers() {
       toast.error("Erro ao carregar faixas de fee");
     } finally {
       setLoadingFaixas(false);
+    }
+  };
+
+  const loadSourceFaixas = async (ofertaId: number) => {
+    setLoadingReplicateSource(true);
+    try {
+      const { data, error } = await supabase
+        .from("dados_ofertas_faixa_fee")
+        .select("id_faixa, id_oferta, faixa_min, faixa_max, fee_percentual, faixa_auc_min, faixa_auc_max")
+        .eq("id_oferta", ofertaId)
+        .order("faixa_min", { ascending: true });
+      if (error) throw error;
+      setReplicateSourceFaixas((data || []) as FaixaFee[]);
+    } catch (err) {
+      console.error("Erro ao carregar faixas para replicação:", err);
+      toast.error("Erro ao carregar faixas da oferta selecionada");
+    } finally {
+      setLoadingReplicateSource(false);
     }
   };
 
@@ -470,8 +500,8 @@ export default function InvestmentOffers() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setSelectedOferta(oferta);
-                              setActiveTab("faixas");
+                              setFaixasActionOferta(oferta);
+                              setFaixasActionDialogOpen(true);
                             }}
                           >
                             Faixas
@@ -742,6 +772,183 @@ export default function InvestmentOffers() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={deleteFaixa}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Faixas Action Modal */}
+      <Dialog open={faixasActionDialogOpen} onOpenChange={setFaixasActionDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] w-full">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Faixas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground">
+              Oferta: {faixasActionOferta?.nome_oferta} • Tipo: {faixasActionOferta?.tipo} • Série: {faixasActionOferta?.nome_serie}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!faixasActionOferta) return;
+                setSelectedOferta(faixasActionOferta);
+                setActiveTab("faixas");
+                setFaixasActionDialogOpen(false);
+              }}
+            >
+              Visualizar faixas
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!faixasActionOferta) return;
+                setSelectedOferta(faixasActionOferta);
+                setActiveTab("faixas");
+                setFaixasActionDialogOpen(false);
+                openCreateFaixa();
+              }}
+            >
+              Criar novas faixas
+            </Button>
+            <Button
+              onClick={() => {
+                if (!faixasActionOferta) return;
+                setReplicateTarget(faixasActionOferta);
+                setReplicateSourceId(null);
+                setReplicateSourceFaixas([]);
+                setFaixasActionDialogOpen(false);
+                setIsReplicarDialogOpen(true);
+              }}
+            >
+              Replicar faixas existentes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Replicar Faixas Modal */}
+      <Dialog open={isReplicarDialogOpen} onOpenChange={setIsReplicarDialogOpen}>
+        <DialogContent className="sm:max-w-[900px] w-full">
+          <DialogHeader>
+            <DialogTitle>Replicar faixas para: {replicateTarget?.nome_oferta} ({replicateTarget?.nome_serie})</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-3 space-y-2">
+              <Label>Oferta origem (Série)</Label>
+              <select
+                value={replicateSourceId ?? ""}
+                onChange={(e) => {
+                  const id = e.target.value ? Number(e.target.value) : null;
+                  setReplicateSourceId(id);
+                  setReplicateSourceFaixas([]);
+                  if (id) loadSourceFaixas(id);
+                }}
+                className="border rounded h-9 px-2 bg-background w-full"
+              >
+                <option value="">Selecione uma oferta</option>
+                {ofertas
+                  .filter((o) => o.id_oferta !== replicateTarget?.id_oferta)
+                  .map((o) => (
+                    <option key={o.id_oferta} value={o.id_oferta}>
+                      {o.nome_oferta} • {o.nome_serie}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+          <Card className="p-0 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Faixa Mín</TableHead>
+                  <TableHead>Faixa Máx</TableHead>
+                  <TableHead>AUC Mín (%)</TableHead>
+                  <TableHead>AUC Máx (%)</TableHead>
+                  <TableHead>Fee (%)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loadingReplicateSource ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">Carregando faixas da oferta origem...</TableCell>
+                  </TableRow>
+                ) : replicateSourceId == null ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">Selecione uma oferta para visualizar</TableCell>
+                  </TableRow>
+                ) : replicateSourceFaixas.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">Oferta origem não possui faixas</TableCell>
+                  </TableRow>
+                ) : (
+                  replicateSourceFaixas.map((f) => (
+                    <TableRow key={f.id_faixa}>
+                      <TableCell>{formatCurrency(f.faixa_min)}</TableCell>
+                      <TableCell>{formatCurrency(f.faixa_max)}</TableCell>
+                      <TableCell>{formatPercentNullable(f.faixa_auc_min)}</TableCell>
+                      <TableCell>{formatPercentNullable(f.faixa_auc_max)}</TableCell>
+                      <TableCell>{formatPercent(f.fee_percentual)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReplicarDialogOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={!replicateSourceId || replicateSourceFaixas.length === 0 || !replicateTarget}
+              onClick={() => setConfirmReplicateOpen(true)}
+            >
+              Replicar faixas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar Replicação */}
+      <AlertDialog open={confirmReplicateOpen} onOpenChange={setConfirmReplicateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replicar faixas?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {replicateSourceId && replicateTarget
+                ? `Serão copiadas ${replicateSourceFaixas.length} faixas da oferta selecionada para "${replicateTarget.nome_oferta}" (${replicateTarget.nome_serie}). Isso não remove faixas existentes e pode haver sobreposições.`
+                : "Confirme a replicação."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!replicateTarget || !replicateSourceId) return;
+                try {
+                  const payloads = replicateSourceFaixas.map((f) => ({
+                    id_oferta: replicateTarget.id_oferta,
+                    faixa_min: f.faixa_min,
+                    faixa_max: f.faixa_max,
+                    fee_percentual: f.fee_percentual,
+                    faixa_auc_min: f.faixa_auc_min ?? null,
+                    faixa_auc_max: f.faixa_auc_max ?? null,
+                  }));
+                  const { error } = await supabase
+                    .from("dados_ofertas_faixa_fee")
+                    .insert(payloads);
+                  if (error) throw error;
+                  toast.success("Faixas replicadas com sucesso");
+                  setConfirmReplicateOpen(false);
+                  setIsReplicarDialogOpen(false);
+                  setSelectedOferta(replicateTarget);
+                  setActiveTab("faixas");
+                  await loadFaixas(replicateTarget.id_oferta);
+                } catch (err) {
+                  console.error("Erro ao replicar faixas:", err);
+                  toast.error("Erro ao replicar faixas");
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
