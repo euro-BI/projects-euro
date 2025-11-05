@@ -55,6 +55,8 @@ type FaixaFee = {
   faixa_min: number;
   faixa_max: number;
   fee_percentual: number;
+  faixa_auc_min?: number | null;
+  faixa_auc_max?: number | null;
 };
 
 const formatCurrency = (value: number | string) => {
@@ -69,12 +71,46 @@ const formatPercent = (value: number | string) => {
   return `${(num * 100).toFixed(2)}%`;
 };
 
+const formatNumber = (
+  value: number | string | null | undefined,
+  fractionDigits = 6
+) => {
+  if (value === null || value === undefined) return "-";
+  const num = typeof value === "string" ? Number(value) : value;
+  if (isNaN(Number(num))) return "-";
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: fractionDigits,
+  }).format(Number(num));
+};
+
+// Util para trabalhar com datas no Brasil (evita a subtração de 1 dia)
+const parseLocalDate = (isoDate: string | null) => {
+  if (!isoDate) return null;
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map((p) => Number(p));
+  if (!y || !m || !d) return null;
+  // new Date(year, monthIndex, day) usa horário local sem deslocamento UTC
+  return new Date(y, m - 1, d);
+};
+
+const formatDateBR = (isoDate: string | null) => {
+  if (!isoDate) return "-";
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return "-";
+  const [y, m, d] = parts;
+  return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+};
+
 const isAtiva = (oferta: OfertaAtiva) => {
   if (!oferta.data_fim) return true;
   try {
-    const today = new Date();
-    const fim = new Date(oferta.data_fim);
-    return fim >= new Date(today.toDateString());
+    const now = new Date();
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const fimLocal = parseLocalDate(oferta.data_fim);
+    if (!fimLocal) return true;
+    return fimLocal >= todayLocal;
   } catch {
     return true;
   }
@@ -128,7 +164,7 @@ export default function InvestmentOffers() {
     try {
       const { data, error } = await supabase
         .from("dados_ofertas_faixa_fee")
-        .select("id_faixa, id_oferta, faixa_min, faixa_max, fee_percentual")
+        .select("id_faixa, id_oferta, faixa_min, faixa_max, fee_percentual, faixa_auc_min, faixa_auc_max")
         .eq("id_oferta", ofertaId)
         .order("faixa_min", { ascending: true });
       if (error) throw error;
@@ -239,7 +275,7 @@ export default function InvestmentOffers() {
       return;
     }
     setEditingFaixa(null);
-    setFaixaForm({ id_oferta: selectedOferta.id_oferta, faixa_min: 0, faixa_max: 0, fee_percentual: 0.0 });
+    setFaixaForm({ id_oferta: selectedOferta.id_oferta, faixa_min: 0, faixa_max: 0, fee_percentual: 0.0, faixa_auc_min: undefined, faixa_auc_max: undefined });
     setIsFaixaDialogOpen(true);
   };
 
@@ -261,6 +297,8 @@ export default function InvestmentOffers() {
     const min = Number(faixaForm.faixa_min);
     const max = Number(faixaForm.faixa_max);
     const fee = Number(faixaForm.fee_percentual);
+    const aucMin = faixaForm.faixa_auc_min;
+    const aucMax = faixaForm.faixa_auc_max;
 
     if (isNaN(min) || isNaN(max) || isNaN(fee)) {
       toast.error("Informe valores numéricos válidos");
@@ -275,11 +313,29 @@ export default function InvestmentOffers() {
       return;
     }
 
+    // Validação básica para AUC: ambos preenchidos ou ambos vazios, e min < max quando presentes
+    if ((aucMin !== undefined || aucMax !== undefined) && (aucMin === undefined || aucMax === undefined)) {
+      toast.error("Informe AUC mín e máx ou deixe ambos vazios");
+      return;
+    }
+    if (aucMin !== undefined && aucMax !== undefined) {
+      if (isNaN(Number(aucMin)) || isNaN(Number(aucMax))) {
+        toast.error("Informe valores AUC numéricos válidos");
+        return;
+      }
+      if (Number(aucMin) >= Number(aucMax)) {
+        toast.error("AUC mín deve ser menor que AUC máx");
+        return;
+      }
+    }
+
     const payload = {
       id_oferta: selectedOferta.id_oferta,
       faixa_min: min,
       faixa_max: max,
       fee_percentual: fee,
+      faixa_auc_min: aucMin ?? null,
+      faixa_auc_max: aucMax ?? null,
     };
 
     try {
@@ -393,8 +449,8 @@ export default function InvestmentOffers() {
                       <TableRow key={oferta.id_oferta} className={selectedOferta?.id_oferta === oferta.id_oferta ? "bg-muted/40" : ""}>
                         <TableCell className="font-medium">{oferta.nome_oferta}</TableCell>
                         <TableCell>{oferta.tipo}</TableCell>
-                        <TableCell>{oferta.data_inicio ? new Date(oferta.data_inicio).toLocaleDateString("pt-BR") : "-"}</TableCell>
-                        <TableCell>{oferta.data_fim ? new Date(oferta.data_fim).toLocaleDateString("pt-BR") : "-"}</TableCell>
+                        <TableCell>{formatDateBR(oferta.data_inicio)}</TableCell>
+                        <TableCell>{formatDateBR(oferta.data_fim)}</TableCell>
                         <TableCell>
                           <Badge variant={isAtiva(oferta) ? "default" : "secondary"}>
                             {isAtiva(oferta) ? "Ativa" : "Encerrada"}
@@ -434,7 +490,7 @@ export default function InvestmentOffers() {
                   <div className="flex-1">
                     <div className="font-semibold">{selectedOferta.nome_oferta}</div>
                     <div className="text-sm text-muted-foreground">
-                      Tipo: {selectedOferta.tipo} • Início: {selectedOferta.data_inicio ? new Date(selectedOferta.data_inicio).toLocaleDateString("pt-BR") : "-"} • Fim: {selectedOferta.data_fim ? new Date(selectedOferta.data_fim).toLocaleDateString("pt-BR") : "-"}
+                      Tipo: {selectedOferta.tipo} • Início: {formatDateBR(selectedOferta.data_inicio)} • Fim: {formatDateBR(selectedOferta.data_fim)}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-auto">
@@ -455,6 +511,8 @@ export default function InvestmentOffers() {
                   <TableRow>
                     <TableHead>Faixa Mín</TableHead>
                     <TableHead>Faixa Máx</TableHead>
+                    <TableHead>AUC Mín</TableHead>
+                    <TableHead>AUC Máx</TableHead>
                     <TableHead>Fee (%)</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -462,21 +520,23 @@ export default function InvestmentOffers() {
                 <TableBody>
                   {loadingFaixas ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">Carregando faixas...</TableCell>
+                      <TableCell colSpan={6} className="text-center py-8">Carregando faixas...</TableCell>
                     </TableRow>
                   ) : !selectedOferta ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">Nenhuma oferta selecionada</TableCell>
+                      <TableCell colSpan={6} className="text-center py-8">Nenhuma oferta selecionada</TableCell>
                     </TableRow>
                   ) : faixas.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">Nenhuma faixa cadastrada</TableCell>
+                      <TableCell colSpan={6} className="text-center py-8">Nenhuma faixa cadastrada</TableCell>
                     </TableRow>
                   ) : (
                     faixas.map((faixa) => (
                       <TableRow key={faixa.id_faixa}>
                         <TableCell>{formatCurrency(faixa.faixa_min)}</TableCell>
                         <TableCell>{formatCurrency(faixa.faixa_max)}</TableCell>
+                        <TableCell>{formatNumber(faixa.faixa_auc_min, 6)}</TableCell>
+                        <TableCell>{formatNumber(faixa.faixa_auc_max, 6)}</TableCell>
                         <TableCell>{formatPercent(faixa.fee_percentual)}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button variant="ghost" size="sm" onClick={() => openEditFaixa(faixa)}>
@@ -498,11 +558,11 @@ export default function InvestmentOffers() {
 
       {/* Oferta Dialog */}
       <Dialog open={isOfertaDialogOpen} onOpenChange={setIsOfertaDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[900px] w-full">
           <DialogHeader>
             <DialogTitle>{editingOferta ? "Editar Oferta" : "Nova Oferta"}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="space-y-2">
               <Label>Nome da Oferta</Label>
               <Input
@@ -535,7 +595,7 @@ export default function InvestmentOffers() {
                 onChange={(e) => setOfertaForm((f) => ({ ...f, data_fim: e.target.value }))}
               />
             </div>
-            <div className="md:col-span-2 space-y-2">
+            <div className="md:col-span-4 space-y-2">
               <Label>Observações</Label>
               <Input
                 value={ofertaForm.observacoes || ""}
@@ -569,11 +629,11 @@ export default function InvestmentOffers() {
 
       {/* Faixa Dialog */}
       <Dialog open={isFaixaDialogOpen} onOpenChange={setIsFaixaDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[900px] w-full">
           <DialogHeader>
             <DialogTitle>{editingFaixa ? "Editar Faixa" : "Nova Faixa"}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <div className="space-y-2">
               <Label>Faixa Mín (R$)</Label>
               <Input
@@ -592,6 +652,36 @@ export default function InvestmentOffers() {
                 value={faixaForm.faixa_max ?? 0}
                 onChange={(e) => setFaixaForm((f) => ({ ...f, faixa_max: Number(e.target.value) }))}
                 placeholder="Ex: 50000.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>AUC Mín</Label>
+              <Input
+                type="number"
+                step="0.000001"
+                value={faixaForm.faixa_auc_min ?? ""}
+                onChange={(e) =>
+                  setFaixaForm((f) => ({
+                    ...f,
+                    faixa_auc_min: e.target.value === "" ? undefined : Number(e.target.value),
+                  }))
+                }
+                placeholder="Ex: 0.500000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>AUC Máx</Label>
+              <Input
+                type="number"
+                step="0.000001"
+                value={faixaForm.faixa_auc_max ?? ""}
+                onChange={(e) =>
+                  setFaixaForm((f) => ({
+                    ...f,
+                    faixa_auc_max: e.target.value === "" ? undefined : Number(e.target.value),
+                  }))
+                }
+                placeholder="Ex: 1.000000"
               />
             </div>
             <div className="space-y-2">
