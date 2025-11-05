@@ -44,6 +44,7 @@ type OfertaAtiva = {
   id_oferta: number;
   nome_oferta: string;
   tipo: string;
+  nome_serie: string;
   data_inicio: string | null;
   data_fim: string | null;
   observacoes?: string | null;
@@ -69,6 +70,11 @@ const formatPercent = (value: number | string) => {
   const num = typeof value === "string" ? Number(value) : value;
   if (isNaN(num)) return "-";
   return `${(num * 100).toFixed(2)}%`;
+};
+
+const formatPercentNullable = (value: number | string | null | undefined) => {
+  if (value === null || value === undefined || value === "") return "-";
+  return formatPercent(value);
 };
 
 const formatNumber = (
@@ -147,7 +153,7 @@ export default function InvestmentOffers() {
     try {
       const { data, error } = await supabase
         .from("dados_ofertas_ativas")
-        .select("id_oferta, nome_oferta, tipo, data_inicio, data_fim, observacoes")
+        .select("id_oferta, nome_oferta, tipo, nome_serie, data_inicio, data_fim, observacoes")
         .order("data_inicio", { ascending: false, nullsFirst: false });
       if (error) throw error;
       setOfertas((data || []) as OfertaAtiva[]);
@@ -204,7 +210,7 @@ export default function InvestmentOffers() {
 
   const openCreateOferta = () => {
     setEditingOferta(null);
-    setOfertaForm({ nome_oferta: "", tipo: "", data_inicio: "", data_fim: "", observacoes: "" });
+    setOfertaForm({ nome_oferta: "", tipo: "", nome_serie: "", data_inicio: "", data_fim: "", observacoes: "" });
     setIsOfertaDialogOpen(true);
   };
 
@@ -218,12 +224,13 @@ export default function InvestmentOffers() {
     const payload = {
       nome_oferta: ofertaForm.nome_oferta?.trim() || "",
       tipo: ofertaForm.tipo?.trim() || "",
+      nome_serie: ofertaForm.nome_serie?.trim() || "",
       data_inicio: ofertaForm.data_inicio || null,
       data_fim: ofertaForm.data_fim || null,
       observacoes: ofertaForm.observacoes || null,
     };
-    if (!payload.nome_oferta || !payload.tipo || !payload.data_inicio) {
-      toast.error("Preencha nome, tipo e data de início");
+    if (!payload.nome_oferta || !payload.tipo || !payload.nome_serie || !payload.data_inicio) {
+      toast.error("Preencha nome, tipo, série e data de início");
       return;
     }
 
@@ -429,6 +436,7 @@ export default function InvestmentOffers() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Tipo</TableHead>
+                    <TableHead>Série</TableHead>
                     <TableHead>Início</TableHead>
                     <TableHead>Fim</TableHead>
                     <TableHead>Status</TableHead>
@@ -438,17 +446,18 @@ export default function InvestmentOffers() {
                 <TableBody>
                   {loadingOfertas ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">Carregando ofertas...</TableCell>
+                      <TableCell colSpan={7} className="text-center py-8">Carregando ofertas...</TableCell>
                     </TableRow>
                   ) : filteredOfertas.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">Nenhuma oferta encontrada</TableCell>
+                      <TableCell colSpan={7} className="text-center py-8">Nenhuma oferta encontrada</TableCell>
                     </TableRow>
                   ) : (
                     filteredOfertas.map((oferta) => (
                       <TableRow key={oferta.id_oferta} className={selectedOferta?.id_oferta === oferta.id_oferta ? "bg-muted/40" : ""}>
                         <TableCell className="font-medium">{oferta.nome_oferta}</TableCell>
                         <TableCell>{oferta.tipo}</TableCell>
+                        <TableCell>{oferta.nome_serie}</TableCell>
                         <TableCell>{formatDateBR(oferta.data_inicio)}</TableCell>
                         <TableCell>{formatDateBR(oferta.data_fim)}</TableCell>
                         <TableCell>
@@ -490,7 +499,7 @@ export default function InvestmentOffers() {
                   <div className="flex-1">
                     <div className="font-semibold">{selectedOferta.nome_oferta}</div>
                     <div className="text-sm text-muted-foreground">
-                      Tipo: {selectedOferta.tipo} • Início: {formatDateBR(selectedOferta.data_inicio)} • Fim: {formatDateBR(selectedOferta.data_fim)}
+                      Tipo: {selectedOferta.tipo} • Série: {selectedOferta.nome_serie} • Início: {formatDateBR(selectedOferta.data_inicio)} • Fim: {formatDateBR(selectedOferta.data_fim)}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-auto">
@@ -511,8 +520,8 @@ export default function InvestmentOffers() {
                   <TableRow>
                     <TableHead>Faixa Mín</TableHead>
                     <TableHead>Faixa Máx</TableHead>
-                    <TableHead>AUC Mín</TableHead>
-                    <TableHead>AUC Máx</TableHead>
+                    <TableHead>AUC Mín (%)</TableHead>
+                    <TableHead>AUC Máx (%)</TableHead>
                     <TableHead>Fee (%)</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -535,8 +544,8 @@ export default function InvestmentOffers() {
                       <TableRow key={faixa.id_faixa}>
                         <TableCell>{formatCurrency(faixa.faixa_min)}</TableCell>
                         <TableCell>{formatCurrency(faixa.faixa_max)}</TableCell>
-                        <TableCell>{formatNumber(faixa.faixa_auc_min, 6)}</TableCell>
-                        <TableCell>{formatNumber(faixa.faixa_auc_max, 6)}</TableCell>
+                        <TableCell>{formatPercentNullable(faixa.faixa_auc_min)}</TableCell>
+                        <TableCell>{formatPercentNullable(faixa.faixa_auc_max)}</TableCell>
                         <TableCell>{formatPercent(faixa.fee_percentual)}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button variant="ghost" size="sm" onClick={() => openEditFaixa(faixa)}>
@@ -562,7 +571,7 @@ export default function InvestmentOffers() {
           <DialogHeader>
             <DialogTitle>{editingOferta ? "Editar Oferta" : "Nova Oferta"}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <div className="space-y-2">
               <Label>Nome da Oferta</Label>
               <Input
@@ -572,12 +581,31 @@ export default function InvestmentOffers() {
               />
             </div>
             <div className="space-y-2">
+              <Label>Série</Label>
+              <select
+                value={ofertaForm.nome_serie || ""}
+                onChange={(e) => setOfertaForm((f) => ({ ...f, nome_serie: e.target.value }))}
+                className="border rounded h-9 px-2 bg-background w-full"
+              >
+                <option value="">Selecione</option>
+                <option value="1ª Série">1ª Série</option>
+                <option value="2ª Série">2ª Série</option>
+                <option value="3ª Série">3ª Série</option>
+                <option value="4ª Série">4ª Série</option>
+                <option value="5ª Série">5ª Série</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <Label>Tipo</Label>
-              <Input
+              <select
                 value={ofertaForm.tipo || ""}
                 onChange={(e) => setOfertaForm((f) => ({ ...f, tipo: e.target.value }))}
-                placeholder="Ex: Renda Fixa, Fundo"
-              />
+                className="border rounded h-9 px-2 bg-background w-full"
+              >
+                <option value="">Selecione</option>
+                <option value="Fundos">Fundos</option>
+                <option value="Renda Fixa">Renda Fixa</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Data Início</Label>
@@ -595,7 +623,7 @@ export default function InvestmentOffers() {
                 onChange={(e) => setOfertaForm((f) => ({ ...f, data_fim: e.target.value }))}
               />
             </div>
-            <div className="md:col-span-4 space-y-2">
+            <div className="md:col-span-5 space-y-2">
               <Label>Observações</Label>
               <Input
                 value={ofertaForm.observacoes || ""}
@@ -655,10 +683,10 @@ export default function InvestmentOffers() {
               />
             </div>
             <div className="space-y-2">
-              <Label>AUC Mín</Label>
+              <Label>AUC Mín (%)</Label>
               <Input
                 type="number"
-                step="0.000001"
+                step="0.0001"
                 value={faixaForm.faixa_auc_min ?? ""}
                 onChange={(e) =>
                   setFaixaForm((f) => ({
@@ -666,14 +694,14 @@ export default function InvestmentOffers() {
                     faixa_auc_min: e.target.value === "" ? undefined : Number(e.target.value),
                   }))
                 }
-                placeholder="Ex: 0.500000"
+                placeholder="Ex: 0.05 para 5%"
               />
             </div>
             <div className="space-y-2">
-              <Label>AUC Máx</Label>
+              <Label>AUC Máx (%)</Label>
               <Input
                 type="number"
-                step="0.000001"
+                step="0.0001"
                 value={faixaForm.faixa_auc_max ?? ""}
                 onChange={(e) =>
                   setFaixaForm((f) => ({
@@ -681,7 +709,7 @@ export default function InvestmentOffers() {
                     faixa_auc_max: e.target.value === "" ? undefined : Number(e.target.value),
                   }))
                 }
-                placeholder="Ex: 1.000000"
+                placeholder="Ex: 0.10 para 10%"
               />
             </div>
             <div className="space-y-2">
