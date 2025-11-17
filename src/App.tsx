@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import BIDashboard from "./pages/BIDashboard";
 import InvestmentOffers from "./pages/InvestmentOffers";
+import Consorcios from "./pages/Consorcios";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <InvestmentOffers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/consorcios"
+              element={
+                <ProtectedRoute>
+                  <Consorcios />
                 </ProtectedRoute>
               }
             />

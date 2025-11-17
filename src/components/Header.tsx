@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet, FileSpreadsheet } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +43,7 @@ export const Header = () => {
     if (location.pathname.startsWith('/projects')) return 'Projetos';
     if (location.pathname === '/bi-dashboard') return 'BI Dashboard';
     if (location.pathname === '/investment-offers') return 'Ofertas';
+    if (location.pathname === '/consorcios') return 'Consórcios';
     if (location.pathname === '/users') return 'Usuários';
     return 'Dashboard';
   };
@@ -53,6 +54,7 @@ export const Header = () => {
     if (location.pathname.startsWith('/projects')) return FolderKanban;
     if (location.pathname === '/bi-dashboard') return BarChart3;
     if (location.pathname === '/investment-offers') return Wallet;
+    if (location.pathname === '/consorcios') return FileSpreadsheet;
     if (location.pathname === '/users') return Users;
     return Home;
   };
@@ -160,6 +162,10 @@ export const Header = () => {
                 <DropdownMenuItem onClick={() => navigate('/investment-offers')}>
                   <Wallet className="w-4 h-4 mr-2" />
                   Ofertas
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/consorcios')}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Consórcios
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => navigate('/users')}>
