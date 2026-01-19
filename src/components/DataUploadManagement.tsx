@@ -224,6 +224,8 @@ export function DataUploadManagement() {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/offshore-operacoes';
     } else if (selectedUploadName === 'dados_fundos_novo') {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/fundos';
+    } else if (selectedUploadName === 'dados_posicao_black') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads/posicao-black';
     } else {
       // Para outros tipos, usar o webhook padrão
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
@@ -371,6 +373,7 @@ export function DataUploadManagement() {
                   <SelectItem value="dados_pj_custodia">Dados PJ Custódia</SelectItem>
                   <SelectItem value="dados_offshore_remessas">Dados Offshore Remessas</SelectItem>
                   <SelectItem value="dados_offshore_operacoes">Dados Offshore Operações</SelectItem>
+                  <SelectItem value="dados_posicao_black">Dados Posição Black</SelectItem>
                   <SelectItem value="dados_fundos_novo">Dados Fundos</SelectItem>
                 </SelectContent>
               </Select>
