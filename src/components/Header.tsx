@@ -169,7 +169,7 @@ export const Header = () => {
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
                   Consórcios
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/chat')}>
+                <DropdownMenuItem onClick={() => window.open('/chat', '_blank')}>
                   <MessageSquare className="w-4 h-4 mr-2" />
                   IA Chat
                 </DropdownMenuItem>
@@ -344,7 +344,7 @@ export const Header = () => {
                   <Button
                     variant="ghost"
                     className="justify-start"
-                    onClick={() => navigate('/chat')}
+                    onClick={() => window.open('/chat', '_blank')}
                   >
                     <MessageSquare className="w-4 h-4 mr-2" />
                     IA Chat

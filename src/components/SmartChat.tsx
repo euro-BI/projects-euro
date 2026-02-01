@@ -6,16 +6,29 @@ import {
   Play, 
   Pause, 
   Loader2, 
-  User, 
+  User as UserIcon, 
   Bot, 
   Trash2,
   ChevronDown,
   Volume2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MessageSquarePlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // --- Utilities ---
 function cn(...inputs: ClassValue[]) {
@@ -48,6 +61,7 @@ const SESSION_KEY = 'euro_chat_session_id';
 const AudioPlayer = ({ url }: { url: string }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -60,16 +74,27 @@ const AudioPlayer = ({ url }: { url: string }) => {
       }
     };
 
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+    };
+
     const handleEnded = () => {
       setIsPlaying(false);
       setProgress(0);
     };
 
     audio.addEventListener('timeupdate', updateProgress);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+
+    // Initial check if metadata is already loaded
+    if (audio.readyState >= 1) {
+      setDuration(audio.duration);
+    }
 
     return () => {
       audio.removeEventListener('timeupdate', updateProgress);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
     };
   }, []);
@@ -79,12 +104,18 @@ const AudioPlayer = ({ url }: { url: string }) => {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        // Reset if ended
         if (audioRef.current.ended) audioRef.current.currentTime = 0;
         audioRef.current.play().catch(err => console.error("Error playing audio:", err));
       }
       setIsPlaying(!isPlaying);
     }
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time) || !isFinite(time)) return '0:00';
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Generate a fake waveform for visual effect
@@ -118,10 +149,7 @@ const AudioPlayer = ({ url }: { url: string }) => {
       
       <audio ref={audioRef} src={url} preload="metadata" className="hidden" />
       <span className="text-[10px] font-bold text-black/40 min-w-[30px]">
-        {audioRef.current?.duration ? 
-          `${Math.floor(audioRef.current.duration / 60)}:${Math.floor(audioRef.current.duration % 60).toString().padStart(2, '0')}` 
-          : '0:00'
-        }
+        {formatTime(duration)}
       </span>
     </div>
   );
@@ -169,19 +197,46 @@ const formatText = (text: string) => {
 };
 
 // --- Main Chat Component ---
-export const SmartChat: React.FC = () => {
+export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) => {
+  const { user } = useAuth();
+  const [userName, setUserName] = useState<string>('');
+
+  const suggestionButtons = [
+    { label: "Quanto estou de repasse?", query: `Qual o repasse de ${userName || user?.email || 'meu usuário'}` },
+    { label: "Me mande o extrato detalhado do meu repasse.", query: `Me mande o extrato detalhado do repasse de ${userName || user?.email || 'meu usuário'}` },
+    { label: "Qual meu ROA?", query: `Qual o ROA de ${userName || user?.email || 'meu usuário'}` },
+    { label: "Quantos clientes tenho e qual o meu net?", query: `Quantos clientes e qual o net de ${userName || user?.email || 'meu usuário'}` },
+  ];
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [sessionId, setSessionId] = useState('');
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Initialize Session and Load History
   useEffect(() => {
+    // Load User Profile Name
+    const loadProfile = async () => {
+      if (user?.id) {
+        const { data } = await supabase
+          .from("projects_profiles")
+          .select("first_name, last_name")
+          .eq("id", user.id)
+          .single();
+        
+        if (data) {
+          setUserName(`${data.first_name || ""} ${data.last_name || ""}`.trim());
+        }
+      }
+    };
+    loadProfile();
+
     // Session ID
     let storedSessionId = localStorage.getItem(SESSION_KEY);
     if (!storedSessionId) {
@@ -201,7 +256,7 @@ export const SmartChat: React.FC = () => {
         console.error('Error parsing chat history', e);
       }
     }
-  }, []);
+  }, [user?.id]);
 
   // Sync History to LocalStorage
   useEffect(() => {
@@ -217,13 +272,17 @@ export const SmartChat: React.FC = () => {
 
   // --- Handlers ---
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent, customContent?: string, displayContent?: string) => {
     if (e) e.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
+    
+    const contentToSend = customContent || inputValue;
+    const contentToDisplay = displayContent || contentToSend;
+
+    if (!contentToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputValue,
+      content: contentToDisplay,
       sender: 'user',
       timestamp: Date.now(),
       type: 'text'
@@ -239,7 +298,7 @@ export const SmartChat: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([{
           tipo: 'text',
-          chatInput: userMessage.content,
+          chatInput: contentToSend,
           session: sessionId,
           base64: null
         }])
@@ -283,10 +342,17 @@ export const SmartChat: React.FC = () => {
   };
 
   const clearHistory = () => {
-    if (window.confirm('Tem certeza que deseja limpar o histórico de conversas?')) {
-      setMessages([]);
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
+    
+    // Generate a new session ID to truly "clear the session"
+    const newSessionId = typeof crypto.randomUUID === 'function' 
+      ? crypto.randomUUID() 
+      : `session_${Math.random().toString(36).substring(2, 15)}`;
+    
+    setSessionId(newSessionId);
+    localStorage.setItem(SESSION_KEY, newSessionId);
+    setIsDeleteDialogOpen(false);
   };
 
   // --- Audio Logic ---
@@ -379,7 +445,12 @@ export const SmartChat: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-background border border-border rounded-xl shadow-xl overflow-hidden glass-card">
+    <div className={cn(
+      "flex flex-col bg-background border-border overflow-hidden glass-card",
+      fullHeight 
+        ? "h-screen w-full border-0 rounded-none" 
+        : "h-[calc(100vh-120px)] max-w-4xl mx-auto border rounded-xl shadow-xl"
+    )}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5">
         <div className="flex items-center gap-3">
@@ -395,24 +466,66 @@ export const SmartChat: React.FC = () => {
           </div>
         </div>
         <button 
-          onClick={clearHistory}
+          onClick={() => setIsDeleteDialogOpen(true)}
           className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
-          title="Limpar histórico"
+          title="Limpar histórico e nova sessão"
         >
           <Trash2 size={20} />
         </button>
       </div>
 
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="glass-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar Histórico de Chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso apagará todas as mensagens atuais e iniciará uma nova sessão de conversa. 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={clearHistory}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Confirmar e Limpar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-primary/20">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-60">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+      <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-primary/20">
+        <div className={cn(
+          "space-y-4 mx-auto",
+          fullHeight ? "max-w-6xl" : "max-w-4xl"
+        )}>
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-250px)] text-center space-y-6 opacity-90">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse">
               <Bot size={32} />
             </div>
-            <div className="max-w-xs">
-              <p className="font-medium">Como posso ajudar você hoje?</p>
-              <p className="text-sm">Tente perguntar sobre projetos, atividades ou status de investimentos.</p>
+            <div className="max-w-md space-y-2">
+              <h3 className="text-xl font-bold text-foreground">
+                Olá, {userName || user?.email?.split('@')[0] || 'Assessor'}! 👋
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Sou seu assistente financeiro. Posso te ajudar com informações sobre seus repasses, ROA, net e clientes.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg">
+              {suggestionButtons.map((btn, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSendMessage(undefined, btn.query, btn.label)}
+                  className="flex items-center gap-3 p-3 text-left text-sm bg-muted/50 hover:bg-primary/10 border border-border rounded-xl transition-all group hover:border-primary/30"
+                >
+                  <MessageSquarePlus size={18} className="text-primary shrink-0 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium">{btn.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -433,7 +546,7 @@ export const SmartChat: React.FC = () => {
                 "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1",
                 msg.sender === 'user' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
               )}>
-                {msg.sender === 'user' ? <User size={16} /> : <Bot size={16} />}
+                {msg.sender === 'user' ? <UserIcon size={16} /> : <Bot size={16} />}
               </div>
               
               <div className={cn(
@@ -480,14 +593,18 @@ export const SmartChat: React.FC = () => {
             </div>
           </motion.div>
         )}
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Input Area */}
       <div className="p-4 border-t border-border bg-background/50 backdrop-blur-sm">
         <form 
           onSubmit={handleSendMessage}
-          className="relative flex items-end gap-2 max-w-4xl mx-auto"
+          className={cn(
+            "relative flex items-center gap-2 mx-auto",
+            fullHeight ? "max-w-6xl" : "max-w-4xl"
+          )}
         >
           <div className="relative flex-1 group">
             <textarea
@@ -502,10 +619,10 @@ export const SmartChat: React.FC = () => {
                 }
               }}
               placeholder="Digite sua mensagem..."
-              className="w-full bg-muted border border-border rounded-2xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none transition-all group-hover:border-primary/30"
+              className="w-full bg-muted border border-border rounded-2xl px-4 py-3 pr-12 min-h-[52px] flex items-center focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none transition-all group-hover:border-primary/30"
               style={{ maxHeight: '150px' }}
             />
-            <div className="absolute right-2 bottom-2 flex items-center gap-1">
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               <button
                 type="button"
                 onClick={toggleRecording}
@@ -526,7 +643,7 @@ export const SmartChat: React.FC = () => {
             type="submit"
             disabled={!inputValue.trim() || isLoading}
             className={cn(
-              "p-3 rounded-2xl transition-all shadow-lg",
+              "w-[52px] h-[52px] flex items-center justify-center rounded-2xl transition-all shadow-lg shrink-0",
               inputValue.trim() && !isLoading
                 ? "bg-primary text-primary-foreground hover:opacity-90 scale-100"
                 : "bg-muted text-muted-foreground scale-95 opacity-50 cursor-not-allowed"

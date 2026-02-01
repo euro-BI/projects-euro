@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Header } from "@/components/Header";
@@ -22,6 +22,12 @@ import Chat from "./pages/Chat";
 
 const queryClient = new QueryClient();
 
+const HeaderWrapper = () => {
+  const location = useLocation();
+  const isChatPage = location.pathname === "/chat";
+  return !isChatPage ? <Header /> : null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -29,7 +35,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Header />
+          <HeaderWrapper />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route
