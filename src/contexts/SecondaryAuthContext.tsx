@@ -82,18 +82,24 @@ export const SecondaryAuthProvider = ({ children }: { children: React.ReactNode 
 
   const signOut = async () => {
     try {
+      // Tenta sair globalmente da instância secundária
       const { error } = await supabaseSecondary.auth.signOut();
+      
       if (error) {
-        console.error("Erro ao sair da instância secundária:", error);
-        toast.error("Não foi possível sair da instância secundária. Limpando sessão...");
+        console.warn("Erro ao sair da instância secundária (tentando logout local):", error);
+        await supabaseSecondary.auth.signOut({ scope: 'local' });
       } else {
         toast.success("Logout realizado com sucesso da instância secundária!");
       }
     } catch (err) {
       console.error("Erro inesperado ao sair da instância secundária:", err);
-      toast.error("Erro inesperado ao sair da instância secundária");
+      try {
+        await supabaseSecondary.auth.signOut({ scope: 'local' });
+      } catch (e) {
+        console.error("Falha ao limpar sessão secundária local:", e);
+      }
     } finally {
-      // Garante que limpamos a sessão local mesmo se a chamada falhar
+      // Garante que limpamos a sessão local no estado do React
       setUser(null);
       setSession(null);
     }

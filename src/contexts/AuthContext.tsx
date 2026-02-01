@@ -54,19 +54,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
+      // Tenta sair globalmente (notifica o servidor)
       const { error } = await supabase.auth.signOut();
+      
       if (error) {
-        console.error("Erro ao sair:", error);
-        toast.error("Não foi possível sair. Limpando sessão...");
+        // Se houver erro (ex: sessão já inválida ou expirada), força logout local
+        console.warn("Erro ao sair (tentando logout local):", error);
+        await supabase.auth.signOut({ scope: 'local' });
       }
     } catch (err) {
       console.error("Erro inesperado ao sair:", err);
-      toast.error("Erro inesperado ao sair");
+      // Fallback para logout local em caso de exceção
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (e) {
+        console.error("Falha ao limpar sessão local:", e);
+      }
     } finally {
-      // Garante que limpamos a sessão local mesmo se a chamada falhar
+      // Garante que limpamos a sessão local no estado do React
       setUser(null);
       setSession(null);
+      
+      // Limpa explicitamente o localStorage caso o Supabase não tenha feito
+      // Isso ajuda a evitar que o Auth.tsx redirecione de volta se detectar algo
+      const keysToRemove = Object.keys(localStorage).filter(key => 
+        key.startsWith('sb-') || key.includes('supabase.auth.token')
+      );
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
       navigate("/auth", { replace: true });
+      toast.success("Sessão encerrada com sucesso");
     }
   };
 
