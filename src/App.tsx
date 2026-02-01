@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import BIDashboard from "./pages/BIDashboard";
 import InvestmentOffers from "./pages/InvestmentOffers";
 import Consorcios from "./pages/Consorcios";
+import Chat from "./pages/Chat";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +85,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Consorcios />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <Chat />
                 </ProtectedRoute>
               }
             />

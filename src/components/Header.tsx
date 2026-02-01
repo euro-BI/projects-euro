@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet, FileSpreadsheet } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet, FileSpreadsheet, MessageSquare } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +44,7 @@ export const Header = () => {
     if (location.pathname === '/bi-dashboard') return 'BI Dashboard';
     if (location.pathname === '/investment-offers') return 'Ofertas';
     if (location.pathname === '/consorcios') return 'Consórcios';
+    if (location.pathname === '/chat') return 'IA Chat';
     if (location.pathname === '/users') return 'Usuários';
     return 'Dashboard';
   };
@@ -55,6 +56,7 @@ export const Header = () => {
     if (location.pathname === '/bi-dashboard') return BarChart3;
     if (location.pathname === '/investment-offers') return Wallet;
     if (location.pathname === '/consorcios') return FileSpreadsheet;
+    if (location.pathname === '/chat') return MessageSquare;
     if (location.pathname === '/users') return Users;
     return Home;
   };
@@ -166,6 +168,10 @@ export const Header = () => {
                 <DropdownMenuItem onClick={() => navigate('/consorcios')}>
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
                   Consórcios
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/chat')}>
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  IA Chat
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => navigate('/users')}>
@@ -318,6 +324,30 @@ export const Header = () => {
                   >
                     <BarChart3 className="w-4 h-4 mr-2" />
                     BI Dashboard
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => navigate('/investment-offers')}
+                  >
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Ofertas
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => navigate('/consorcios')}
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    Consórcios
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => navigate('/chat')}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    IA Chat
                   </Button>
                   <Button
                     variant="ghost"
