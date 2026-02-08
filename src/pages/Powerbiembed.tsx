@@ -96,50 +96,48 @@ export default function PowerBIEmbedPage() {
       return accessTokenRef.current;
     }
 
-    const tenantId = import.meta.env.VITE_MSAL_TENANT_ID;
-    const clientId = import.meta.env.VITE_MSAL_CLIENT_ID;
-    const clientSecret = import.meta.env.VITE_MSAL_CLIENT_SECRET;
-
-    if (!tenantId || !clientId || !clientSecret) {
-      throw new Error("Credenciais não configuradas. Verifique as variáveis de ambiente.");
-    }
-
     try {
-      // Usando o proxy configurado no vite.config.ts para evitar erro de CORS
-      const tokenEndpoint = `/microsoft-token/${tenantId}/oauth2/v2.0/token`;
+      let response;
       
-      const formData = new URLSearchParams();
-      formData.append('grant_type', 'client_credentials');
-      formData.append('client_id', clientId);
-      formData.append('client_secret', clientSecret);
-      formData.append('scope', 'https://analysis.windows.net/powerbi/api/.default');
-
-      const response = await fetch(tokenEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: formData.toString()
-      });
+      if (import.meta.env.DEV) {
+        // Em desenvolvimento, usa o proxy do Vite configurado no vite.config.ts
+        const tenantId = import.meta.env.VITE_MSAL_TENANT_ID;
+        const clientId = import.meta.env.VITE_MSAL_CLIENT_ID;
+        const clientSecret = import.meta.env.VITE_MSAL_CLIENT_SECRET;
+        
+        response = await fetch(`/microsoft-token/${tenantId}/oauth2/v2.0/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: clientId,
+            client_secret: clientSecret,
+            scope: 'https://analysis.windows.net/powerbi/api/.default'
+          })
+        });
+      } else {
+        // Em produção (Vercel), usa a Serverless Function para segurança e evitar CORS
+        response = await fetch(`/api/powerbi?path=get-access-token`);
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Erro na resposta da Microsoft:", errorData);
-        throw new Error(`Falha na autenticação com Azure AD: ${response.status}`);
+        console.error("Erro ao obter access token:", errorData);
+        throw new Error(`Falha na autenticação: ${response.status}`);
       }
 
       const data = await response.json();
       accessTokenRef.current = data.access_token;
       
-      // Renovar token antes de expirar (normalmente expira em 1 hora)
+      // Renovar token antes de expirar
       setTimeout(() => {
         accessTokenRef.current = null;
-      }, 50 * 60 * 1000); // 50 minutos
+      }, 50 * 60 * 1000);
 
       return data.access_token;
     } catch (error) {
       console.error("Erro ao obter token:", error);
-      throw new Error("Não foi possível autenticar com o Power BI. Verifique as credenciais.");
+      throw new Error("Não foi possível autenticar com o Power BI.");
     }
   };
 
@@ -148,19 +146,25 @@ export default function PowerBIEmbedPage() {
     const accessToken = await getAccessToken();
     
     try {
-      const response = await fetch(
-        `/powerbi-api/v1.0/myorg/groups/${workspaceId}/reports/${reportId}/GenerateToken`,
-        {
+      let response;
+      const path = `v1.0/myorg/groups/${workspaceId}/reports/${reportId}/GenerateToken`;
+      
+      if (import.meta.env.DEV) {
+        response = await fetch(`/powerbi-api/${path}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            accessLevel: 'View'
-          })
-        }
-      );
+          body: JSON.stringify({ accessLevel: 'View' })
+        });
+      } else {
+        response = await fetch(`/api/powerbi?path=${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessLevel: 'View' })
+        });
+      }
 
       if (!response.ok) {
         throw new Error('Falha ao gerar embed token');
@@ -211,13 +215,17 @@ export default function PowerBIEmbedPage() {
     setStatusMessage("Carregando workspaces...");
     
     try {
-      const token = await getAccessToken();
+      const accessToken = await getAccessToken();
+      let response;
+      const path = "v1.0/myorg/groups";
       
-      const response = await fetch("/powerbi-api/v1.0/myorg/groups", {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      if (import.meta.env.DEV) {
+        response = await fetch(`/powerbi-api/${path}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+      } else {
+        response = await fetch(`/api/powerbi?path=${path}`);
+      }
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -246,13 +254,17 @@ export default function PowerBIEmbedPage() {
     setStatusMessage(`Carregando relatórios de ${workspace.name}...`);
     
     try {
-      const token = await getAccessToken();
+      const accessToken = await getAccessToken();
+      let response;
+      const path = `v1.0/myorg/groups/${workspace.id}/reports`;
       
-      const response = await fetch(`/powerbi-api/v1.0/myorg/groups/${workspace.id}/reports`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      if (import.meta.env.DEV) {
+        response = await fetch(`/powerbi-api/${path}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+      } else {
+        response = await fetch(`/api/powerbi?path=${path}`);
+      }
       
       if (!response.ok) {
         const errorText = await response.text();
