@@ -169,6 +169,10 @@ export const Header = () => {
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
                   Consórcios
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/powerbi')}>
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Power BI Embed
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => window.open('/chat', '_blank')}>
                   <MessageSquare className="w-4 h-4 mr-2" />
                   IA Chat
@@ -226,6 +230,14 @@ export const Header = () => {
                   <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
                     Ações
                   </DropdownMenuLabel>
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => navigate("/powerbi")}
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Power BI Embed
+                  </Button>
                   {isAdmin && (
                     <DropdownMenuItem
                       onClick={() => navigate("/users")}

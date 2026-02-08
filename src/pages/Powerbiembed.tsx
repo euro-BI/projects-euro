@@ -1,0 +1,550 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { PageLayout } from "@/components/PageLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximize, Minimize } from "lucide-react";
+import { PowerBIEmbed } from "powerbi-client-react";
+import { models } from "powerbi-client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Workspace {
+  id: string;
+  name: string;
+  isReadOnly: boolean;
+  isOnDedicatedCapacity: boolean;
+}
+
+interface Report {
+  id: string;
+  name: string;
+  embedUrl: string;
+  webUrl: string;
+}
+
+interface EmbedToken {
+  token: string;
+  tokenId: string;
+  expiration: string;
+}
+
+export default function PowerBIEmbedPage() {
+  // Estados de navegação
+  const [view, setView] = useState<"workspaces" | "reports" | "embed">("workspaces");
+  
+  // Estados de dados
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
+  const [currentReport, setCurrentReport] = useState<Report | null>(null);
+  const [embedToken, setEmbedToken] = useState<string | null>(null);
+  
+  // Estados de UI
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewMode, setViewMode] = useState<"fitToPage" | "fitToWidth" | "actualSize">("fitToWidth");
+  const embedContainerRef = useRef<HTMLDivElement>(null);
+  const reportRef = useRef<any>(null);
+  const accessTokenRef = useRef<string | null>(null);
+
+  // Handle View Mode Change
+  const handleViewModeChange = useCallback(async (mode: "fitToPage" | "fitToWidth" | "actualSize") => {
+    setViewMode(mode);
+    
+    if (reportRef.current) {
+      try {
+        let displayOption;
+        
+        switch (mode) {
+          case "fitToPage":
+            displayOption = models.DisplayOption.FitToPage;
+            break;
+          case "fitToWidth":
+            displayOption = models.DisplayOption.FitToWidth;
+            break;
+          case "actualSize":
+            displayOption = models.DisplayOption.ActualSize;
+            break;
+        }
+        
+        await reportRef.current.updateSettings({
+          layoutType: models.LayoutType.Custom,
+          customLayout: {
+            displayOption: displayOption
+          }
+        });
+        
+        console.log(`Modo de visualização alterado para: ${mode}`);
+      } catch (e) {
+        console.error("Erro ao alterar modo de visualização:", e);
+      }
+    }
+  }, []);
+
+  // Obter Access Token via Service Principal
+  const getAccessToken = async (): Promise<string> => {
+    // Se já temos um token válido, reutilizar
+    if (accessTokenRef.current) {
+      return accessTokenRef.current;
+    }
+
+    const tenantId = import.meta.env.VITE_MSAL_TENANT_ID;
+    const clientId = import.meta.env.VITE_MSAL_CLIENT_ID;
+    const clientSecret = import.meta.env.VITE_MSAL_CLIENT_SECRET;
+
+    if (!tenantId || !clientId || !clientSecret) {
+      throw new Error("Credenciais não configuradas. Verifique as variáveis de ambiente.");
+    }
+
+    try {
+      // Usando o proxy configurado no vite.config.ts para evitar erro de CORS
+      const tokenEndpoint = `/microsoft-token/${tenantId}/oauth2/v2.0/token`;
+      
+      const formData = new URLSearchParams();
+      formData.append('grant_type', 'client_credentials');
+      formData.append('client_id', clientId);
+      formData.append('client_secret', clientSecret);
+      formData.append('scope', 'https://analysis.windows.net/powerbi/api/.default');
+
+      const response = await fetch(tokenEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formData.toString()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Erro na resposta da Microsoft:", errorData);
+        throw new Error(`Falha na autenticação com Azure AD: ${response.status}`);
+      }
+
+      const data = await response.json();
+      accessTokenRef.current = data.access_token;
+      
+      // Renovar token antes de expirar (normalmente expira em 1 hora)
+      setTimeout(() => {
+        accessTokenRef.current = null;
+      }, 50 * 60 * 1000); // 50 minutos
+
+      return data.access_token;
+    } catch (error) {
+      console.error("Erro ao obter token:", error);
+      throw new Error("Não foi possível autenticar com o Power BI. Verifique as credenciais.");
+    }
+  };
+
+  // Obter Embed Token para o relatório
+  const getEmbedToken = async (workspaceId: string, reportId: string): Promise<string> => {
+    const accessToken = await getAccessToken();
+    
+    try {
+      const response = await fetch(
+        `/powerbi-api/v1.0/myorg/groups/${workspaceId}/reports/${reportId}/GenerateToken`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            accessLevel: 'View'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Falha ao gerar embed token');
+      }
+
+      const data: EmbedToken = await response.json();
+      return data.token;
+    } catch (error) {
+      console.error("Erro ao obter embed token:", error);
+      throw error;
+    }
+  };
+
+  // Inicializar - Carregar workspaces automaticamente
+  useEffect(() => {
+    loadWorkspaces();
+  }, []);
+
+  // Listener para fullscreen
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Reaplicar configurações de visualização quando mudar fullscreen ou viewMode
+  useEffect(() => {
+    if (reportRef.current && view === "embed") {
+      const timer = setTimeout(() => {
+        handleViewModeChange(viewMode);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isFullscreen, viewMode, view, handleViewModeChange]);
+
+  // Carregar Workspaces
+  const loadWorkspaces = async () => {
+    console.log("Iniciando carregamento de workspaces...");
+    setLoading(true);
+    setError(null);
+    setStatusMessage("Carregando workspaces...");
+    
+    try {
+      const token = await getAccessToken();
+      
+      const response = await fetch("/powerbi-api/v1.0/myorg/groups", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Falha ao carregar workspaces: ${response.status} - ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log("Workspaces carregados:", data.value?.length || 0);
+      setWorkspaces(data.value || []);
+      setView("workspaces");
+      setStatusMessage("");
+    } catch (e: unknown) {
+      console.error("Erro ao carregar workspaces:", e);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Erro ao carregar workspaces: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carregar Relatórios
+  const loadReports = async (workspace: Workspace) => {
+    setCurrentWorkspace(workspace);
+    setLoading(true);
+    setError(null);
+    setStatusMessage(`Carregando relatórios de ${workspace.name}...`);
+    
+    try {
+      const token = await getAccessToken();
+      
+      const response = await fetch(`/powerbi-api/v1.0/myorg/groups/${workspace.id}/reports`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Falha ao carregar relatórios: ${response.status} - ${errorText}`);
+      }
+      
+      const data = await response.json();
+      setReports(data.value || []);
+      setView("reports");
+    } catch (e: unknown) {
+      console.error("Erro ao carregar relatórios:", e);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Erro ao carregar relatórios: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  };
+
+  // Selecionar Relatório para Embed
+  const handleSelectReport = async (report: Report) => {
+    if (!currentWorkspace) return;
+    
+    setLoading(true);
+    setStatusMessage("Preparando relatório...");
+    
+    try {
+      const token = await getEmbedToken(currentWorkspace.id, report.id);
+      setEmbedToken(token);
+      setCurrentReport(report);
+      setView("embed");
+    } catch (e: unknown) {
+      console.error("Erro ao preparar relatório:", e);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Erro ao preparar relatório: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  };
+
+  // Voltar
+  const handleBack = () => {
+    if (view === "embed") {
+      setView("reports");
+      setCurrentReport(null);
+      setEmbedToken(null);
+      setViewMode("fitToWidth");
+      if (isFullscreen) {
+        toggleFullscreen();
+      }
+    } else if (view === "reports") {
+      setView("workspaces");
+      setCurrentWorkspace(null);
+      setReports([]);
+    }
+  };
+
+  // Toggle Fullscreen
+  const toggleFullscreen = () => {
+    if (!embedContainerRef.current) return;
+
+    if (!isFullscreen) {
+      if (embedContainerRef.current.requestFullscreen) {
+        embedContainerRef.current.requestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+    setIsFullscreen(!isFullscreen);
+  };
+
+  return (
+    <PageLayout title="Power BI Embed - Sistema Próprio">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        
+        {/* Header e Navegação */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-4">
+            {view !== "workspaces" && (
+              <Button variant="outline" size="icon" onClick={handleBack}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">
+                {view === "workspaces" && "Seus Workspaces"}
+                {view === "reports" && `Relatórios: ${currentWorkspace?.name}`}
+                {view === "embed" && `Visualizando: ${currentReport?.name}`}
+              </h2>
+              <p className="text-muted-foreground">
+                {view === "workspaces" && "Selecione um workspace para ver os relatórios"}
+                {view === "reports" && "Selecione um relatório para visualizar"}
+                {view === "embed" && "Interaja com seu relatório Power BI"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mensagens de Status/Erro */}
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Erro</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {loading && (
+          <div className="flex items-center justify-center p-12">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
+              <p className="text-muted-foreground">{statusMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {/* View: Workspaces */}
+        {!loading && view === "workspaces" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {workspaces.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                Nenhum workspace encontrado.
+              </div>
+            ) : (
+              workspaces.map((ws) => (
+                <Card 
+                  key={ws.id} 
+                  className="cursor-pointer hover:border-primary transition-all hover:shadow-md group"
+                  onClick={() => loadReports(ws)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                        <LayoutDashboard className="h-6 w-6 text-blue-500" />
+                      </div>
+                      {ws.isOnDedicatedCapacity && (
+                        <span className="text-xs bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full border border-amber-200">
+                          Premium
+                        </span>
+                      )}
+                    </div>
+                    <CardTitle className="mt-4">{ws.name}</CardTitle>
+                    <CardDescription className="line-clamp-1">ID: {ws.id}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <span className={ws.isReadOnly ? "text-orange-500" : "text-green-500"}>
+                        {ws.isReadOnly ? "Somente Leitura" : "Acesso Completo"}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* View: Reports */}
+        {!loading && view === "reports" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {reports.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                Nenhum relatório encontrado neste workspace.
+              </div>
+            ) : (
+              reports.map((report) => (
+                <Card 
+                  key={report.id} 
+                  className="cursor-pointer hover:border-primary transition-all hover:shadow-md group"
+                  onClick={() => handleSelectReport(report)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="p-2 bg-yellow-500/10 rounded-lg group-hover:bg-yellow-500/20 transition-colors">
+                        <FileBarChart className="h-6 w-6 text-yellow-600" />
+                      </div>
+                    </div>
+                    <CardTitle className="mt-4">{report.name}</CardTitle>
+                    <CardDescription className="line-clamp-1">ID: {report.id}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button variant="link" className="p-0 h-auto text-primary">
+                      Visualizar Dashboard &rarr;
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* View: Embed */}
+        {!loading && view === "embed" && currentReport && embedToken && (
+          <div ref={embedContainerRef} className={isFullscreen ? "fixed inset-0 z-50 bg-background" : ""}>
+            <Card className={`h-[800px] overflow-hidden border-2 border-primary/20 shadow-xl ${isFullscreen ? 'h-full rounded-none border-0' : ''}`}>
+              <CardHeader className="pb-3 border-b flex flex-row items-center justify-between space-y-0">
+                <div className="flex items-center gap-4">
+                  <Button variant="outline" size="icon" onClick={handleBack}>
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <div>
+                    <CardTitle className="text-lg">{currentReport.name}</CardTitle>
+                    <CardDescription>Dashboard Power BI</CardDescription>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  {/* View Mode Selector */}
+                  <div className="flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
+                    <Select value={viewMode} onValueChange={(value) => handleViewModeChange(value as any)}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Visualização" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fitToWidth">Ajustar à largura</SelectItem>
+                        <SelectItem value="fitToPage">Ajustar à página</SelectItem>
+                        <SelectItem value="actualSize">Tamanho real</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Fullscreen Button */}
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={toggleFullscreen}
+                    title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                  >
+                    {isFullscreen ? (
+                      <Minimize className="h-4 w-4" />
+                    ) : (
+                      <Maximize className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="p-0 h-[calc(100%-73px)]">
+                <PowerBIEmbed
+                  embedConfig={{
+                    type: "report",
+                    id: currentReport.id,
+                    embedUrl: currentReport.embedUrl,
+                    accessToken: embedToken,
+                    tokenType: models.TokenType.Embed,
+                    settings: {
+                      panes: {
+                        filters: {
+                          expanded: false,
+                          visible: true
+                        },
+                        pageNavigation: {
+                          visible: true
+                        }
+                      },
+                      background: models.BackgroundType.Default,
+                      layoutType: models.LayoutType.Custom,
+                      customLayout: {
+                        displayOption: models.DisplayOption.FitToWidth
+                      }
+                    }
+                  }}
+                  eventHandlers={
+                    new Map([
+                      ['loaded', function () { 
+                        console.log('Relatório carregado'); 
+                      }],
+                      ['rendered', function () { 
+                        console.log('Relatório renderizado'); 
+                      }],
+                      ['error', function (event) { 
+                        console.error('Erro no Power BI:', event?.detail); 
+                      }]
+                    ])
+                  }
+                  cssClassName={"h-full w-full"}
+                  getEmbeddedComponent={(embeddedReport) => {
+                    reportRef.current = embeddedReport;
+                    // @ts-expect-error - window.report referência para debug se necessário
+                    window.report = embeddedReport;
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+      </div>
+    </PageLayout>
+  );
+}

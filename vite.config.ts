@@ -9,6 +9,26 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/microsoft-token': {
+        target: 'https://login.microsoftonline.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/microsoft-token/, ''),
+        secure: false,
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            proxyReq.removeHeader('Origin');
+            proxyReq.removeHeader('Referer');
+          });
+        },
+      },
+      '/powerbi-api': {
+        target: 'https://api.powerbi.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/powerbi-api/, ''),
+        secure: false,
+      }
+    }
   },
   plugins: [
     react(),

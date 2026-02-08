@@ -19,6 +19,7 @@ import BIDashboard from "./pages/BIDashboard";
 import InvestmentOffers from "./pages/InvestmentOffers";
 import Consorcios from "./pages/Consorcios";
 import Chat from "./pages/Chat";
+import PowerBIEmbedPage from "./pages/Powerbiembed";
 
 const queryClient = new QueryClient();
 
@@ -99,6 +100,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/powerbi"
+              element={
+                <ProtectedRoute>
+                  <PowerBIEmbedPage />
                 </ProtectedRoute>
               }
             />
