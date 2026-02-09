@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectActivities from "./pages/ProjectActivities";
 import Users from "./pages/Users";
+import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import BIDashboard from "./pages/BIDashboard";
@@ -42,6 +43,14 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
+                  <Welcome />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
               element={
                 <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <Dashboard />

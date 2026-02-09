@@ -44,6 +44,7 @@ interface UserProfile {
   role: string | null;
   profile_image_url: string | null;
   is_active: boolean | null;
+  codigo: string | null;
 }
 
 export default function Users() {
@@ -65,15 +66,13 @@ export default function Users() {
     profileImageUrl: "",
     is_active: true,
     email: "",
-    password: "", // Default to active for new users
+    password: "", 
+    codigo: "", // Adicionado campo codigo
   });
 
   useEffect(() => {
-
     loadUsers();
   }, []);
-
-
 
   const formatPhoneNumber = (value: string) => {
     // Remove todos os caracteres não numéricos
@@ -157,7 +156,7 @@ export default function Users() {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from("projects_profiles")
-        .select("id, first_name, last_name, phone, profile_image_url, is_active");
+        .select("id, first_name, last_name, phone, profile_image_url, is_active, codigo");
 
       if (profilesError) throw profilesError;
 
@@ -177,6 +176,7 @@ export default function Users() {
           role: userRole?.role ?? null,
           profile_image_url: profile.profile_image_url ?? null,
           is_active: profile.is_active ?? null,
+          codigo: profile.codigo ?? null,
         };
       });
 
@@ -197,6 +197,9 @@ export default function Users() {
       role: "user",
       profileImageUrl: "",
       is_active: true,
+      email: "",
+      password: "",
+      codigo: "", // Resetar codigo
     });
     setPreviewImage(null);
     setIsCreateUserDialogOpen(true);
@@ -235,6 +238,7 @@ export default function Users() {
           phone: formData.phone,
           profile_image_url: formData.profileImageUrl || null,
           is_active: formData.is_active,
+          codigo: formData.codigo || null, // Inserir codigo
         });
 
       if (profileError) throw profileError;
@@ -273,6 +277,7 @@ export default function Users() {
           phone: formData.phone,
           profile_image_url: formData.profileImageUrl || null,
           is_active: formData.is_active,
+          codigo: formData.codigo || null, // Atualizar codigo
         })
         .eq("id", selectedUserId);
 
@@ -389,7 +394,7 @@ export default function Users() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>UUID</TableHead>
+                  <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Sobrenome</TableHead>
                   <TableHead>Telefone</TableHead>
@@ -400,9 +405,7 @@ export default function Users() {
               <TableBody>
                 {users.map((userItem) => (
                   <TableRow key={userItem.id}>
-                    <TableCell className="font-mono text-xs">
-                      {userItem.id.substring(0, 8)}...
-                    </TableCell>
+                    <TableCell>{userItem.codigo || "-"}</TableCell>
                     <TableCell>{userItem.first_name || "-"}</TableCell>
                     <TableCell>{userItem.last_name || "-"}</TableCell>
                     <TableCell>{userItem.phone || "-"}</TableCell>
@@ -421,6 +424,7 @@ export default function Users() {
                               role: userItem.role || "user",
                               profileImageUrl: userItem.profile_image_url || "",
                               is_active: userItem.is_active ?? true,
+                              codigo: userItem.codigo || "",
                             });
                             setPreviewImage(userItem.profile_image_url);
                             setOpen(true);
@@ -441,9 +445,11 @@ export default function Users() {
             {users.map((userItem) => (
               <div key={userItem.id} className="glass-card rounded-lg p-4 flex items-start justify-between">
                 <div className="space-y-1">
-                  <div className="text-xs font-mono text-muted-foreground">
-                    UUID: {userItem.id.substring(0, 8)}...
-                  </div>
+                  {userItem.codigo && (
+                    <div className="text-xs font-bold text-primary">
+                      Cód: {userItem.codigo}
+                    </div>
+                  )}
                   <div className="text-sm font-medium">
                     {([userItem.first_name, userItem.last_name].filter(Boolean).join(" ") || "-")}
                   </div>
@@ -467,6 +473,7 @@ export default function Users() {
                         role: userItem.role || "user",
                         profileImageUrl: userItem.profile_image_url || "",
                         is_active: userItem.is_active ?? true,
+                        codigo: userItem.codigo || "",
                       });
                       setPreviewImage(userItem.profile_image_url);
                       setOpen(true);
@@ -557,6 +564,16 @@ export default function Users() {
                   value={formData.lastName}
                   onChange={(e) =>
                     setFormData({ ...formData, lastName: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="codigo">Código</Label>
+                <Input
+                  id="codigo"
+                  value={formData.codigo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, codigo: e.target.value })
                   }
                 />
               </div>
@@ -664,6 +681,16 @@ export default function Users() {
                   value={formData.lastName}
                   onChange={(e) =>
                     setFormData({ ...formData, lastName: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="codigo_create">Código</Label>
+                <Input
+                  id="codigo_create"
+                  value={formData.codigo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, codigo: e.target.value })
                   }
                 />
               </div>

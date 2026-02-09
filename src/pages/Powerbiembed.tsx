@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PageLayout } from "@/components/PageLayout";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximize, Minimize } from "lucide-react";
 import { PowerBIEmbed } from "powerbi-client-react";
 import { models } from "powerbi-client";
+import { getAllDashboardSettings } from "@/services/dashboardSettingsService";
 import {
   Select,
   SelectContent,
@@ -35,6 +37,7 @@ interface EmbedToken {
 }
 
 export default function PowerBIEmbedPage() {
+  const { user, userRole } = useAuth();
   // Estados de navegação
   const [view, setView] = useState<"workspaces" | "reports" | "embed">("workspaces");
   
@@ -50,6 +53,8 @@ export default function PowerBIEmbedPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showFullscreenHeader, setShowFullscreenHeader] = useState(false);
+  const [isSelectOpen, setIsSelectOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"fitToPage" | "fitToWidth" | "actualSize">("fitToWidth");
   const embedContainerRef = useRef<HTMLDivElement>(null);
   const reportRef = useRef<any>(null);
@@ -183,6 +188,14 @@ export default function PowerBIEmbedPage() {
     loadWorkspaces();
   }, []);
 
+  // Carregar relatórios automaticamente do primeiro workspace
+  useEffect(() => {
+    if (workspaces.length > 0 && view === "workspaces") {
+      // Carrega os relatórios do primeiro workspace automaticamente
+      loadReports(workspaces[0]);
+    }
+  }, [workspaces, view]);
+
   // Listener para fullscreen
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -272,7 +285,33 @@ export default function PowerBIEmbedPage() {
       }
       
       const data = await response.json();
-      setReports(data.value || []);
+      const allReports: Report[] = data.value || [];
+      
+      // Buscar configurações de visibilidade do Supabase
+      const settings = await getAllDashboardSettings();
+      
+      // Filtrar relatórios:
+      // 1. Deve estar marcado como is_visible = true
+      // 2. Se o usuário NÃO for admin_master, ele deve estar na lista assigned_users
+      const visibleReports = allReports.filter(report => {
+        const reportSetting = settings.find(s => s.dashboard_id === report.id);
+        
+        // Se não houver configuração ou is_visible for false, ninguém vê
+        if (!reportSetting || !reportSetting.is_visible) return false;
+        
+        // Se for admin_master, vê tudo que está is_visible
+        if (userRole === "admin_master") return true;
+        
+        // Se não for admin_master, verifica se o ID do usuário está em assigned_users
+        // assigned_users na tabela é jsonb, o serviço o tipa como string[]
+        const assignedUsers = Array.isArray(reportSetting.assigned_users) 
+          ? reportSetting.assigned_users 
+          : [];
+          
+        return user && assignedUsers.includes(user.id);
+      });
+      
+      setReports(visibleReports);
       setView("reports");
     } catch (e: unknown) {
       console.error("Erro ao carregar relatórios:", e);
@@ -327,6 +366,10 @@ export default function PowerBIEmbedPage() {
   const toggleFullscreen = () => {
     if (!embedContainerRef.current) return;
 
+    if (isFullscreen) {
+      setShowFullscreenHeader(false);
+    }
+
     if (!isFullscreen) {
       if (embedContainerRef.current.requestFullscreen) {
         embedContainerRef.current.requestFullscreen();
@@ -346,20 +389,19 @@ export default function PowerBIEmbedPage() {
         {/* Header e Navegação */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
-            {view !== "workspaces" && (
+            {view === "embed" && (
               <Button variant="outline" size="icon" onClick={handleBack}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
             <div>
               <h2 className="text-2xl font-bold tracking-tight">
-                {view === "workspaces" && "Seus Workspaces"}
-                {view === "reports" && `Relatórios: ${currentWorkspace?.name}`}
+                {view === "workspaces" && "Carregando relatórios..."}
+                {view === "reports" && "Selecione um relatório para visualizar"}
                 {view === "embed" && `Visualizando: ${currentReport?.name}`}
               </h2>
               <p className="text-muted-foreground">
-                {view === "workspaces" && "Selecione um workspace para ver os relatórios"}
-                {view === "reports" && "Selecione um relatório para visualizar"}
+                {view === "workspaces" && "Aguarde, carregando relatórios disponíveis..."}
                 {view === "embed" && "Interaja com seu relatório Power BI"}
               </p>
             </div>
@@ -461,52 +503,74 @@ export default function PowerBIEmbedPage() {
 
         {/* View: Embed */}
         {!loading && view === "embed" && currentReport && embedToken && (
-          <div ref={embedContainerRef} className={isFullscreen ? "fixed inset-0 z-50 bg-background" : ""}>
-            <Card className={`h-[800px] overflow-hidden border-2 border-primary/20 shadow-xl ${isFullscreen ? 'h-full rounded-none border-0' : ''}`}>
-              <CardHeader className="pb-3 border-b flex flex-row items-center justify-between space-y-0">
-                <div className="flex items-center gap-4">
-                  <Button variant="outline" size="icon" onClick={handleBack}>
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                  <div>
-                    <CardTitle className="text-lg">{currentReport.name}</CardTitle>
-                    <CardDescription>Dashboard Power BI</CardDescription>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  {/* View Mode Selector */}
-                  <div className="flex items-center gap-2">
-                    <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
-                    <Select value={viewMode} onValueChange={(value) => handleViewModeChange(value as any)}>
-                      <SelectTrigger className="w-[160px]">
-                        <SelectValue placeholder="Visualização" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fitToWidth">Ajustar à largura</SelectItem>
-                        <SelectItem value="fitToPage">Ajustar à página</SelectItem>
-                        <SelectItem value="actualSize">Tamanho real</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          <div ref={embedContainerRef} className={isFullscreen ? "fixed inset-0 z-50 bg-[#0a0a0a] group flex items-center justify-center" : ""}>
+            <Card className={`overflow-hidden border-2 border-primary/20 shadow-xl ${isFullscreen ? 'w-full h-full rounded-none border-0 bg-transparent' : 'h-[800px]'}`}>
+              {/* Trigger area for hover at the top when in fullscreen */}
+              {isFullscreen && (
+                <div 
+                  className="absolute top-0 left-0 right-0 h-4 z-[60] cursor-pointer" 
+                  onMouseEnter={() => setShowFullscreenHeader(true)}
+                />
+              )}
 
-                  {/* Fullscreen Button */}
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={toggleFullscreen}
-                    title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
-                  >
-                    {isFullscreen ? (
-                      <Minimize className="h-4 w-4" />
-                    ) : (
-                      <Maximize className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
+              <div className={`transition-all duration-300 ease-in-out ${
+                isFullscreen 
+                  ? `absolute top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-b shadow-lg ${
+                      showFullscreenHeader ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
+                    }`
+                  : ""
+              }`}
+               onMouseLeave={() => isFullscreen && !isSelectOpen && setShowFullscreenHeader(false)}
+               >
+                <CardHeader className="pb-3 border-b flex flex-row items-center justify-between space-y-0">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <CardTitle className="text-lg">{currentReport.name}</CardTitle>
+                      <CardDescription>Dashboard Power BI</CardDescription>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    {/* View Mode Selector */}
+                    <div className="flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
+                      <Select 
+                        value={viewMode} 
+                        onValueChange={(value) => handleViewModeChange(value as any)}
+                        onOpenChange={setIsSelectOpen}
+                      >
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue placeholder="Visualização" />
+                        </SelectTrigger>
+                        <SelectContent container={embedContainerRef.current || undefined}>
+                          <SelectItem value="fitToWidth">Ajustar à largura</SelectItem>
+                          <SelectItem value="fitToPage">Ajustar à página</SelectItem>
+                          <SelectItem value="actualSize">Tamanho real</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Fullscreen Button */}
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={toggleFullscreen}
+                      title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                    >
+                      {isFullscreen ? (
+                        <Minimize className="h-4 w-4" />
+                      ) : (
+                        <Maximize className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+              </div>
               
-              <CardContent className="p-0 h-[calc(100%-73px)]">
+              <CardContent 
+                 className={`p-0 ${isFullscreen ? 'h-full flex items-center justify-center' : 'h-[calc(100%-73px)]'}`}
+                 onMouseEnter={() => isFullscreen && !isSelectOpen && setShowFullscreenHeader(false)}
+               >
                 <PowerBIEmbed
                   embedConfig={{
                     type: "report",
@@ -518,10 +582,10 @@ export default function PowerBIEmbedPage() {
                       panes: {
                         filters: {
                           expanded: false,
-                          visible: true
+                          visible: false
                         },
                         pageNavigation: {
-                          visible: true
+                          visible: false
                         }
                       },
                       background: models.BackgroundType.Default,
@@ -544,7 +608,7 @@ export default function PowerBIEmbedPage() {
                       }]
                     ])
                   }
-                  cssClassName={"h-full w-full"}
+                  cssClassName={"h-full w-full border-0 m-0 p-0"}
                   getEmbeddedComponent={(embeddedReport) => {
                     reportRef.current = embeddedReport;
                     // @ts-expect-error - window.report referência para debug se necessário

@@ -14,7 +14,7 @@ const loginSchema = z.object({
 });
 
 export default function Auth() {
-  const { signIn, user } = useAuth();
+  const { signIn, user, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
@@ -26,10 +26,11 @@ export default function Auth() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (user) {
+    if (user && userRole) {
+      // Agora todos vão para o destino pretendido (que por padrão é "/")
       navigate(from, { replace: true });
     }
-  }, [user, navigate, from]);
+  }, [user, userRole, navigate, from]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

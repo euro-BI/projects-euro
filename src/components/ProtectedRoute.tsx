@@ -21,7 +21,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       });
     } else if (!loading && user && allowedRoles && userRole && !allowedRoles.includes(userRole)) {
       toast.error("Você não tem permissão para acessar esta página.");
-      navigate("/"); // Redireciona para o dashboard
+      navigate("/"); // Agora todos redirecionam para a home (Welcome)
     }
   }, [user, loading, userRole, allowedRoles, navigate, location]);
 

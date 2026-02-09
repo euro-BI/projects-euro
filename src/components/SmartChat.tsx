@@ -12,13 +12,15 @@ import {
   ChevronDown,
   Volume2,
   Image as ImageIcon,
-  MessageSquarePlus
+  MessageSquarePlus,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -229,8 +231,10 @@ const formatText = (text: string) => {
 
 // --- Main Chat Component ---
 export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) => {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const navigate = useNavigate();
   const [userName, setUserName] = useState<string>('');
+  const [userCodigo, setUserCodigo] = useState<string>('');
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -258,13 +262,14 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
       if (user?.id) {
         const { data } = await supabase
           .from("projects_profiles")
-          .select("first_name, last_name, profile_image_url")
+          .select("first_name, last_name, profile_image_url, codigo")
           .eq("id", user.id)
           .single();
         
         if (data) {
           setUserName(`${data.first_name || ""} ${data.last_name || ""}`.trim());
           setUserAvatar(data.profile_image_url);
+          setUserCodigo(data.codigo || "");
         }
       }
     };
@@ -341,7 +346,9 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           tipo: 'text',
           chatInput: contentToSend,
           session: sessionId,
-          base64: null
+          base64: null,
+          role: userRole,
+          codigo: userCodigo
         }])
       });
 
@@ -485,7 +492,9 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           tipo: 'audio',
           chatInput: '',
           session: sessionId,
-          base64: base64Data
+          base64: base64Data,
+          role: userRole,
+          codigo: userCodigo
         }])
       });
 
@@ -520,13 +529,22 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
             </div>
           </div>
         </div>
-        <button 
-          onClick={() => setIsDeleteDialogOpen(true)}
-          className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
-          title="Limpar histórico e nova sessão"
-        >
-          <Trash2 size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => navigate("/")}
+            className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
+            title="Voltar para o início"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <button 
+            onClick={() => setIsDeleteDialogOpen(true)}
+            className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
+            title="Limpar histórico e nova sessão"
+          >
+            <Trash2 size={20} />
+          </button>
+        </div>
       </div>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

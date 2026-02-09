@@ -60,7 +60,7 @@ export default function DashboardManagement() {
   }, []);
 
   const userOptions: OptionType[] = users.map(user => ({
-    label: `${user.first_name} ${user.last_name} (${user.email})`,
+    label: `${user.first_name} ${user.last_name}`,
     value: user.id,
   }));
 
@@ -174,13 +174,9 @@ export default function DashboardManagement() {
                         }
                         placeholder="Selecione usuários"
                         disabled={isSaving}
+                        showCountOnly={true}
                       />
                     </div>
-                    <Button variant="link" className="p-0 h-auto text-primary" asChild>
-                      <a href={report.webUrl} target="_blank" rel="noopener noreferrer">
-                        Abrir no Power BI &rarr;
-                      </a>
-                    </Button>
                   </CardContent>
                 </Card>
               );

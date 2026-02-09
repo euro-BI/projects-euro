@@ -31,6 +31,7 @@ interface MultiSelectProps {
   className?: string;
   placeholder?: string;
   disabled?: boolean;
+  showCountOnly?: boolean;
 }
 
 export function MultiSelect({
@@ -40,6 +41,7 @@ export function MultiSelect({
   className,
   placeholder = "Selecione...",
   disabled = false,
+  showCountOnly = false,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState("");
@@ -69,29 +71,35 @@ export function MultiSelect({
           className={cn("w-full justify-between", className)}
           disabled={disabled}
         >
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 overflow-hidden">
             {selected.length > 0 ? (
-              selected.map((value) => {
-                const option = options.find((o) => o.value === value);
-                return (
-                  option && (
-                    <Badge
-                      key={value}
-                      variant="secondary"
-                      className="flex items-center gap-1"
-                    >
-                      {option.label}
-                      <XCircle
-                        className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelect(value);
-                        }}
-                      />
-                    </Badge>
-                  )
-                );
-              })
+              showCountOnly ? (
+                <span className="text-sm">
+                  {selected.length} {selected.length === 1 ? "usuário selecionado" : "usuários selecionados"}
+                </span>
+              ) : (
+                selected.map((value) => {
+                  const option = options.find((o) => o.value === value);
+                  return (
+                    option && (
+                      <Badge
+                        key={value}
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                      >
+                        {option.label}
+                        <XCircle
+                          className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelect(value);
+                          }}
+                        />
+                      </Badge>
+                    )
+                  );
+                })
+              )
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>
             )}

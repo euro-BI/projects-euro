@@ -8,6 +8,7 @@ export interface UserProfile {
   profile_image_url: string | null;
   is_active: boolean | null;
   role: string | null; // Adicionado para incluir o papel do usuário
+  codigo: string | null; // Adicionado para incluir o código do usuário
 }
 
 /**
@@ -23,7 +24,8 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
         first_name,
         last_name,
         profile_image_url,
-        is_active
+        is_active,
+        codigo
       `);
 
     if (profilesError) {
@@ -79,6 +81,7 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
         profile_image_url: profile.profile_image_url,
         is_active: profile.is_active,
         role: primaryRole,
+        codigo: profile.codigo,
       };
     });
 

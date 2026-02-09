@@ -48,19 +48,21 @@ export const Header = () => {
 
   // Função para obter o nome da página atual
   const getCurrentPageName = () => {
-    if (location.pathname === '/' || location.pathname === '/dashboard') return 'Dashboard';
+    if (location.pathname === '/') return 'Início';
+    if (location.pathname === '/dashboard') return 'Dashboard';
     if (location.pathname.startsWith('/projects')) return 'Projetos';
     if (location.pathname === '/bi-dashboard') return 'Atualizações BD';
     if (location.pathname === '/investment-offers') return 'Ofertas';
     if (location.pathname === '/consorcios') return 'Consórcios';
     if (location.pathname === '/chat') return 'IA Chat';
     if (location.pathname === '/users') return 'Usuários';
-    return 'Dashboard';
+    return 'Início';
   };
 
   // Função para obter o ícone da página atual
   const getCurrentPageIcon = () => {
-    if (location.pathname === '/' || location.pathname === '/dashboard') return Home;
+    if (location.pathname === '/') return Home;
+    if (location.pathname === '/dashboard') return LayoutDashboard;
     if (location.pathname.startsWith('/projects')) return FolderKanban;
     if (location.pathname === '/bi-dashboard') return RefreshCw;
     if (location.pathname === '/investment-offers') return Wallet;
@@ -167,9 +169,13 @@ export const Header = () => {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>Navegar para</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/')}>
+                  <Home className="w-4 h-4 mr-2" />
+                  Início
+                </DropdownMenuItem>
                 {(isAdminMaster || isAdmin) && (
-                  <DropdownMenuItem onClick={() => navigate('/')}>
-                    <Home className="w-4 h-4 mr-2" />
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                    <LayoutDashboard className="w-4 h-4 mr-2" />
                     Dashboard
                   </DropdownMenuItem>
                 )}
@@ -204,7 +210,7 @@ export const Header = () => {
                   </DropdownMenuItem>
                 )}
                 {(isAdminMaster || isAdmin || isRegularUser) && (
-                  <DropdownMenuItem onClick={() => window.open('/chat', '_blank')}>
+                  <DropdownMenuItem onClick={() => navigate('/chat')}>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     IA Chat
                   </DropdownMenuItem>
@@ -333,13 +339,21 @@ export const Header = () => {
                 </div>
                 
                 <div className="grid gap-2">
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => navigate("/")}
+                  >
+                    <Home className="w-4 h-4 mr-2" />
+                    Início
+                  </Button>
                   {(isAdminMaster || isAdmin) && (
                     <Button
                       variant="ghost"
                       className="justify-start"
-                      onClick={() => navigate("/")}
+                      onClick={() => navigate("/dashboard")}
                     >
-                      <Home className="w-4 h-4 mr-2" />
+                      <LayoutDashboard className="w-4 h-4 mr-2" />
                       Dashboard
                     </Button>
                   )}
@@ -419,7 +433,7 @@ export const Header = () => {
                     <Button
                       variant="ghost"
                       className="justify-start"
-                      onClick={() => window.open('/chat', '_blank')}
+                      onClick={() => navigate('/chat')}
                     >
                       <MessageSquare className="w-4 h-4 mr-2" />
                       IA Chat
