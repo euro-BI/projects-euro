@@ -1,13 +1,15 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: string[];
 }
 
-export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
+  const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -17,8 +19,11 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       navigate("/auth", { 
         state: { from: location.pathname + location.search } 
       });
+    } else if (!loading && user && allowedRoles && userRole && !allowedRoles.includes(userRole)) {
+      toast.error("Você não tem permissão para acessar esta página.");
+      navigate("/"); // Redireciona para o dashboard
     }
-  }, [user, loading, navigate, location]);
+  }, [user, loading, userRole, allowedRoles, navigate, location]);
 
   if (loading) {
     return (
@@ -31,7 +36,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user) {
+  if (!user || (allowedRoles && userRole && !allowedRoles.includes(userRole))) {
     return null;
   }
 

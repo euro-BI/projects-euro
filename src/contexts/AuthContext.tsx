@@ -8,6 +8,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  userRole: string | null;
+  isActive: boolean | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -18,7 +20,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isActive, setIsActive] = useState<boolean | null>(null);
   const navigate = useNavigate();
+
+  const fetchUserAuthDetails = async (userId: string) => {
+    // Fetch user role
+    const { data: roleData, error: roleError } = await supabase
+      .from("projects_user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .single();
+
+    if (roleError) {
+      console.error("Erro ao buscar role do usuário:", roleError);
+      setUserRole(null);
+    } else if (roleData) {
+      setUserRole(roleData.role);
+    } else {
+      setUserRole(null);
+    }
+
+    // Fetch user active status from projects_profiles
+    const { data: profileData, error: profileError } = await supabase
+      .from("projects_profiles")
+      .select("is_active")
+      .eq("id", userId)
+      .single();
+
+    if (profileError) {
+      console.error("Erro ao buscar status de atividade do usuário:", profileError);
+      setIsActive(null);
+    } else if (profileData) {
+      setIsActive(profileData.is_active);
+      if (!profileData.is_active) {
+        toast.error("Sua conta está inativa. Por favor, entre em contato com o administrador.");
+        await signOut(); // Força o logout se o usuário estiver inativo
+      }
+    } else {
+      setIsActive(null);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -28,6 +70,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        fetchUserAuthDetails(session.user.id);
+      } else {
+        setUserRole(null);
+      }
     });
 
     // THEN check for existing session
@@ -35,6 +82,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        fetchUserAuthDetails(session.user.id);
+      } else {
+        setUserRole(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -46,8 +98,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       password,
     });
     
-    // Don't navigate here - let the Auth component handle navigation
-    // based on the intended destination
+    if (!error) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        fetchUserAuthDetails(user.id);
+      }
+    }
     
     return { error };
   };
@@ -74,6 +130,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Garante que limpamos a sessão local no estado do React
       setUser(null);
       setSession(null);
+      setUserRole(null); // Limpa a role do usuário
       
       // Limpa explicitamente o localStorage caso o Supabase não tenha feito
       // Isso ajuda a evitar que o Auth.tsx redirecione de volta se detectar algo
@@ -88,7 +145,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, userRole, isActive, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

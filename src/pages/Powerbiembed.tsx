@@ -340,7 +340,7 @@ export default function PowerBIEmbedPage() {
   };
 
   return (
-    <PageLayout title="Power BI Embed - Sistema Próprio">
+    <PageLayout title="Power BI - Sistema Próprio">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         
         {/* Header e Navegação */}

@@ -20,6 +20,7 @@ import InvestmentOffers from "./pages/InvestmentOffers";
 import Consorcios from "./pages/Consorcios";
 import Chat from "./pages/Chat";
 import PowerBIEmbedPage from "./pages/Powerbiembed";
+import DashboardManagement from "./pages/DashboardManagement";
 
 const queryClient = new QueryClient();
 
@@ -42,7 +43,7 @@ const App = () => (
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <Dashboard />
                 </ProtectedRoute>
               }
@@ -50,7 +51,7 @@ const App = () => (
             <Route
               path="/projects"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <Projects />
                 </ProtectedRoute>
               }
@@ -58,15 +59,23 @@ const App = () => (
             <Route
               path="/projects/:projectId"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <ProjectActivities />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard-management"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master"]}>
+                  <DashboardManagement />
                 </ProtectedRoute>
               }
             />
             <Route
               path="/users"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master"]}>
                   <Users />
                 </ProtectedRoute>
               }
@@ -74,7 +83,7 @@ const App = () => (
             <Route
               path="/bi-dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master"]}>
                   <BIDashboard />
                 </ProtectedRoute>
               }
@@ -82,7 +91,7 @@ const App = () => (
             <Route
               path="/investment-offers"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <InvestmentOffers />
                 </ProtectedRoute>
               }
@@ -90,7 +99,7 @@ const App = () => (
             <Route
               path="/consorcios"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <Consorcios />
                 </ProtectedRoute>
               }
@@ -98,7 +107,7 @@ const App = () => (
             <Route
               path="/chat"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
                   <Chat />
                 </ProtectedRoute>
               }
@@ -106,7 +115,7 @@ const App = () => (
             <Route
               path="/powerbi"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
                   <PowerBIEmbedPage />
                 </ProtectedRoute>
               }

@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet, FileSpreadsheet, MessageSquare } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,19 +30,27 @@ interface UserProfile {
 }
 
 export const Header = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+
+  // Helper booleans for role checks
+  const isAdminMaster = userRole === "admin_master";
+  const isAdmin = userRole === "admin";
+  const isRegularUser = userRole === "user";
+
+  // Combine roles for easier checks
+  const canAccessAdminFeatures = isAdminMaster || isAdmin;
+  const canAccessPowerBIAndIA = isAdminMaster || isAdmin || isRegularUser;
 
   // Função para obter o nome da página atual
   const getCurrentPageName = () => {
     if (location.pathname === '/' || location.pathname === '/dashboard') return 'Dashboard';
     if (location.pathname.startsWith('/projects')) return 'Projetos';
-    if (location.pathname === '/bi-dashboard') return 'BI Dashboard';
+    if (location.pathname === '/bi-dashboard') return 'Atualizações BD';
     if (location.pathname === '/investment-offers') return 'Ofertas';
     if (location.pathname === '/consorcios') return 'Consórcios';
     if (location.pathname === '/chat') return 'IA Chat';
@@ -53,7 +62,7 @@ export const Header = () => {
   const getCurrentPageIcon = () => {
     if (location.pathname === '/' || location.pathname === '/dashboard') return Home;
     if (location.pathname.startsWith('/projects')) return FolderKanban;
-    if (location.pathname === '/bi-dashboard') return BarChart3;
+    if (location.pathname === '/bi-dashboard') return RefreshCw;
     if (location.pathname === '/investment-offers') return Wallet;
     if (location.pathname === '/consorcios') return FileSpreadsheet;
     if (location.pathname === '/chat') return MessageSquare;
@@ -64,7 +73,6 @@ export const Header = () => {
   useEffect(() => {
     if (user) {
       loadUserProfile();
-      checkAdminStatus();
     }
   }, [user]);
 
@@ -85,28 +93,38 @@ export const Header = () => {
     }
   };
 
-  const checkAdminStatus = async () => {
-    if (!user) return;
 
-    try {
-      const { data } = await supabase
-        .from("projects_user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      setIsAdmin(!!data);
-    } catch (error) {
-      console.error("Error checking admin status:", error);
-    }
-  };
 
   const getDisplayName = () => {
     if (userProfile?.first_name || userProfile?.last_name) {
       return `${userProfile.first_name || ""} ${userProfile.last_name || ""}`.trim();
     }
     return user?.email || "Usuário";
+  };
+
+  const getRoleBadge = () => {
+    if (userRole === "admin_master") {
+      return (
+        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] py-0 h-4">
+          <Shield className="w-2 h-2 mr-1" />
+          Admin Master
+        </Badge>
+      );
+    }
+    if (userRole === "admin") {
+      return (
+        <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 h-4">
+          <Shield className="w-2 h-2 mr-1" />
+          Admin
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-[10px] py-0 h-4">
+        <User className="w-2 h-2 mr-1" />
+        Usuário
+      </Badge>
+    );
   };
 
   if (!user) return null;
@@ -149,40 +167,49 @@ export const Header = () => {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>Navegar para</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/')}>
-                  <Home className="w-4 h-4 mr-2" />
-                  Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/projects')}>
-                  <FolderKanban className="w-4 h-4 mr-2" />
-                  Projetos
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  BI Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/investment-offers')}>
-                  <Wallet className="w-4 h-4 mr-2" />
-                  Ofertas
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/consorcios')}>
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  Consórcios
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/powerbi')}>
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Power BI Embed
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open('/chat', '_blank')}>
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  IA Chat
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <DropdownMenuItem onClick={() => navigate('/users')}>
-                    <Users className="w-4 h-4 mr-2" />
-                    Usuários
+                {(isAdminMaster || isAdmin) && (
+                  <DropdownMenuItem onClick={() => navigate('/')}>
+                    <Home className="w-4 h-4 mr-2" />
+                    Dashboard
                   </DropdownMenuItem>
                 )}
+                {(isAdminMaster || isAdmin) && (
+                  <DropdownMenuItem onClick={() => navigate('/projects')}>
+                    <FolderKanban className="w-4 h-4 mr-2" />
+                    Projetos
+                  </DropdownMenuItem>
+                )}
+                {isAdminMaster && (
+                  <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Atualizações BD
+                  </DropdownMenuItem>
+                )}
+                {isAdminMaster && (
+                  <DropdownMenuItem onClick={() => navigate('/investment-offers')}>
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Ofertas
+                  </DropdownMenuItem>
+                )}
+                {isAdminMaster && (
+                  <DropdownMenuItem onClick={() => navigate('/consorcios')}>
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    Consórcios
+                  </DropdownMenuItem>
+                )}
+                {(isAdminMaster || isAdmin || isRegularUser) && (
+                  <DropdownMenuItem onClick={() => navigate('/powerbi')}>
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Power BI
+                  </DropdownMenuItem>
+                )}
+                {(isAdminMaster || isAdmin || isRegularUser) && (
+                  <DropdownMenuItem onClick={() => window.open('/chat', '_blank')}>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    IA Chat
+                  </DropdownMenuItem>
+                )}
+
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -219,9 +246,10 @@ export const Header = () => {
                       </div>
                     )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 flex flex-col items-center">
                     <p className="text-sm font-medium">👋 Bem-vindo!</p>
                     <p className="text-sm font-semibold text-primary">{getDisplayName()}</p>
+                    {getRoleBadge()}
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
                   </div>
                 </div>
@@ -230,15 +258,17 @@ export const Header = () => {
                   <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
                     Ações
                   </DropdownMenuLabel>
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => navigate("/powerbi")}
-                  >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Power BI Embed
-                  </Button>
-                  {isAdmin && (
+
+                  {isAdminMaster && (
+                    <DropdownMenuItem
+                      onClick={() => navigate("/dashboard-management")}
+                      className="cursor-pointer hover:bg-primary/10"
+                    >
+                      <LayoutDashboard className="w-4 h-4 mr-2" />
+                      Gerenciar Dashboards
+                    </DropdownMenuItem>
+                  )}
+                  {isAdminMaster && (
                     <DropdownMenuItem
                       onClick={() => navigate("/users")}
                       className="cursor-pointer hover:bg-primary/10"
@@ -294,73 +324,107 @@ export const Header = () => {
                       </div>
                     )}
                   </div>
-                  <div className="text-sm">
+                  <div className="text-sm flex flex-col items-center">
                     <div className="text-lg mb-1">👋 Bem-vindo!</div>
                     <div className="font-medium text-foreground">{getDisplayName()}</div>
+                    <div className="mt-1">{getRoleBadge()}</div>
                     <div className="text-xs text-muted-foreground mt-1">{user?.email}</div>
                   </div>
                 </div>
                 
                 <div className="grid gap-2">
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => navigate("/")}
-                  >
-                    <Home className="w-4 h-4 mr-2" />
-                    Dashboard
-                  </Button>
-                  {isAdmin && (
+                  {(isAdminMaster || isAdmin) && (
                     <Button
                       variant="ghost"
                       className="justify-start"
-                      onClick={() => navigate("/users")}
+                      onClick={() => navigate("/")}
+                    >
+                      <Home className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Button>
+                  )}
+
+                  {/* Navegação mobile */}
+                  {(isAdminMaster || isAdmin) && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/projects')}
+                    >
+                      <FolderKanban className="w-4 h-4 mr-2" />
+                      Projetos
+                    </Button>
+                  )}
+                  {isAdminMaster && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/bi-dashboard')}
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Atualizações BD
+                    </Button>
+                  )}
+                  {isAdminMaster && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/investment-offers')}
+                    >
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Ofertas
+                    </Button>
+                  )}
+                  {isAdminMaster && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/consorcios')}
+                    >
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Consórcios
+                    </Button>
+                  )}
+                  {isAdminMaster && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/dashboard-management')}
+                    >
+                      <LayoutDashboard className="w-4 h-4 mr-2" />
+                      Gerenciar Dashboards
+                    </Button>
+                  )}
+                  {isAdminMaster && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/users')}
                     >
                       <Users className="w-4 h-4 mr-2" />
                       Gerenciar Usuários
                     </Button>
                   )}
-                  {/* Navegação mobile */}
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => navigate('/projects')}
-                  >
-                    <FolderKanban className="w-4 h-4 mr-2" />
-                    Projetos
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => navigate('/bi-dashboard')}
-                  >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    BI Dashboard
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => navigate('/investment-offers')}
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Ofertas
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => navigate('/consorcios')}
-                  >
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    Consórcios
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => window.open('/chat', '_blank')}
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    IA Chat
-                  </Button>
+                  {(isAdminMaster || isAdmin || isRegularUser) && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/powerbi')}
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Power BI
+                    </Button>
+                  )}
+                  {(isAdminMaster || isAdmin || isRegularUser) && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => window.open('/chat', '_blank')}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      IA Chat
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     className="justify-start"

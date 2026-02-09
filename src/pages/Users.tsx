@@ -34,6 +34,7 @@ import { Shield, User as UserIcon, ArrowLeft, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { PageLayout } from "@/components/PageLayout";
+import { Switch } from "@/components/ui/switch";
 
 interface UserProfile {
   id: string;
@@ -42,17 +43,18 @@ interface UserProfile {
   phone: string | null;
   role: string | null;
   profile_image_url: string | null;
+  is_active: boolean | null;
 }
 
 export default function Users() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // Para o diálogo de edição
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false); // Para o diálogo de criação
   const [isUploading, setIsUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -61,25 +63,17 @@ export default function Users() {
     phone: "",
     role: "user",
     profileImageUrl: "",
+    is_active: true,
+    email: "",
+    password: "", // Default to active for new users
   });
 
   useEffect(() => {
-    checkAdminStatus();
+
     loadUsers();
   }, []);
 
-  const checkAdminStatus = async () => {
-    if (!user) return;
 
-    const { data } = await supabase
-      .from("projects_user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    setIsAdmin(!!data);
-  };
 
   const formatPhoneNumber = (value: string) => {
     // Remove todos os caracteres não numéricos
@@ -163,7 +157,7 @@ export default function Users() {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from("projects_profiles")
-        .select("id, first_name, last_name, phone, profile_image_url");
+        .select("id, first_name, last_name, phone, profile_image_url, is_active");
 
       if (profilesError) throw profilesError;
 
@@ -182,6 +176,7 @@ export default function Users() {
           phone: profile.phone ?? null,
           role: userRole?.role ?? null,
           profile_image_url: profile.profile_image_url ?? null,
+          is_active: profile.is_active ?? null,
         };
       });
 
@@ -194,9 +189,78 @@ export default function Users() {
     }
   };
 
+  const handleCreateUserClick = () => {
+    setFormData({
+      firstName: "",
+      lastName: "",
+      phone: "",
+      role: "user",
+      profileImageUrl: "",
+      is_active: true,
+    });
+    setPreviewImage(null);
+    setIsCreateUserDialogOpen(true);
+  };
+
+  const handleCreateUser = async () => {
+    if (userRole !== "admin_master") {
+      toast.error("Apenas administradores mestre podem criar usuários");
+      return;
+    }
+
+    if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
+      toast.error("Por favor, preencha todos os campos obrigatórios (Email, Senha, Nome, Sobrenome).");
+      return;
+    }
+
+    try {
+      // 1. Criar usuário no Auth do Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Usuário não retornado após criação.");
+
+      const newUserId = authData.user.id;
+
+      // 2. Inserir perfil em projects_profiles
+      const { error: profileError } = await supabase
+        .from("projects_profiles")
+        .insert({
+          id: newUserId,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          profile_image_url: formData.profileImageUrl || null,
+          is_active: formData.is_active,
+        });
+
+      if (profileError) throw profileError;
+
+      // 3. Inserir role em projects_user_roles
+      const { error: roleError } = await supabase
+        .from("projects_user_roles")
+        .insert({
+          user_id: newUserId,
+          role: formData.role as "admin_master" | "admin" | "user",
+        });
+
+      if (roleError) throw roleError;
+
+      toast.success("Usuário criado com sucesso!");
+      setIsCreateUserDialogOpen(false);
+      loadUsers(); // Recarrega a lista de usuários
+    } catch (error: any) {
+      console.error("Erro ao criar usuário:", error);
+      toast.error(`Erro ao criar usuário: ${error.message || "Erro desconhecido"}`);
+    }
+  };
+
   const handleUpdateProfile = async () => {
-    if (!isAdmin || !selectedUserId) {
-      toast.error("Apenas administradores podem atualizar perfis");
+    if (userRole !== "admin_master" || !selectedUserId) {
+      toast.error("Apenas administradores mestre podem atualizar perfis");
       return;
     }
 
@@ -208,6 +272,7 @@ export default function Users() {
           last_name: formData.lastName,
           phone: formData.phone,
           profile_image_url: formData.profileImageUrl || null,
+          is_active: formData.is_active,
         })
         .eq("id", selectedUserId);
 
@@ -226,17 +291,17 @@ export default function Users() {
         // Se já existe um role, atualizar
         const { error } = await supabase
           .from("projects_user_roles")
-          .update({ role: formData.role as "admin" | "user" })
+          .update({ role: formData.role as "admin_master" | "admin" | "user" })
           .eq("user_id", selectedUserId);
         roleError = error;
       } else {
         // Se não existe, inserir novo
         const { error } = await supabase
           .from("projects_user_roles")
-          .insert({
-            user_id: selectedUserId,
-            role: formData.role as "admin" | "user",
-          });
+            .insert({
+              user_id: selectedUserId,
+              role: formData.role as "admin_master" | "admin" | "user",
+            });
         roleError = error;
       }
 
@@ -254,6 +319,14 @@ export default function Users() {
   };
 
   const getRoleBadge = (role: string | null) => {
+    if (role === "admin_master") {
+      return (
+        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+          <Shield className="w-3 h-3 mr-1" />
+          Admin Master
+        </Badge>
+      );
+    }
     if (role === "admin") {
       return (
         <Badge className="bg-primary/20 text-primary border-primary/30">
@@ -287,23 +360,29 @@ export default function Users() {
     <PageLayout>
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex items-center justify-between mb-8 animate-fade-in">
-          <div>
-            <Button
-              variant="outline"
-              onClick={() => navigate(-1)}
-              className="mb-4 flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Voltar
-            </Button>
-            <h1 className="text-4xl font-bold mb-2 text-gradient-cyan">
-              Gerenciamento de Usuários
-            </h1>
-            <p className="text-muted-foreground">
-              Visualize e gerencie os usuários do sistema
-            </p>
+            <div>
+              <Button
+                variant="outline"
+                onClick={() => navigate(-1)}
+                className="mb-4 flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Voltar
+              </Button>
+              <h1 className="text-4xl font-bold mb-2 text-gradient-cyan">
+                Gerenciamento de Usuários
+              </h1>
+              <p className="text-muted-foreground">
+                Visualize e gerencie os usuários do sistema
+              </p>
+            </div>
+            {userRole === "admin_master" && (
+              <Button onClick={() => handleCreateUserClick()}>
+                <UserIcon className="w-4 h-4 mr-2" />
+                Criar Usuário
+              </Button>
+            )}
           </div>
-        </div>
 
         <Card className="glass-card p-6 animate-slide-up">
           <div className="hidden md:block overflow-x-auto">
@@ -315,7 +394,7 @@ export default function Users() {
                   <TableHead>Sobrenome</TableHead>
                   <TableHead>Telefone</TableHead>
                   <TableHead>Tipo de Acesso</TableHead>
-                  {isAdmin && <TableHead>Ações</TableHead>}
+                  {userRole === "admin_master" && <TableHead>Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -328,7 +407,7 @@ export default function Users() {
                     <TableCell>{userItem.last_name || "-"}</TableCell>
                     <TableCell>{userItem.phone || "-"}</TableCell>
                     <TableCell>{getRoleBadge(userItem.role)}</TableCell>
-                    {isAdmin && (
+                    {userRole === "admin_master" && (
                       <TableCell>
                         <Button
                           variant="outline"
@@ -341,6 +420,7 @@ export default function Users() {
                               phone: userItem.phone || "",
                               role: userItem.role || "user",
                               profileImageUrl: userItem.profile_image_url || "",
+                              is_active: userItem.is_active ?? true,
                             });
                             setPreviewImage(userItem.profile_image_url);
                             setOpen(true);
@@ -374,7 +454,7 @@ export default function Users() {
                     {getRoleBadge(userItem.role)}
                   </div>
                 </div>
-                {isAdmin && (
+                {userRole === "admin_master" && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -386,6 +466,7 @@ export default function Users() {
                         phone: userItem.phone || "",
                         role: userItem.role || "user",
                         profileImageUrl: userItem.profile_image_url || "",
+                        is_active: userItem.is_active ?? true,
                       });
                       setPreviewImage(userItem.profile_image_url);
                       setOpen(true);
@@ -503,9 +584,24 @@ export default function Users() {
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                    {userRole === "admin_master" && (
+                      <SelectItem value="admin_master">Admin Master</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
+              {userRole === "admin_master" && (
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="is_active">Usuário Ativo</Label>
+                  <Switch
+                    id="is_active"
+                    checked={formData.is_active ?? true}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, is_active: checked })
+                    }
+                  />
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -514,6 +610,112 @@ export default function Users() {
                 disabled={isUploading}
               >
                 Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Diálogo de Criação de Usuário */}
+        <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
+          <DialogContent className="glass-card max-w-md">
+            <DialogHeader>
+              <DialogTitle>Criar Novo Usuário</DialogTitle>
+              <DialogDescription>
+                Preencha os detalhes para criar um novo usuário.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">Nome</Label>
+                <Input
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, firstName: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="lastName">Sobrenome</Label>
+                <Input
+                  id="lastName"
+                  value={formData.lastName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, lastName: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  placeholder="(XX) X XXXX-XXXX"
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  maxLength={16}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Tipo de Acesso</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, role: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    {userRole === "admin_master" && (
+                      <SelectItem value="admin_master">Admin Master</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              {userRole === "admin_master" && (
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="is_active_create">Usuário Ativo</Label>
+                  <Switch
+                    id="is_active_create"
+                    checked={formData.is_active ?? true}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, is_active: checked })
+                    }
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={handleCreateUser}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Criar Usuário
               </Button>
             </DialogFooter>
           </DialogContent>
