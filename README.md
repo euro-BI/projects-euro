@@ -1,73 +1,66 @@
-# Welcome to your Lovable project
+# EuroProjects - Gestão de Projetos
 
-## Project info
+Sistema moderno de gestão de projetos desenvolvido com React e Vite, integrando análise de dados via Power BI e assistência inteligente via Chatbot.
 
-**URL**: https://lovable.dev/projects/856f7631-36b4-41b7-b067-995c8bfe9e17
+## 🚀 Funcionalidades Principais
 
-## How can I edit this code?
+### 📊 Integração com Power BI
+- **Dashboards Embarcados**: Visualização de relatórios e workspaces do Power BI diretamente na aplicação.
+- **Autenticação Segura**: Gerenciamento de tokens via Service Principal (Azure AD).
+- **Controles de Visualização**: Ajuste dinâmico de layout (Ajustar à página, Largura, Tamanho real).
 
-There are several ways of editing your application.
+### 🤖 Smart Chat (Assistente IA)
+- **Chatbot Inteligente**: Interface de chat conectada via Webhook (n8n) para processamento de linguagem natural.
+- **Suporte a Multimídia**: Envio de mensagens de texto e **gravação de áudio** (mensagens de voz).
+- **Interface Responsiva**: Design fluido com animações (Framer Motion).
 
-**Use Lovable**
+### 🔐 Autenticação e Segurança
+- **Supabase Auth**: Sistema completo de login e registro de usuários.
+- **Proteção de Rotas**: Controle de acesso para páginas privadas.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/856f7631-36b4-41b7-b067-995c8bfe9e17) and start prompting.
+### 📱 Experiência do Usuário (UX)
+- **PWA (Progressive Web App)**: Instalável como aplicativo nativo.
+- **Design Moderno**: Interface construída com Shadcn/ui e Tailwind CSS.
+- **Responsividade**: Totalmente adaptável para desktop e mobile.
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🛠️ Tecnologias Utilizadas
 
-**Use your preferred IDE**
+- **Frontend**: React, TypeScript, Vite
+- **Estilização**: Tailwind CSS, Shadcn/ui
+- **Dados & Backend**: Supabase (Auth/DB), TanStack Query
+- **Integrações**:
+  - `powerbi-client-react`: SDK para embed do Power BI.
+  - Webhooks (n8n): Para lógica do Chatbot.
+- **Bibliotecas**: Framer Motion (animações), Lucide React (ícones), Axios.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## ⚙️ Configuração
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Para rodar o projeto, crie um arquivo `.env` na raiz com as seguintes variáveis:
 
-Follow these steps:
+```env
+# Configurações do Power BI (Azure AD)
+VITE_MSAL_TENANT_ID=seu-tenant-id
+VITE_MSAL_CLIENT_ID=seu-client-id
+VITE_MSAL_CLIENT_SECRET=seu-client-secret
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Configurações do Supabase
+VITE_SUPABASE_URL=sua-url-do-supabase
+VITE_SUPABASE_ANON_KEY=sua-chave-anon
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Configurações Gerais
+VITE_API_URL=http://localhost:8080
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 📦 Instalação e Execução
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+1. Instale as dependências:
+```bash
+npm install
+```
+
+2. Inicie o servidor de desenvolvimento:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/856f7631-36b4-41b7-b067-995c8bfe9e17) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+3. Acesse a aplicação em `http://localhost:8080` (ou a porta indicada no terminal).
