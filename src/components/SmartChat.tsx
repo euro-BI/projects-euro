@@ -55,7 +55,7 @@ interface WebhookResponse {
 }
 
 // --- Constants ---
-const WEBHOOK_URL = 'https://n8n-n8n.j6kpgx.easypanel.host/webhook/euro';
+const WEBHOOK_URL = 'https://n8n-n8n.ffder9.easypanel.host/webhook/euro';
 const STORAGE_KEY = 'euro_chat_history';
 const SESSION_KEY = 'euro_chat_session_id';
 
@@ -249,10 +249,10 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const suggestionButtons = [
-    { label: "Quanto estou de repasse?", query: `Qual o repasse de ${userName.split(' ')[0] || user?.email || 'meu usuário'}` },
-    { label: "Me mande o extrato detalhado do meu repasse.", query: `Me mande o extrato detalhado do repasse de ${userName.split(' ')[0] || user?.email || 'meu usuário'}` },
-    { label: "Qual meu ROA?", query: `Qual o ROA de ${userName.split(' ')[0] || user?.email || 'meu usuário'}` },
-    { label: "Quantos clientes tenho e qual o meu net?", query: `Quantos clientes e qual o net de ${userName.split(' ')[0] || user?.email || 'meu usuário'}` },
+    { label: "Quanto estou de repasse?", query: `Qual o meu repasse atual?` },
+    { label: "Me mande o extrato detalhado do meu repasse.", query: `Me mande o extrato detalhado do meu repasse.` },
+    { label: "Qual meu ROA?", query: `Qual o meu ROA.` },
+    { label: "Quantos clientes tenho e qual o meu net?", query: `Quantos clientes e qual o meu net?'}` },
   ];
 
   // Initialize Session and Load History
