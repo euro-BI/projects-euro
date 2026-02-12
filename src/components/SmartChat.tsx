@@ -55,7 +55,7 @@ interface WebhookResponse {
 }
 
 // --- Constants ---
-const WEBHOOK_URL = 'https://n8n-n8n.ffder9.easypanel.host/webhook/euro';
+const WEBHOOK_URL = 'https://n8n-n8n.j6kpgx.easypanel.host/webhook/euro';
 const STORAGE_KEY = 'euro_chat_history';
 const SESSION_KEY = 'euro_chat_session_id';
 
