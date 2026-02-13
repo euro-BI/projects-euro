@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, User as UserIcon, ArrowLeft, Upload, X, FileSpreadsheet } from "lucide-react";
+import { Shield, User as UserIcon, ArrowLeft, Upload, X, FileSpreadsheet, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { PageLayout } from "@/components/PageLayout";
@@ -52,6 +52,7 @@ export default function Users() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [open, setOpen] = useState(false); // Para o diálogo de edição
@@ -180,7 +181,13 @@ export default function Users() {
         };
       });
 
-      setUsers(usersWithData);
+      const sortedUsers = usersWithData.sort((a, b) => {
+        const nameA = (a.first_name || "").toLowerCase();
+        const nameB = (b.first_name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      setUsers(sortedUsers);
     } catch (error) {
       console.error("Error loading users:", error);
       toast.error("Erro ao carregar usuários");
@@ -355,6 +362,13 @@ export default function Users() {
     );
   };
 
+  const filteredUsers = users.filter((u) => {
+    const searchLower = searchTerm.toLowerCase();
+    const fullName = `${u.first_name || ""} ${u.last_name || ""}`.toLowerCase();
+    const codigo = (u.codigo || "").toLowerCase();
+    return fullName.includes(searchLower) || codigo.includes(searchLower);
+  });
+
   if (isLoading) {
     return (
       <PageLayout>
@@ -396,6 +410,16 @@ export default function Users() {
             )}
           </div>
 
+        <div className="mb-6 relative max-w-md animate-fade-in">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Input
+            placeholder="Buscar por nome ou código..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 glass-card border-white/10"
+          />
+        </div>
+
         <Card className="glass-card p-6 animate-slide-up">
           <div className="hidden md:block overflow-x-auto">
             <Table>
@@ -410,7 +434,7 @@ export default function Users() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((userItem) => (
+                {filteredUsers.map((userItem) => (
                   <TableRow key={userItem.id}>
                     <TableCell>{userItem.codigo || "-"}</TableCell>
                     <TableCell>{userItem.first_name || "-"}</TableCell>
@@ -449,7 +473,7 @@ export default function Users() {
 
           {/* Mobile list */}
           <div className="md:hidden grid gap-3">
-            {users.map((userItem) => (
+            {filteredUsers.map((userItem) => (
               <div key={userItem.id} className="glass-card rounded-lg p-4 flex items-start justify-between">
                 <div className="space-y-1">
                   {userItem.codigo && (

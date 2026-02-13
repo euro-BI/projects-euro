@@ -13,7 +13,14 @@ export interface Report {
   name: string;
   embedUrl: string;
   webUrl: string;
+  workspaceId: string; // Adicionado para facilitar o uso
   workspaceName?: string; // Adicionado para facilitar a exibição
+}
+
+export interface ReportPage {
+  name: string;
+  displayName: string;
+  order: number;
 }
 
 interface EmbedToken {
@@ -196,15 +203,50 @@ export const getAllReports = async (): Promise<Report[]> => {
 
     for (const workspace of workspaces) {
       const reports = await getReportsInWorkspace(workspace.id);
-      const reportsWithWorkspaceName = reports.map(report => ({
+      const reportsWithWorkspaceData = reports.map(report => ({
         ...report,
-        workspaceName: workspace.name // Adiciona o nome do workspace ao relatório
+        workspaceId: workspace.id,
+        workspaceName: workspace.name
       }));
-      allReports = allReports.concat(reportsWithWorkspaceName);
+      allReports = allReports.concat(reportsWithWorkspaceData);
     }
     return allReports;
   } catch (e) {
     console.error("Erro ao obter todos os relatórios:", e);
+    throw e;
+  }
+};
+
+/**
+ * Obtém as páginas de um relatório específico.
+ * @param workspaceId O ID do workspace.
+ * @param reportId O ID do relatório.
+ * @returns Promise<ReportPage[]> A lista de páginas.
+ */
+export const getReportPages = async (workspaceId: string, reportId: string): Promise<ReportPage[]> => {
+  const accessToken = await getAccessToken();
+  
+  try {
+    let response;
+    const path = `v1.0/myorg/groups/${workspaceId}/reports/${reportId}/pages`;
+    
+    if (import.meta.env.DEV) {
+      response = await fetch(`/powerbi-api/${path}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+    } else {
+      response = await fetch(`/api/powerbi?path=${path}`);
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Falha ao carregar páginas do relatório: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    return data.value || [];
+  } catch (e) {
+    console.error(`Erro ao carregar páginas do relatório ${reportId}:`, e);
     throw e;
   }
 };

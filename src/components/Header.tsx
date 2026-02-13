@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard, Tv, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -56,6 +56,8 @@ export const Header = () => {
     if (location.pathname === '/consorcios') return 'Consórcios';
     if (location.pathname === '/chat') return 'IA Chat';
     if (location.pathname === '/users') return 'Usuários';
+    if (location.pathname === '/tv-presentations') return 'Gestão TV';
+    if (location.pathname === '/tv-published') return 'TV Dashboards';
     return 'Início';
   };
 
@@ -68,6 +70,7 @@ export const Header = () => {
     if (location.pathname === '/consorcios') return FileSpreadsheet;
     if (location.pathname === '/chat') return MessageSquare;
     if (location.pathname === '/users') return Users;
+    if (location.pathname === '/tv-presentations' || location.pathname === '/tv-published') return Tv;
     return Home;
   };
 
@@ -214,6 +217,18 @@ export const Header = () => {
                   <DropdownMenuItem onClick={() => navigate('/chat')}>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     IA Chat
+                  </DropdownMenuItem>
+                )}
+                {(isAdminMaster || isAdmin) && (
+                  <DropdownMenuItem onClick={() => navigate('/tv-published')}>
+                    <Tv className="w-4 h-4 mr-2" />
+                    TV Dashboards
+                  </DropdownMenuItem>
+                )}
+                {isAdminMaster && (
+                  <DropdownMenuItem onClick={() => navigate('/tv-presentations')}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Gestão TV
                   </DropdownMenuItem>
                 )}
 
@@ -428,6 +443,26 @@ export const Header = () => {
                     >
                       <MessageSquare className="w-4 h-4 mr-2" />
                       IA Chat
+                    </Button>
+                  )}
+                  {(isAdminMaster || isAdmin) && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/tv-published')}
+                    >
+                      <Tv className="w-4 h-4 mr-2" />
+                      TV Dashboards
+                    </Button>
+                  )}
+                  {isAdminMaster && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/tv-presentations')}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Gestão TV
                     </Button>
                   )}
                   <Button

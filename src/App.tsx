@@ -22,13 +22,17 @@ import Consorcios from "./pages/Consorcios";
 import Chat from "./pages/Chat";
 import PowerBIEmbedPage from "./pages/Powerbiembed";
 import DashboardManagement from "./pages/DashboardManagement";
+import TVPresentations from "./pages/TVPresentations";
+import TVPresentationViewer from "./pages/TVPresentationViewer";
+import TVPublished from "./pages/TVPublished";
 
 const queryClient = new QueryClient();
 
 const HeaderWrapper = () => {
   const location = useLocation();
   const isChatPage = location.pathname === "/chat";
-  return !isChatPage ? <Header /> : null;
+  const isTVViewerPage = location.pathname.startsWith("/tv-viewer");
+  return !isChatPage && !isTVViewerPage ? <Header /> : null;
 };
 
 const App = () => (
@@ -119,6 +123,30 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
                   <PowerBIEmbedPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tv-presentations"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master"]}>
+                  <TVPresentations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tv-published"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
+                  <TVPublished />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tv-viewer/:id"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                  <TVPresentationViewer />
                 </ProtectedRoute>
               }
             />

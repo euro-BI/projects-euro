@@ -10,7 +10,8 @@ import {
   Users, 
   RefreshCw,
   LayoutDashboard,
-  ShieldCheck
+  ShieldCheck,
+  Tv
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
@@ -93,11 +94,21 @@ export default function Welcome() {
       color: "text-indigo-400",
       bgColor: "bg-indigo-400/10",
       borderColor: "border-indigo-400/20"
+    },
+    {
+      title: "TV Dashboards",
+      description: "Acesse apresentações de dashboards prontas para exibição.",
+      icon: Tv,
+      path: "/tv-published",
+      roles: ["admin_master", "admin"],
+      color: "text-emerald-400",
+      bgColor: "bg-emerald-400/10",
+      borderColor: "border-emerald-400/20"
     }
   ];
 
   const filteredItems = menuItems.filter(item => 
-    item.roles.includes(userRole || "")
+    item.roles?.includes(userRole || "")
   );
 
   return (
@@ -166,6 +177,12 @@ export default function Welcome() {
                 className="px-4 py-2 rounded-lg bg-indigo-400/10 border border-indigo-400/20 text-indigo-400 hover:bg-indigo-400/20 transition-all text-sm font-medium"
               >
                 Gerenciar Usuários
+              </button>
+              <button 
+                onClick={() => navigate("/tv-presentations")}
+                className="px-4 py-2 rounded-lg bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 hover:bg-emerald-400/20 transition-all text-sm font-medium"
+              >
+                Configurar TV Dashboards
               </button>
             </div>
           </div>
