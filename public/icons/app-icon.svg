@@ -20,7 +20,7 @@
 
   <!-- App tiles -->
   <g transform="translate(72,120)">
-    <rect width="84" height="84" rx="18" fill="#F59E0B"/>
+    <rect width="84" height="84" rx="18" fill="#FAC017"/>
     <path d="M28 54c0-9 7-16 16-16s16 7 16 16" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round"/>
   </g>
   <g transform="translate(264,120)">

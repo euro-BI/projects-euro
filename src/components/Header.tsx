@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, Wallet, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -40,11 +40,12 @@ export const Header = () => {
   // Helper booleans for role checks
   const isAdminMaster = userRole === "admin_master";
   const isAdmin = userRole === "admin";
+  const isConsorcio = userRole === "consorcio";
   const isRegularUser = userRole === "user";
 
   // Combine roles for easier checks
   const canAccessAdminFeatures = isAdminMaster || isAdmin;
-  const canAccessPowerBIAndIA = isAdminMaster || isAdmin || isRegularUser;
+  const canAccessPowerBIAndIA = isAdminMaster || isAdmin || isRegularUser || isConsorcio;
 
   // Função para obter o nome da página atual
   const getCurrentPageName = () => {
@@ -52,7 +53,6 @@ export const Header = () => {
     if (location.pathname === '/dashboard') return 'Dashboard';
     if (location.pathname.startsWith('/projects')) return 'Projetos';
     if (location.pathname === '/bi-dashboard') return 'Atualizações BD';
-    if (location.pathname === '/investment-offers') return 'Ofertas';
     if (location.pathname === '/consorcios') return 'Consórcios';
     if (location.pathname === '/chat') return 'IA Chat';
     if (location.pathname === '/users') return 'Usuários';
@@ -65,7 +65,6 @@ export const Header = () => {
     if (location.pathname === '/dashboard') return LayoutDashboard;
     if (location.pathname.startsWith('/projects')) return FolderKanban;
     if (location.pathname === '/bi-dashboard') return RefreshCw;
-    if (location.pathname === '/investment-offers') return Wallet;
     if (location.pathname === '/consorcios') return FileSpreadsheet;
     if (location.pathname === '/chat') return MessageSquare;
     if (location.pathname === '/users') return Users;
@@ -121,6 +120,14 @@ export const Header = () => {
         </Badge>
       );
     }
+    if (userRole === "consorcio") {
+      return (
+        <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 h-4">
+          <FileSpreadsheet className="w-2 h-2 mr-1" />
+          Consórcio
+        </Badge>
+      );
+    }
     return (
       <Badge variant="outline" className="text-[10px] py-0 h-4">
         <User className="w-2 h-2 mr-1" />
@@ -140,12 +147,12 @@ export const Header = () => {
             className="flex items-center gap-3 text-lg md:text-xl font-bold text-gradient-cyan hover:opacity-80 transition-opacity"
           >
             <img
-              src="https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos-assessores/normal/projects2.png"
-              alt="EuroProjects Logo"
+              src="https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos/fotos-escudos/logo_.png"
+              alt="Hub - Eurostock Logo"
               className="w-10 h-10 object-cover object-center"
             />
             <span className="truncate">
-              {isMobile ? "EuroProjects" : "Sistema de Gestão de Projetos"}
+              Hub - Eurostock
             </span>
           </button>
           
@@ -191,25 +198,19 @@ export const Header = () => {
                     Atualizações BD
                   </DropdownMenuItem>
                 )}
-                {isAdminMaster && (
-                  <DropdownMenuItem onClick={() => navigate('/investment-offers')}>
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Ofertas
-                  </DropdownMenuItem>
-                )}
-                {isAdminMaster && (
+                {(isAdminMaster || isConsorcio) && (
                   <DropdownMenuItem onClick={() => navigate('/consorcios')}>
                     <FileSpreadsheet className="w-4 h-4 mr-2" />
                     Consórcios
                   </DropdownMenuItem>
                 )}
-                {(isAdminMaster || isAdmin || isRegularUser) && (
+                {canAccessPowerBIAndIA && (
                   <DropdownMenuItem onClick={() => navigate('/powerbi')}>
                     <BarChart3 className="w-4 h-4 mr-2" />
                     Power BI
                   </DropdownMenuItem>
                 )}
-                {(isAdminMaster || isAdmin || isRegularUser) && (
+                {canAccessPowerBIAndIA && (
                   <DropdownMenuItem onClick={() => navigate('/chat')}>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     IA Chat
@@ -379,17 +380,7 @@ export const Header = () => {
                       Atualizações BD
                     </Button>
                   )}
-                  {isAdminMaster && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/investment-offers')}
-                    >
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Ofertas
-                    </Button>
-                  )}
-                  {isAdminMaster && (
+                  {(isAdminMaster || isConsorcio) && (
                     <Button
                       variant="ghost"
                       className="justify-start"
@@ -419,7 +410,7 @@ export const Header = () => {
                       Gerenciar Usuários
                     </Button>
                   )}
-                  {(isAdminMaster || isAdmin || isRegularUser) && (
+                  {canAccessPowerBIAndIA && (
                     <Button
                       variant="ghost"
                       className="justify-start"
@@ -429,7 +420,7 @@ export const Header = () => {
                       Power BI
                     </Button>
                   )}
-                  {(isAdminMaster || isAdmin || isRegularUser) && (
+                  {canAccessPowerBIAndIA && (
                     <Button
                       variant="ghost"
                       className="justify-start"

@@ -141,8 +141,8 @@ export default function DashboardManagement() {
                   )}
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="p-2 bg-yellow-500/10 rounded-lg group-hover:bg-yellow-500/20 transition-colors">
-                        <FileBarChart className="h-6 w-6 text-yellow-600" />
+                      <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                        <FileBarChart className="h-6 w-6 text-primary" />
                       </div>
                     </div>
                     <CardTitle className="mt-4">{report.name}</CardTitle>

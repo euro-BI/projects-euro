@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximize, Minimize } from "lucide-react";
+import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximize, Minimize, RefreshCw } from "lucide-react";
 import { PowerBIEmbed } from "powerbi-client-react";
 import { models } from "powerbi-client";
 import { getAllDashboardSettings } from "@/services/dashboardSettingsService";
@@ -60,42 +61,8 @@ export default function PowerBIEmbedPage() {
   const reportRef = useRef<any>(null);
   const accessTokenRef = useRef<string | null>(null);
 
-  // Handle View Mode Change
-  const handleViewModeChange = useCallback(async (mode: "fitToPage" | "fitToWidth" | "actualSize") => {
-    setViewMode(mode);
-    
-    if (reportRef.current) {
-      try {
-        let displayOption;
-        
-        switch (mode) {
-          case "fitToPage":
-            displayOption = models.DisplayOption.FitToPage;
-            break;
-          case "fitToWidth":
-            displayOption = models.DisplayOption.FitToWidth;
-            break;
-          case "actualSize":
-            displayOption = models.DisplayOption.ActualSize;
-            break;
-        }
-        
-        await reportRef.current.updateSettings({
-          layoutType: models.LayoutType.Custom,
-          customLayout: {
-            displayOption: displayOption
-          }
-        });
-        
-        console.log(`Modo de visualização alterado para: ${mode}`);
-      } catch (e) {
-        console.error("Erro ao alterar modo de visualização:", e);
-      }
-    }
-  }, []);
-
   // Obter Access Token via Service Principal
-  const getAccessToken = async (): Promise<string> => {
+  const getAccessToken = useCallback(async (): Promise<string> => {
     // Se já temos um token válido, reutilizar
     if (accessTokenRef.current) {
       return accessTokenRef.current;
@@ -144,10 +111,10 @@ export default function PowerBIEmbedPage() {
       console.error("Erro ao obter token:", error);
       throw new Error("Não foi possível autenticar com o Power BI.");
     }
-  };
+  }, []);
 
   // Obter Embed Token para o relatório
-  const getEmbedToken = async (workspaceId: string, reportId: string): Promise<string> => {
+  const getEmbedToken = useCallback(async (workspaceId: string, reportId: string): Promise<string> => {
     const accessToken = await getAccessToken();
     
     try {
@@ -181,7 +148,71 @@ export default function PowerBIEmbedPage() {
       console.error("Erro ao obter embed token:", error);
       throw error;
     }
-  };
+  }, [getAccessToken]);
+
+  // Selecionar Relatório para Embed
+  const handleSelectReport = useCallback(async (report: Report) => {
+    if (!currentWorkspace) return;
+    
+    setLoading(true);
+    setStatusMessage("Preparando relatório...");
+    setEmbedToken(null); // Clear token to force re-render
+    
+    try {
+      const token = await getEmbedToken(currentWorkspace.id, report.id);
+      setEmbedToken(token);
+      setCurrentReport(report);
+      setView("embed");
+    } catch (e: unknown) {
+      console.error("Erro ao preparar relatório:", e);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Erro ao preparar relatório: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  }, [currentWorkspace, getEmbedToken]);
+
+  // Handle Refresh
+  const handleRefresh = useCallback(async () => {
+    if (currentReport) {
+      handleSelectReport(currentReport);
+    }
+  }, [currentReport, handleSelectReport]);
+
+  // Handle View Mode Change
+  const handleViewModeChange = useCallback(async (mode: "fitToPage" | "fitToWidth" | "actualSize") => {
+    setViewMode(mode);
+    
+    if (reportRef.current) {
+      try {
+        let displayOption;
+        
+        switch (mode) {
+          case "fitToPage":
+            displayOption = models.DisplayOption.FitToPage;
+            break;
+          case "fitToWidth":
+            displayOption = models.DisplayOption.FitToWidth;
+            break;
+          case "actualSize":
+            displayOption = models.DisplayOption.ActualSize;
+            break;
+        }
+        
+        await reportRef.current.updateSettings({
+          layoutType: models.LayoutType.Custom,
+          customLayout: {
+            displayOption: displayOption
+          }
+        });
+        
+        console.log(`Modo de visualização alterado para: ${mode}`);
+      } catch (e) {
+        console.error("Erro ao alterar modo de visualização:", e);
+      }
+    }
+  }, []);
 
   // Inicializar - Carregar workspaces automaticamente
   useEffect(() => {
@@ -317,28 +348,6 @@ export default function PowerBIEmbedPage() {
       console.error("Erro ao carregar relatórios:", e);
       const errorMessage = e instanceof Error ? e.message : String(e);
       setError(`Erro ao carregar relatórios: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-      setStatusMessage("");
-    }
-  };
-
-  // Selecionar Relatório para Embed
-  const handleSelectReport = async (report: Report) => {
-    if (!currentWorkspace) return;
-    
-    setLoading(true);
-    setStatusMessage("Preparando relatório...");
-    
-    try {
-      const token = await getEmbedToken(currentWorkspace.id, report.id);
-      setEmbedToken(token);
-      setCurrentReport(report);
-      setView("embed");
-    } catch (e: unknown) {
-      console.error("Erro ao preparar relatório:", e);
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      setError(`Erro ao preparar relatório: ${errorMessage}`);
     } finally {
       setLoading(false);
       setStatusMessage("");
@@ -483,8 +492,8 @@ export default function PowerBIEmbedPage() {
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="p-2 bg-yellow-500/10 rounded-lg group-hover:bg-yellow-500/20 transition-colors">
-                        <FileBarChart className="h-6 w-6 text-yellow-600" />
+                      <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                        <FileBarChart className="h-6 w-6 text-primary" />
                       </div>
                     </div>
                     <CardTitle className="mt-4">{report.name}</CardTitle>
@@ -531,6 +540,17 @@ export default function PowerBIEmbedPage() {
                   </div>
                   
                   <div className="flex items-center gap-3">
+                    {/* Refresh Button */}
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={handleRefresh}
+                      title="Atualizar dashboard"
+                      disabled={loading}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                    </Button>
+
                     {/* View Mode Selector */}
                     <div className="flex items-center gap-2">
                       <LayoutDashboard className="h-4 w-4 text-muted-foreground" />

@@ -19,7 +19,7 @@ All colors MUST be HSL.
     --popover-foreground: 0 0% 98%;
 
     /* Golden yellow primary color (#FAC017) */
-    --primary: 41 96% 54%;
+    --primary: 45 96% 54%;
     --primary-foreground: 0 0% 5%;
 
     --secondary: 0 0% 12%;
@@ -28,7 +28,7 @@ All colors MUST be HSL.
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 60%;
 
-    --accent: 41 96% 54%;
+    --accent: 45 96% 54%;
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 72% 51%;
@@ -36,14 +36,14 @@ All colors MUST be HSL.
 
     --border: 0 0% 20%;
     --input: 0 0% 15%;
-    --ring: 41 96% 54%;
+    --ring: 45 96% 54%;
 
     --radius: 0.75rem;
 
     /* Glassmorphism specific */
     --glass-bg: 0 0% 8% / 0.7;
     --glass-border: 0 0% 25% / 0.3;
-    --glass-glow: 41 96% 54% / 0.15;
+    --glass-glow: 45 96% 54% / 0.15;
 
     /* Status colors */
     --status-pending: 45 93% 47%;

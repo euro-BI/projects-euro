@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { LogIn, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { BackgroundVideo } from "@/components/BackgroundVideo";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -69,21 +70,22 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="glass-card w-full max-w-md p-8 animate-fade-in">
+    <div className="min-h-screen bg-background/20 flex items-center justify-center p-4 relative overflow-hidden">
+      <BackgroundVideo />
+      <Card className="glass-card w-full max-w-md p-8 animate-fade-in relative z-10">
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
             <img
-              src="https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos-assessores/normal/projects2.png"
-              alt="EuroProjects Logo"
+              src="https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos/fotos-escudos/logo_.png"
+              alt="Hub - Eurostock Logo"
               className="w-20 h-20 object-cover object-center border-2 border-primary rounded-lg shadow-lg shadow-primary/50"
             />
           </div>
           <h1 className="text-3xl font-bold mb-2 text-gradient-cyan">
-            EuroProjects
+            Hub - Eurostock
           </h1>
           <p className="text-muted-foreground">
-            Sistema de Gestão de Projetos
+            Sistema de dados e IA Eurostock
           </p>
         </div>
 

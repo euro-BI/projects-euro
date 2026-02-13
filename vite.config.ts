@@ -37,16 +37,16 @@ export default defineConfig(({ mode }) => ({
       injectRegister: "auto",
       includeAssets: ["favicon.ico", "robots.txt", "icons/app-icon.png"],
       manifest: {
-        name: "EuroProjects - Gestão de Projetos",
-        short_name: "EuroProjects",
+        name: "Hub - Eurostock",
+        short_name: "Hub Eurostock",
         start_url: "/",
         display: "standalone",
         background_color: "#ffffff",
-        theme_color: "#0ea5e9",
+        theme_color: "#FAC017",
         orientation: "portrait",
         icons: [
           {
-            src: "icons/app-icon.png",
+            src: "https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos/fotos-escudos/bot.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",

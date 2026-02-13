@@ -5,7 +5,6 @@ import { PageLayout } from "@/components/PageLayout";
 import { 
   FolderKanban, 
   BarChart3, 
-  Wallet, 
   FileSpreadsheet, 
   MessageSquare, 
   Users, 
@@ -14,6 +13,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BackgroundVideo } from "@/components/BackgroundVideo";
 
 export default function Welcome() {
   const { userRole } = useAuth();
@@ -49,40 +49,30 @@ export default function Welcome() {
       description: "Acesse relatórios e dashboards analíticos do Power BI.",
       icon: BarChart3,
       path: "/powerbi",
-      roles: ["admin_master", "admin", "user"],
-      color: "text-yellow-400",
-      bgColor: "bg-yellow-400/10",
-      borderColor: "border-yellow-400/20"
+      roles: ["admin_master", "admin", "user", "consorcio"],
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+      borderColor: "border-primary/20"
     },
     {
       title: "IA Chat",
       description: "Interaja com nossa inteligência artificial para insights.",
       icon: MessageSquare,
       path: "/chat",
-      roles: ["admin_master", "admin", "user"],
+      roles: ["admin_master", "admin", "user", "consorcio"],
       color: "text-purple-400",
       bgColor: "bg-purple-400/10",
       borderColor: "border-purple-400/20"
-    },
-    {
-      title: "Ofertas de Investimento",
-      description: "Visualize e gerencie as ofertas de investimento disponíveis.",
-      icon: Wallet,
-      path: "/investment-offers",
-      roles: ["admin_master", "admin"],
-      color: "text-emerald-400",
-      bgColor: "bg-emerald-400/10",
-      borderColor: "border-emerald-400/20"
     },
     {
       title: "Consórcios",
       description: "Acompanhe e gerencie os dados de consórcios.",
       icon: FileSpreadsheet,
       path: "/consorcios",
-      roles: ["admin_master", "admin"],
-      color: "text-orange-400",
-      bgColor: "bg-orange-400/10",
-      borderColor: "border-orange-400/20"
+      roles: ["admin_master", "consorcio"],
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+      borderColor: "border-primary/20"
     },
     {
       title: "Atualizações BD",
@@ -111,11 +101,12 @@ export default function Welcome() {
   );
 
   return (
-    <PageLayout>
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
+    <PageLayout className="relative overflow-hidden bg-transparent">
+      <BackgroundVideo />
+      <div className="container mx-auto px-4 py-12 max-w-6xl relative z-10">
         <div className="text-center mb-12 animate-fade-in">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gradient-cyan">
-            Bem-vindo ao EuroProjects
+            Bem-vindo ao Hub - Eurostock
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Selecione uma das seções abaixo para começar a navegar no sistema.

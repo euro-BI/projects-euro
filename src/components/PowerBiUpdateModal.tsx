@@ -198,7 +198,7 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
 
       case 'timeout':
         return {
-          icon: <AlertCircle className="w-8 h-8 text-orange-400" />,
+          icon: <AlertCircle className="w-8 h-8 text-primary" />,
           title: 'Timeout',
           message: errorMessage || 'A atualização demorou mais que o esperado',
           showProgress: false,
@@ -207,7 +207,7 @@ export function PowerBiUpdateModal({ isOpen, onClose, onUpdateComplete }: PowerB
 
       case 'already_running':
         return {
-          icon: <AlertCircle className="w-8 h-8 text-yellow-400" />,
+          icon: <AlertCircle className="w-8 h-8 text-primary" />,
           title: 'Atualização em Andamento',
           message: 'Já existe uma atualização em andamento. Aguarde a conclusão.',
           showProgress: false,

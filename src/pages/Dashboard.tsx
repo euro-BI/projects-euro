@@ -158,7 +158,7 @@ export default function Dashboard() {
             icon={Clock}
             label="Em Andamento"
             value={stats.inProgressActivities}
-            color="bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+            color="bg-primary/10 border-primary/20 text-primary"
             subValue={stats.inProgressSubactivities}
             subLabel="subatividades"
           />
@@ -193,7 +193,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-3 gap-4 mt-6 text-center">
             <div>
               <p className="text-sm text-muted-foreground">Pendentes</p>
-              <p className="text-2xl font-semibold text-yellow-400">{stats.pendingActivities}</p>
+              <p className="text-2xl font-semibold text-primary">{stats.pendingActivities}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Em Andamento</p>

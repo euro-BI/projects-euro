@@ -13,7 +13,14 @@ import {
   Volume2,
   Image as ImageIcon,
   MessageSquarePlus,
-  ArrowLeft
+  ArrowLeft,
+  HelpCircle,
+  Info,
+  TrendingUp,
+  Target,
+  Trophy,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
@@ -31,6 +38,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // --- Utilities ---
 function cn(...inputs: ClassValue[]) {
@@ -204,7 +219,7 @@ const formatText = (text: string) => {
   // Handle QuickChart/Images: ![alt](url)
   const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
   
-  return withItalic.flatMap((item, idx) => {
+  const withImages = withItalic.flatMap((item, idx) => {
     if (typeof item !== 'string') return [item];
     
     const subParts = item.split(imageRegex);
@@ -227,6 +242,56 @@ const formatText = (text: string) => {
     }
     return elements;
   });
+
+  // Handle Links: [text](url) or plain URLs
+  const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  return withImages.flatMap((item, idx) => {
+    if (typeof item !== 'string') return [item];
+
+    // First handle Markdown links [text](url)
+    const markdownLinkParts = item.split(linkRegex);
+    if (markdownLinkParts.length > 1) {
+      const elements = [];
+      for (let i = 0; i < markdownLinkParts.length; i++) {
+        if (i % 3 === 0) {
+          // Recursive check for plain URLs in non-markdown-link text
+          if (markdownLinkParts[i]) {
+            const plainUrlParts = markdownLinkParts[i].split(urlRegex);
+            plainUrlParts.forEach((p, j) => {
+              if (p.match(urlRegex)) {
+                elements.push(<a key={`link-p-${idx}-${i}-${j}`} href={p} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">{p}</a>);
+              } else if (p) {
+                elements.push(p);
+              }
+            });
+          }
+        } else if (i % 3 === 1) {
+          // Link text
+        } else {
+          // URL
+          const linkText = markdownLinkParts[i-1];
+          const url = markdownLinkParts[i];
+          elements.push(<a key={`link-m-${idx}-${i}`} href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">{linkText}</a>);
+        }
+      }
+      return elements;
+    }
+
+    // Then handle plain URLs if no markdown links were found
+    const plainUrlParts = item.split(urlRegex);
+    if (plainUrlParts.length > 1) {
+      return plainUrlParts.map((p, i) => {
+        if (p.match(urlRegex)) {
+          return <a key={`link-plain-${idx}-${i}`} href={p} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">{p}</a>;
+        }
+        return p;
+      });
+    }
+
+    return [item];
+  });
 };
 
 // --- Main Chat Component ---
@@ -243,6 +308,7 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
   const [sessionId, setSessionId] = useState('');
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<{ url: string; base64: string } | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -510,7 +576,7 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
 
   return (
     <div className={cn(
-      "flex flex-col bg-background border-border overflow-hidden glass-card",
+      "flex flex-col bg-background/20 border-border overflow-hidden glass-card backdrop-blur-sm",
       fullHeight 
         ? "h-screen w-full border-0 rounded-none" 
         : "h-[calc(100vh-120px)] max-w-4xl mx-auto border rounded-xl shadow-xl"
@@ -530,6 +596,13 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsGuideOpen(true)}
+            className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
+            title="Como usar o Agente Eurostock"
+          >
+            <HelpCircle size={20} />
+          </button>
           <button 
             onClick={() => navigate("/")}
             className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
@@ -567,6 +640,99 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isGuideOpen} onOpenChange={setIsGuideOpen}>
+        <DialogContent className="glass-card border-border w-[95vw] sm:max-w-2xl h-[90vh] sm:h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+          <DialogHeader className="p-5 sm:p-6 pb-2 shrink-0 border-b border-border/50">
+            <DialogTitle className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-gradient-cyan">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+              Guia do Agente Eurostock
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
+              Sua Inteligência Comercial na Palma da Mão! 🚀🧉
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 w-full">
+            <div className="p-5 sm:p-6 space-y-5 sm:space-y-6">
+              <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                O Agente Eurostock é seu novo assistente de IA pronto para revolucionar a forma como você acessa seus dados. Chega de perder tempo procurando planilhas!
+              </p>
+
+              <div className="grid gap-3 sm:gap-4">
+                {/* Performance Section */}
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors">
+                  <div className="flex items-center gap-2 mb-3 text-primary">
+                    <TrendingUp className="w-5 h-5" />
+                    <h3 className="text-sm sm:text-base font-bold">Performance Pessoal e Financeira</h3>
+                  </div>
+                  <ul className="text-xs sm:text-sm space-y-2 text-muted-foreground ml-7 list-disc">
+                    <li><strong className="text-foreground">Resumo Completo:</strong> Receita Total, Repasse 💰, Custódia e Captação Líquida.</li>
+                    <li><strong className="text-foreground">Detalhamento:</strong> Bolsa, Renda Fixa, Fundos, Seguros, Consórcios, Previdência e Estruturados.</li>
+                    <li><strong className="text-foreground">Banking:</strong> Receitas de Câmbio e Compromissadas.</li>
+                    <li><strong className="text-foreground">Base e ROA:</strong> Clientes ativos e Retorno sobre Ativos em %.</li>
+                  </ul>
+                </div>
+
+                {/* Planning Section */}
+                <div className="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/10 hover:bg-cyan-500/10 transition-colors">
+                  <div className="flex items-center gap-2 mb-3 text-cyan-400">
+                    <Target className="w-5 h-5" />
+                    <h3 className="text-sm sm:text-base font-bold">Metas e Planejamento (FP)</h3>
+                  </div>
+                  <ul className="text-xs sm:text-sm space-y-2 text-muted-foreground ml-7 list-disc">
+                    <li><strong className="text-foreground">Financial Planning:</strong> Acompanhe em tempo real seu realizado vs. meta.</li>
+                    <li><strong className="text-foreground">Status:</strong> O agente calcula quanto falta (%) para bater a meta do mês.</li>
+                  </ul>
+                </div>
+
+                {/* Ranking Section */}
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors">
+                  <div className="flex items-center gap-2 mb-3 text-primary">
+                    <Trophy className="w-5 h-5" />
+                    <h3 className="text-sm sm:text-base font-bold">Super Ranking (SR)</h3>
+                  </div>
+                  <ul className="text-xs sm:text-sm space-y-2 text-muted-foreground ml-7 list-disc">
+                    <li><strong className="text-foreground">Posição:</strong> Descubra sua posição exata no mês e no acumulado do ano.</li>
+                    <li><strong className="text-foreground">Pontuação:</strong> Captação, ROA, Ativação (300k/1MM) e Líder.</li>
+                    <li><strong className="text-foreground">Times e Clusters:</strong> Veja quem está liderando a corrida!</li>
+                  </ul>
+                </div>
+
+                {/* Privacy Section */}
+                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 transition-colors">
+                  <div className="flex items-center gap-2 mb-3 text-emerald-400">
+                    <ShieldCheck className="w-5 h-5" />
+                    <h3 className="text-sm sm:text-base font-bold">Privacidade e Segurança</h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground ml-7">
+                    Seus dados financeiros são <strong className="text-foreground">confidenciais</strong>. Você só vê seus próprios números. O Super Ranking (SR) é aberto para incentivar a disputa saudável!
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 pb-6">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <Info className="w-4 h-4 text-primary" />
+                  Como usar? É só chamar!
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    "Qual meu repasse este mês?",
+                    "Como estou no SR?",
+                    "Qual minha meta de FP?",
+                    "Resumo do meu mês"
+                  ].map((q, i) => (
+                    <div key={i} className="text-xs p-2.5 rounded-lg bg-muted border border-border italic text-muted-foreground">
+                      "{q}"
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-primary/20">

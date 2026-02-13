@@ -1,6 +1,6 @@
-# EuroProjects - Gestão de Projetos
+# Hub - Eurostock
 
-Sistema moderno de gestão de projetos desenvolvido com React e Vite, integrando análise de dados via Power BI e assistência inteligente via Chatbot.
+Sistema moderno Hub - Eurostock desenvolvido com React e Vite, integrando análise de dados via Power BI e assistência inteligente via Chatbot.
 
 ## 🚀 Funcionalidades Principais
 

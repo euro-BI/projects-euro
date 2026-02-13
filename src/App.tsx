@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Header } from "@/components/Header";
+import { ReportBugButton } from "@/components/ReportBugButton";
 import { MigrationTest } from "@/components/MigrationTest";
 import { ProjectsDebugTest } from "@/components/ProjectsDebugTest";
 import { InsertTestData } from "@/components/InsertTestData";
@@ -17,7 +18,6 @@ import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import BIDashboard from "./pages/BIDashboard";
-import InvestmentOffers from "./pages/InvestmentOffers";
 import Consorcios from "./pages/Consorcios";
 import Chat from "./pages/Chat";
 import PowerBIEmbedPage from "./pages/Powerbiembed";
@@ -39,12 +39,13 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <HeaderWrapper />
+          <ReportBugButton />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
                   <Welcome />
                 </ProtectedRoute>
               }
@@ -98,17 +99,9 @@ const App = () => (
               }
             />
             <Route
-              path="/investment-offers"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
-                  <InvestmentOffers />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/consorcios"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "consorcio"]}>
                   <Consorcios />
                 </ProtectedRoute>
               }
@@ -116,7 +109,7 @@ const App = () => (
             <Route
               path="/chat"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
                   <Chat />
                 </ProtectedRoute>
               }
@@ -124,7 +117,7 @@ const App = () => (
             <Route
               path="/powerbi"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
                   <PowerBIEmbedPage />
                 </ProtectedRoute>
               }

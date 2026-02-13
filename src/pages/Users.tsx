@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, User as UserIcon, ArrowLeft, Upload, X } from "lucide-react";
+import { Shield, User as UserIcon, ArrowLeft, Upload, X, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { PageLayout } from "@/components/PageLayout";
@@ -248,7 +248,7 @@ export default function Users() {
         .from("projects_user_roles")
         .insert({
           user_id: newUserId,
-          role: formData.role as "admin_master" | "admin" | "user",
+          role: formData.role as "admin_master" | "admin" | "user" | "consorcio",
         });
 
       if (roleError) throw roleError;
@@ -296,7 +296,7 @@ export default function Users() {
         // Se já existe um role, atualizar
         const { error } = await supabase
           .from("projects_user_roles")
-          .update({ role: formData.role as "admin_master" | "admin" | "user" })
+          .update({ role: formData.role as "admin_master" | "admin" | "user" | "consorcio" })
           .eq("user_id", selectedUserId);
         roleError = error;
       } else {
@@ -305,7 +305,7 @@ export default function Users() {
           .from("projects_user_roles")
             .insert({
               user_id: selectedUserId,
-              role: formData.role as "admin_master" | "admin" | "user",
+              role: formData.role as "admin_master" | "admin" | "user" | "consorcio",
             });
         roleError = error;
       }
@@ -337,6 +337,13 @@ export default function Users() {
         <Badge className="bg-primary/20 text-primary border-primary/30">
           <Shield className="w-3 h-3 mr-1" />
           Admin
+        </Badge>
+      );
+    }
+    if (role === "consorcio") {
+      return (
+        <Badge className="bg-primary/20 text-primary border-primary/30">
+          Consórcio
         </Badge>
       );
     }
@@ -600,6 +607,7 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>
@@ -717,6 +725,7 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>

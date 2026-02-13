@@ -136,7 +136,7 @@ const Consorcios = () => {
       case "CONSÓRCIO XP":
         return "bg-cyan-600 text-white";
       case "ADEMICON":
-        return "bg-amber-600 text-white";
+        return "bg-primary text-primary-foreground";
       case "MAPFRE":
         return "bg-red-600 text-white";
       default:
