@@ -20,7 +20,8 @@ import {
   Target,
   Trophy,
   ShieldCheck,
-  Zap
+  Zap,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
@@ -28,6 +29,7 @@ import { twMerge } from 'tailwind-merge';
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,10 +44,15 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 // --- Utilities ---
 function cn(...inputs: ClassValue[]) {
@@ -67,6 +74,12 @@ interface WebhookResponse {
   text?: string;
   message?: string;
   [key: string]: string | number | boolean | undefined | null | object;
+}
+
+interface ChatConfig {
+  id: string;
+  n8n_url: string;
+  is_active: boolean;
 }
 
 // --- Constants ---
@@ -311,6 +324,19 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<{ url: string; base64: string } | null>(null);
   
+  // Chat Configuration State
+  const [chatConfig, setChatConfig] = useState<ChatConfig>({
+    id: 'default',
+    n8n_url: WEBHOOK_URL,
+    is_active: true
+  });
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [tempConfig, setTempConfig] = useState<ChatConfig>({
+    id: 'default',
+    n8n_url: WEBHOOK_URL,
+    is_active: true
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -323,6 +349,34 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
 
   // Initialize Session and Load History
   useEffect(() => {
+    // Load Chat Configuration
+    const loadConfig = async () => {
+      try {
+        console.log('Loading chat config...');
+        const { data, error } = await supabase
+          .from('chat_config')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching chat config from Supabase:', error);
+          return;
+        }
+
+        if (data) {
+          console.log('Chat config loaded successfully:', data);
+          setChatConfig(data);
+          setTempConfig(data);
+        } else {
+          console.log('No chat config found in database, using default hardcoded URL.');
+        }
+      } catch (error) {
+        console.error('Unexpected error loading chat config:', error);
+      }
+    };
+    loadConfig();
+
     // Load User Profile Name and Avatar
     const loadProfile = async () => {
       if (user?.id) {
@@ -384,9 +438,45 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
 
   // --- Handlers ---
 
+  const handleSaveConfig = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('chat_config')
+        .upsert({ 
+          id: chatConfig.id === 'default' ? undefined : chatConfig.id,
+          n8n_url: tempConfig.n8n_url,
+          is_active: tempConfig.is_active,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setChatConfig(data);
+        setTempConfig(data);
+        setIsConfigOpen(false);
+        toast.success('Configuração salva com sucesso!');
+      }
+    } catch (error) {
+      console.error('Error saving config:', error);
+      toast.error('Erro ao salvar configuração.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent, customContent?: string, displayContent?: string) => {
     if (e) e.preventDefault();
     
+    // Check if chat is active
+    if (!chatConfig.is_active) {
+      addBotMessage('O chat está temporariamente desativado para manutenção.');
+      return;
+    }
+
     const contentToSend = customContent || inputValue;
     const contentToDisplay = displayContent || contentToSend;
 
@@ -405,7 +495,16 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
     setIsLoading(true);
 
     try {
-      const response = await fetch(WEBHOOK_URL, {
+      console.log('Sending message payload:', {
+        tipo: 'text',
+        chatInput: contentToSend,
+        session: sessionId,
+        base64: null,
+        role: userRole,
+        codigo: userCodigo || null // Ensure null if empty string
+      });
+
+      const response = await fetch(chatConfig.n8n_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([{
@@ -414,15 +513,26 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           session: sessionId,
           base64: null,
           role: userRole,
-          codigo: userCodigo
+          codigo: userCodigo || null
         }])
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Webhook error response:', errorText);
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.message || errorJson.error || `Erro do servidor: ${response.status}`);
+        } catch (e) {
+          throw new Error(`Erro na comunicação com o chat (${response.status}): ${errorText.substring(0, 100)}...`);
+        }
+      }
+
       const data = await response.json();
       processBotResponse(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
-      addBotMessage('Desculpe, ocorreu um erro ao processar sua mensagem. Verifique sua conexão.');
+      addBotMessage(`⚠️ ${error.message || 'Ocorreu um erro ao processar sua mensagem.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -538,6 +648,12 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
   };
 
   const handleSendAudio = async (audioUrl: string, base64Data: string) => {
+    // Check if chat is active
+    if (!chatConfig.is_active) {
+      addBotMessage('O chat está temporariamente desativado para manutenção.');
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       content: 'Mensagem de áudio',
@@ -551,7 +667,7 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
     setIsLoading(true);
 
     try {
-      const response = await fetch(WEBHOOK_URL, {
+      const response = await fetch(chatConfig.n8n_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([{
@@ -596,6 +712,15 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {userRole === 'admin_master' && (
+            <button 
+              onClick={() => setIsConfigOpen(true)}
+              className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
+              title="Configurações do Agente"
+            >
+              <Settings size={20} />
+            </button>
+          )}
           <button 
             onClick={() => setIsGuideOpen(true)}
             className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
@@ -619,6 +744,53 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           </button>
         </div>
       </div>
+
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+        <DialogContent className="glass-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-primary" />
+              Configuração do Agente
+            </DialogTitle>
+            <DialogDescription>
+              Ajuste as configurações globais do Chat de IA.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="url">URL do Webhook (n8n)</Label>
+              <Input
+                id="url"
+                value={tempConfig.n8n_url}
+                onChange={(e) => setTempConfig(prev => ({ ...prev, n8n_url: e.target.value }))}
+                placeholder="https://..."
+              />
+            </div>
+            
+            <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/20">
+              <div className="space-y-0.5">
+                <Label className="text-base">Status do Chat</Label>
+                <div className="text-sm text-muted-foreground">
+                  {tempConfig.is_active ? "Ativo" : "Inativo"}
+                </div>
+              </div>
+              <Switch
+                checked={tempConfig.is_active}
+                onCheckedChange={(checked) => setTempConfig(prev => ({ ...prev, is_active: checked }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfigOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveConfig} disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="glass-card border-border">
