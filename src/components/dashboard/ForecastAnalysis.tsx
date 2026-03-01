@@ -634,7 +634,14 @@ function ForecastInsight({ data, lookback, projection }: { data: any[], lookback
           )}>{insight.bias} {insight.intensity.toUpperCase()}</strong>. 
           
           {insight.bias === "ALTA" && (
-            <> Projeta-se uma aceleração de receita, com um impacto financeiro positivo estimado em <strong className="text-emerald-400">{formatMoney(insight.financialImpact)}</strong> acima da média atual.</>
+            <> 
+              Projeta-se uma aceleração de receita, 
+              {insight.financialImpact >= 0 ? (
+                <> com um impacto financeiro positivo estimado em <strong className="text-emerald-400">{formatMoney(insight.financialImpact)}</strong> acima da média atual.</>
+              ) : (
+                <> porém com um impacto financeiro negativo estimado em <strong className="text-red-400">{formatMoney(Math.abs(insight.financialImpact))}</strong> abaixo da média atual.</>
+              )}
+            </>
           )}
           
           {insight.bias === "BAIXA" && (
