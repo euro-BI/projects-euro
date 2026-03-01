@@ -82,7 +82,7 @@ export const ImpactfulBackground = ({
 
       {/* 3. Central Rock (Static and perfectly centered) */}
       <div 
-        className="absolute top-1/2 left-1/2 z-20 w-[600px] h-[600px] -translate-x-1/2 -translate-y-1/2"
+        className="absolute top-[60%] left-1/2 z-20 w-[600px] h-[600px] -translate-x-1/2 -translate-y-1/2"
       >
         <img 
           src={CENTRAL_ROCK} 

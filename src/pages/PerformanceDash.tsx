@@ -80,6 +80,7 @@ import {
 
 // Dashboard Components
 
+import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import RankingRace from "@/components/dashboard/RankingRace";
 import EvolutionTrend, { MetricConfig } from "@/components/dashboard/EvolutionTrend";
 import AssessorSheet from "@/components/dashboard/AssessorSheet";
@@ -635,152 +636,67 @@ export default function PerformanceDash() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-12">
-          {/* FILTERS & NAVIGATION HEADER */}
-          <div className="flex flex-row justify-between items-center gap-4 border-b border-white/5 pb-6 overflow-x-auto custom-scrollbar no-scrollbar">
-            
-            {/* NAVIGATION TABS (NOW AT THE START) */}
-            <TabsList className="bg-transparent border-none flex-shrink-0 h-12 p-0 gap-8">
-              <TabsTrigger value="geral" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-euro-gold data-[state=active]:text-euro-gold rounded-none px-0 h-full text-sm font-data uppercase tracking-widest text-[#5C5C50] hover:text-[#A0A090]">
-                Geral
-              </TabsTrigger>
-              <TabsTrigger value="financial" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-euro-gold data-[state=active]:text-euro-gold rounded-none px-0 h-full text-sm font-data uppercase tracking-widest text-[#5C5C50] hover:text-[#A0A090]">
-                Financial Planning
-              </TabsTrigger>
-              <TabsTrigger value="cockpit" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-euro-gold data-[state=active]:text-euro-gold rounded-none px-0 h-full text-sm font-data uppercase tracking-widest text-[#5C5C50] hover:text-[#A0A090]">
-                Cockpit
-              </TabsTrigger>
-              <TabsTrigger value="ranking" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-euro-gold data-[state=active]:text-euro-gold rounded-none px-0 h-full text-sm font-data uppercase tracking-widest text-[#5C5C50] hover:text-[#A0A090]">
-                Super Ranking
-              </TabsTrigger>
-              <TabsTrigger value="forecast" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-euro-gold data-[state=active]:text-euro-gold rounded-none px-0 h-full text-sm font-data uppercase tracking-widest text-[#5C5C50] hover:text-[#A0A090]">
-                Forecast
-              </TabsTrigger>
-              <TabsTrigger value="comparativo" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-euro-gold data-[state=active]:text-euro-gold rounded-none px-0 h-full text-sm font-data uppercase tracking-widest text-[#5C5C50] hover:text-[#A0A090]">
-                Batalha
-              </TabsTrigger>
+          {/* FILTERS & NAVIGATION HEADER - FLOATING GLASS DOCK STYLE */}
+          <div className="sticky top-4 z-50 mx-auto max-w-fit">
+            <div className="flex flex-row items-center gap-2 p-1.5 rounded-full bg-[#0F1218]/80 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20 hover:bg-[#0F1218]/90">
+              
+              {/* NAVIGATION TABS */}
+              <TabsList className="bg-transparent border-none flex-shrink-0 h-9 p-0 gap-1 mx-2">
+                <TabsTrigger 
+                  value="geral" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                >
+                  Geral
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="financial" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                >
+                  Financial
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="cockpit" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                >
+                  Cockpit
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="ranking" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                >
+                  Ranking
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="forecast" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                >
+                  Forecast
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="comparativo" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                >
+                  Batalha
+                </TabsTrigger>
+              </TabsList>
 
-            </TabsList>
+              <div className="w-px h-4 bg-white/10 mx-1" />
 
-            {/* FILTERS SECTION (NOW HAS MORE SPACE) */}
-            <div className="flex items-center gap-3 ml-auto flex-shrink-0">
-              {/* ANO FILTER */}
-              <UISelect value={selectedYear} onValueChange={setSelectedYear}>
-                <UISelectTrigger className="w-[120px] bg-euro-elevated border-white/10 text-[#E8E8E0] font-data">
-                  <Calendar className="w-3 h-3 mr-2 text-euro-gold/60" />
-                  <UISelectValue placeholder="Ano" />
-                </UISelectTrigger>
-                <UISelectContent className="bg-euro-elevated border-white/10 text-[#E8E8E0]">
-                  {filtersData?.years.map((year) => (
-                    <UISelectItem key={year} value={year} className="font-data">
-                      {year}
-                    </UISelectItem>
-                  ))}
-                </UISelectContent>
-              </UISelect>
-
-              {/* MES FILTER */}
-              <UISelect value={selectedMonth} onValueChange={setSelectedMonth}>
-                <UISelectTrigger className="w-[180px] bg-euro-elevated border-white/10 text-[#E8E8E0] font-data">
-                  <UISelectValue placeholder="Mês" />
-                </UISelectTrigger>
-                <UISelectContent className="bg-euro-elevated border-white/10 text-[#E8E8E0]">
-                  {filteredMonths.map((m) => (
-                    <UISelectItem key={m} value={m} className="font-data">
-                      {format(parseISO(m), "MMMM yyyy", { locale: ptBR })}
-                    </UISelectItem>
-                  ))}
-                </UISelectContent>
-              </UISelect>
-
-              {/* TIME FILTER */}
-              <UISelect value={selectedTeam} onValueChange={(val) => {
-                setSelectedTeam(val);
-                setSelectedAssessorId("all"); // Reset assessor when team changes
-              }}>
-                <UISelectTrigger className="w-[200px] bg-euro-elevated border-white/10 text-[#E8E8E0] font-data">
-                  <UISelectValue placeholder="Time" />
-                </UISelectTrigger>
-                <UISelectContent className="bg-euro-elevated border-white/10 text-[#E8E8E0]">
-                  <UISelectItem value="all" className="font-data">Todos os Times</UISelectItem>
-                  {filtersData?.teams.map((t) => (
-                    <UISelectItem key={t} value={t} className="font-data">{t}</UISelectItem>
-                  ))}
-                </UISelectContent>
-              </UISelect>
-
-              {/* ASSESSOR SEARCH FILTER */}
-              <Popover open={isAssessorPopoverOpen} onOpenChange={setIsAssessorPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={isAssessorPopoverOpen}
-                    className="w-[300px] justify-between bg-euro-elevated border-white/10 text-[#E8E8E0] font-data hover:bg-euro-elevated/80"
-                  >
-                    <div className="flex items-center truncate">
-                      <User className="w-3 h-3 mr-2 text-euro-gold/60" />
-                      <span className="truncate">
-                        {selectedAssessorId === "all" 
-                          ? "Todos os Assessores" 
-                          : filtersData?.assessors.find((a) => a.id === selectedAssessorId)?.name}
-                      </span>
-                    </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0 bg-euro-elevated border-white/10">
-                  <Command className="bg-euro-elevated text-[#E8E8E0]">
-                    <CommandInput placeholder="Pesquisar assessor..." className="h-9 font-data" />
-                    <CommandList>
-                      <CommandEmpty className="py-2 text-center text-xs font-data text-[#5C5C50]">
-                        Nenhum assessor encontrado.
-                      </CommandEmpty>
-                      <CommandGroup className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                        <CommandItem
-                          value="all"
-                          onSelect={() => {
-                            setSelectedAssessorId("all");
-                            setIsAssessorPopoverOpen(false);
-                          }}
-                          className="font-data text-xs"
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedAssessorId === "all" ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          Todos os Assessores
-                        </CommandItem>
-                        {filtersData?.assessors
-                          .filter(a => {
-                            if (selectedTeam === "all") return true;
-                            return a.teams.includes(selectedTeam);
-                          })
-                          .map((assessor) => (
-                          <CommandItem
-                            key={assessor.id}
-                            value={assessor.name}
-                            onSelect={() => {
-                              setSelectedAssessorId(assessor.id);
-                              setIsAssessorPopoverOpen(false);
-                            }}
-                            className="font-data text-xs"
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedAssessorId === assessor.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {assessor.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              {/* FILTERS SECTION (COMPACT MODE) */}
+              <div className="flex items-center flex-shrink-0">
+                <DashboardFilters 
+                  selectedYear={selectedYear}
+                  setSelectedYear={setSelectedYear}
+                  selectedMonth={selectedMonth}
+                  setSelectedMonth={setSelectedMonth}
+                  selectedTeam={selectedTeam}
+                  setSelectedTeam={setSelectedTeam}
+                  selectedAssessorId={selectedAssessorId}
+                  setSelectedAssessorId={setSelectedAssessorId}
+                  filtersData={filtersData}
+                  filteredMonths={filteredMonths}
+                />
+              </div>
             </div>
           </div>
 
