@@ -36,6 +36,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       injectRegister: "auto",
       includeAssets: ["favicon.ico", "robots.txt", "icons/app-icon.png"],
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5000000,
+      },
       manifest: {
         name: "Hub - Eurostock",
         short_name: "Hub Eurostock",
