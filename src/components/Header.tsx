@@ -139,7 +139,18 @@ export const Header = () => {
     );
   };
 
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsMaximized(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
   if (!user) return null;
+  if (location.pathname === "/dash" && isMaximized) return null;
 
   return (
     <>

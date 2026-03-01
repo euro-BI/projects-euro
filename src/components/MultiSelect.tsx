@@ -57,6 +57,10 @@ export function MultiSelect({
     onChange([]);
   };
 
+  const handleSelectAll = () => {
+    onChange(options.map((o) => o.value));
+  };
+
   const filteredOptions = options.filter((option) =>
     option.label.toLowerCase().includes(searchValue.toLowerCase())
   );
@@ -68,38 +72,18 @@ export function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between", className)}
+          className={cn("w-full justify-between h-10", className)}
           disabled={disabled}
         >
-          <div className="flex flex-wrap gap-1 overflow-hidden">
+          <div className="flex items-center gap-2 overflow-hidden">
             {selected.length > 0 ? (
-              showCountOnly ? (
-                <span className="text-sm">
-                  {selected.length} {selected.length === 1 ? "usuário selecionado" : "usuários selecionados"}
-                </span>
-              ) : (
-                selected.map((value) => {
-                  const option = options.find((o) => o.value === value);
-                  return (
-                    option && (
-                      <Badge
-                        key={value}
-                        variant="secondary"
-                        className="flex items-center gap-1"
-                      >
-                        {option.label}
-                        <XCircle
-                          className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelect(value);
-                          }}
-                        />
-                      </Badge>
-                    )
-                  );
-                })
-              )
+              <span className="text-sm truncate">
+                {selected.length === options.length 
+                  ? "Todos os Meses" 
+                  : selected.length === 1 
+                    ? options.find(o => o.value === selected[0])?.label 
+                    : `${selected.length} selecionados`}
+              </span>
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>
             )}
@@ -117,6 +101,13 @@ export function MultiSelect({
           <CommandList>
             <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
             <CommandGroup>
+              <CommandItem
+                onSelect={handleSelectAll}
+                className="justify-center text-center cursor-pointer font-medium text-euro-gold"
+              >
+                Selecionar todos
+              </CommandItem>
+              <CommandSeparator />
               {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}

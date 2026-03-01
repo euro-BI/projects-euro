@@ -19,6 +19,13 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        euro: {
+          gold: "#FAC017",
+          navy: "#0A0D12",
+          card: "#111520",
+          elevated: "#1A2030",
+          inset: "#080B0F",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -112,6 +119,14 @@ export default {
             boxShadow: "0 0 20px rgba(250, 192, 23, 0.4), 0 0 30px rgba(250, 192, 23, 0.2)",
           },
         },
+        shimmer: {
+          from: {
+            transform: "translateX(-100%) skewX(-12deg)",
+          },
+          to: {
+            transform: "translateX(200%) skewX(-12deg)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
@@ -119,9 +134,14 @@ export default {
         "fade-in": "fade-in 0.5s ease-out",
         "slide-up": "slide-up 0.4s ease-out",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        shimmer: "shimmer 2s infinite linear",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["JetBrains Mono", "monospace"],
+        editorial: ["Lora", "serif"],
+        ui: ["DM Sans", "sans-serif"],
+        data: ["JetBrains Mono", "monospace"],
       },
     },
   },

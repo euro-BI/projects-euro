@@ -127,4 +127,106 @@ All colors MUST be HSL.
   input[type="date"]::-webkit-clear-button {
     display: none;
   }
+
+  /* Observable Plot Tooltip Styling */
+  .plot-tip {
+    --plot-background: #1A2030 !important;
+    --plot-foreground: #E8E8E0 !important;
+    background-color: var(--plot-background) !important;
+    color: var(--plot-foreground) !important;
+    border: 1px solid rgba(250, 192, 23, 0.2) !important;
+    border-radius: 4px !important;
+    padding: 8px 12px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(8px) !important;
+  }
+
+  .plot-tip b {
+    color: #FAC017 !important;
+    display: block;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Custom Scrollbar - Global Eurostock Style */
+  html {
+    background-color: #0e0e0e !important; /* Base dark color for the whole system */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s ease;
+  }
+
+  body {
+    background-color: transparent !important; /* Allow animated backgrounds at z-[-1] to show */
+    overflow-y: overlay; /* Chrome/Edge: scrollbar overlays content */
+  }
+
+  /* Target fullscreen specifically for Chrome/Edge */
+  :fullscreen, ::-webkit-full-screen, :full-screen {
+    background-color: #0e0e0e !important;
+  }
+
+  /* Fullscreen backdrop */
+  ::backdrop {
+    background-color: #0e0e0e !important;
+  }
+
+  /* Global scrollbar style for all containers */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: transparent; /* Hidden by default */
+    border-radius: 10px;
+    transition: background 0.3s ease;
+  }
+
+  /* Show thumb only when hovering over the scroll area or scrolling (simulated via hover) */
+  html:hover::-webkit-scrollbar-thumb, 
+  body:hover::-webkit-scrollbar-thumb,
+  *:hover::-webkit-scrollbar-thumb {
+    background: rgba(250, 192, 23, 0.2);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #FAC017 !important;
+  }
+
+  /* Corner between horizontal and vertical scrollbars */
+  ::-webkit-scrollbar-corner {
+    background: transparent !important;
+  }
+
+  /* Keep .custom-scrollbar for elements that want the ultra-thin/stealthy version */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s ease;
+  }
+
+  .custom-scrollbar:hover {
+    scrollbar-color: rgba(250, 192, 23, 0.5) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: rgba(250, 192, 23, 0.4);
+  }
 }
