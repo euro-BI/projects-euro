@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   userRole: string | null;
   isActive: boolean | null;
+  userCode: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -22,6 +23,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isActive, setIsActive] = useState<boolean | null>(null);
+  const [userCode, setUserCode] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchUserAuthDetails = async (userId: string) => {
@@ -41,24 +43,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole(null);
     }
 
-    // Fetch user active status from projects_profiles
+    // Fetch user active status and code from projects_profiles
     const { data: profileData, error: profileError } = await supabase
       .from("projects_profiles")
-      .select("is_active")
+      .select("is_active, codigo")
       .eq("id", userId)
       .single();
 
     if (profileError) {
       console.error("Erro ao buscar status de atividade do usuário:", profileError);
       setIsActive(null);
+      setUserCode(null);
     } else if (profileData) {
       setIsActive(profileData.is_active);
+      setUserCode(profileData.codigo);
       if (!profileData.is_active) {
         toast.error("Sua conta está inativa. Por favor, entre em contato com o administrador.");
         await signOut(); // Força o logout se o usuário estiver inativo
       }
     } else {
       setIsActive(null);
+      setUserCode(null);
     }
   };
 
@@ -145,7 +150,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, userRole, isActive, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, userRole, isActive, userCode, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

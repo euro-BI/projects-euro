@@ -37,10 +37,12 @@ import {
 
 import { RevenueDistribution } from "./RevenueDistribution";
 import { PRODUCT_KEYS, REPASSE_CONFIG } from "@/constants/revenue";
+import { AdvisorSimulator } from "./AdvisorSimulator";
 
 interface ForecastAnalysisProps {
   data: AssessorResumo[];
   selectedYear: string;
+  userRole?: string;
 }
 
 const COLORS = [
@@ -61,9 +63,15 @@ const COLORS = [
 
 
 
-export default function ForecastAnalysis({ data, selectedYear }: ForecastAnalysisProps) {
-  const [activeMode, setActiveMode] = useState<"temporal" | "causal">("temporal");
+export default function ForecastAnalysis({ data, selectedYear, userRole }: ForecastAnalysisProps) {
+  const [activeMode, setActiveMode] = useState<"temporal" | "causal" | "advisor">(userRole === 'user' ? "advisor" : "temporal");
   const [showTutorial, setShowTutorial] = useState(false);
+
+  useEffect(() => {
+    if (userRole === 'user') {
+      setActiveMode('advisor');
+    }
+  }, [userRole]);
 
   return (
     <div className="space-y-8 relative">
@@ -71,10 +79,10 @@ export default function ForecastAnalysis({ data, selectedYear }: ForecastAnalysi
         <div>
           <h2 className="text-2xl font-display text-euro-gold flex items-center gap-2">
             <BrainCircuit className="w-6 h-6" />
-            Euro Intelligence Forecast
+            {userRole === 'user' ? 'Simulador de Repasse' : 'Euro Intelligence Forecast'}
           </h2>
           <p className="text-sm font-ui text-[#A0A090]">
-            Análise preditiva e simulação de cenários de receita.
+            {userRole === 'user' ? 'Simule seus ganhos e planeje suas metas.' : 'Análise preditiva e simulação de cenários de receita.'}
           </p>
         </div>
         
@@ -92,32 +100,46 @@ export default function ForecastAnalysis({ data, selectedYear }: ForecastAnalysi
              {showTutorial ? "Fechar Guia" : "Como funciona?"}
           </Button>
 
-          <div className="bg-euro-elevated/50 p-1 rounded-lg border border-white/10 flex gap-1">
-            <Button
-              variant={activeMode === "temporal" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setActiveMode("temporal")}
-              className={cn(
-                "font-data text-xs uppercase tracking-wider transition-all",
-                activeMode === "temporal" ? "bg-euro-gold text-euro-navy hover:bg-euro-gold/90" : "text-[#A0A090] hover:text-white"
-              )}
-            >
-              <TrendingUp className="w-3 h-3 mr-2" />
-              Série Temporal
-            </Button>
-            <Button
-              variant={activeMode === "causal" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setActiveMode("causal")}
-              className={cn(
-                "font-data text-xs uppercase tracking-wider transition-all",
-                activeMode === "causal" ? "bg-euro-gold text-euro-navy hover:bg-euro-gold/90" : "text-[#A0A090] hover:text-white"
-              )}
-            >
-              <Calculator className="w-3 h-3 mr-2" />
-              Simulador Causal
-            </Button>
-          </div>
+          {userRole !== 'user' && (
+            <div className="bg-euro-elevated/50 p-1 rounded-lg border border-white/10 flex gap-1">
+              <Button
+                variant={activeMode === "temporal" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setActiveMode("temporal")}
+                className={cn(
+                  "font-data text-xs uppercase tracking-wider transition-all",
+                  activeMode === "temporal" ? "bg-euro-gold text-euro-navy hover:bg-euro-gold/90" : "text-[#A0A090] hover:text-white"
+                )}
+              >
+                <TrendingUp className="w-3 h-3 mr-2" />
+                Série Temporal
+              </Button>
+              <Button
+                variant={activeMode === "causal" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setActiveMode("causal")}
+                className={cn(
+                  "font-data text-xs uppercase tracking-wider transition-all",
+                  activeMode === "causal" ? "bg-euro-gold text-euro-navy hover:bg-euro-gold/90" : "text-[#A0A090] hover:text-white"
+                )}
+              >
+                <Calculator className="w-3 h-3 mr-2" />
+                Simulador Causal
+              </Button>
+              <Button
+                variant={activeMode === "advisor" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setActiveMode("advisor")}
+                className={cn(
+                  "font-data text-xs uppercase tracking-wider transition-all",
+                  activeMode === "advisor" ? "bg-euro-gold text-euro-navy hover:bg-euro-gold/90" : "text-[#A0A090] hover:text-white"
+                )}
+              >
+                <Wallet className="w-3 h-3 mr-2" />
+                Simulador de Repasse
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -128,8 +150,10 @@ export default function ForecastAnalysis({ data, selectedYear }: ForecastAnalysi
           ) : (
              activeMode === "temporal" ? (
                <TemporalAnalysis data={data} />
-             ) : (
+             ) : activeMode === "causal" ? (
                <CausalSimulator data={data} />
+             ) : (
+               <AdvisorSimulator data={data} />
              )
           )}
         </CardContent>
@@ -140,7 +164,7 @@ export default function ForecastAnalysis({ data, selectedYear }: ForecastAnalysi
 
 // --- COMPONENTE DE TUTORIAL ---
 
-function TutorialMode({ activeMode, onClose }: { activeMode: "temporal" | "causal", onClose: () => void }) {
+function TutorialMode({ activeMode, onClose }: { activeMode: "temporal" | "causal" | "advisor", onClose: () => void }) {
   if (activeMode === "temporal") {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in zoom-in-95 duration-500">
@@ -197,6 +221,57 @@ function TutorialMode({ activeMode, onClose }: { activeMode: "temporal" | "causa
                  ))}
               </div>
               <p className="text-xs font-mono text-cyan-400 mt-4 animate-bounce">Projeção Futura Detectada</p>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeMode === "advisor") {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in zoom-in-95 duration-500">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3 mb-6">
+             <div className="p-3 rounded-full bg-euro-gold/20 text-euro-gold">
+               <Wallet className="w-8 h-8" />
+             </div>
+             <div>
+               <h3 className="text-xl font-display text-white">Guia: Simulador de Repasse</h3>
+               <p className="text-sm text-white/60">Calcule quanto precisa vender para atingir seu objetivo financeiro.</p>
+             </div>
+          </div>
+          
+          <div className="space-y-4">
+             <TutorialStep 
+               number={1} 
+               title="Defina sua Meta Líquida" 
+               desc="Digite quanto você quer RECEBER de comissão no final do mês. O sistema fará a engenharia reversa para você."
+             />
+             <TutorialStep 
+               number={2} 
+               title="Entenda a Receita Necessária" 
+               desc="O sistema calculará automaticamente quanto de receita bruta você precisa gerar, baseado no seu histórico de vendas (mix de produtos)."
+             />
+             <TutorialStep 
+               number={3} 
+               title="Otimize seu Mix" 
+               desc="Arraste os sliders para simular diferentes cenários. Foque em produtos com maior repasse (como Seguros e Consórcios) para atingir sua meta vendendo menos!"
+             />
+          </div>
+
+          <Button onClick={onClose} className="mt-8 bg-white/10 hover:bg-white/20 text-white w-full border border-white/5">
+            Entendi, quero ganhar dinheiro!
+          </Button>
+        </div>
+
+        <div className="relative bg-black/40 rounded-xl border border-white/10 p-6 flex items-center justify-center overflow-hidden group">
+           <div className="absolute inset-0 bg-gradient-to-br from-euro-gold/5 to-emerald-500/5" />
+           
+           <div className="relative flex flex-col items-center gap-4">
+              <div className="w-32 h-32 rounded-full border-4 border-euro-gold/20 flex items-center justify-center animate-pulse">
+                <Wallet className="w-12 h-12 text-euro-gold" />
+              </div>
+              <p className="text-sm font-data text-emerald-400 animate-bounce">Meta Atingida!</p>
            </div>
         </div>
       </div>

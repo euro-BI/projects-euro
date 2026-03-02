@@ -55,6 +55,7 @@ interface DashboardFiltersProps {
   setSelectedAssessorId: (id: string) => void;
   filtersData: FilterData | undefined;
   filteredMonths: string[];
+  userRole?: string | null;
 }
 
 export function DashboardFilters({
@@ -68,6 +69,7 @@ export function DashboardFilters({
   setSelectedAssessorId,
   filtersData,
   filteredMonths,
+  userRole,
 }: DashboardFiltersProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isAssessorOpen, setIsAssessorOpen] = React.useState(false);
@@ -147,7 +149,9 @@ export function DashboardFilters({
                onClick={(e) => {
                  e.stopPropagation();
                  setSelectedTeam("all");
-                 setSelectedAssessorId("all");
+                 if (userRole !== 'user') {
+                    setSelectedAssessorId("all");
+                 }
                }}
              >
                Limpar Filtros
@@ -201,11 +205,14 @@ export function DashboardFilters({
               value={selectedTeam} 
               onValueChange={(val) => {
                 setSelectedTeam(val);
-                setSelectedAssessorId("all");
+                if (userRole !== 'user') {
+                   setSelectedAssessorId("all");
+                }
               }}
+              disabled={userRole === 'user'}
             >
               <SelectTrigger className={cn(
-                "bg-white/5 border-white/10 text-white text-xs h-9 focus:ring-euro-gold/20",
+                "bg-white/5 border-white/10 text-white text-xs h-9 focus:ring-euro-gold/20 disabled:opacity-50 disabled:cursor-not-allowed",
                 selectedTeam !== "all" && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
               )}>
                 <SelectValue placeholder="Selecione o time" />
@@ -234,8 +241,9 @@ export function DashboardFilters({
                   variant="outline"
                   role="combobox"
                   aria-expanded={isAssessorOpen}
+                  disabled={userRole === 'user'}
                   className={cn(
-                    "w-full justify-between bg-white/5 border-white/10 text-white text-xs h-9 hover:bg-white/10 font-normal",
+                    "w-full justify-between bg-white/5 border-white/10 text-white text-xs h-9 hover:bg-white/10 font-normal disabled:opacity-50 disabled:cursor-not-allowed",
                     selectedAssessorId !== "all" && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
                   )}
                 >

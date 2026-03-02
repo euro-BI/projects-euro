@@ -11,7 +11,8 @@ import {
   RefreshCw,
   LayoutDashboard,
   ShieldCheck,
-  Tv
+  Tv,
+  BrainCircuit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
@@ -25,6 +26,16 @@ export default function Welcome() {
   const isUser = userRole === "user";
 
   const menuItems = [
+    {
+      title: "Euro Intelligence",
+      description: "Acesse dashboards exclusivos de inteligência comercial e produtos.",
+      icon: BrainCircuit,
+      path: "/dash",
+      roles: ["admin_master"],
+      color: "text-amber-400",
+      bgColor: "bg-amber-400/10",
+      borderColor: "border-amber-400/20"
+    },
     {
       title: "Dashboard de Projetos",
       description: "Visualize o status e progresso de todos os projetos ativos.",

@@ -26,6 +26,8 @@ import TVPresentations from "./pages/TVPresentations";
 import TVPresentationViewer from "./pages/TVPresentationViewer";
 import TVPublished from "./pages/TVPublished";
 import PerformanceDash from "./pages/PerformanceDash";
+import DashboardHome from "./pages/DashboardHome";
+import ProductsDashboard from "./pages/ProductsDashboard";
 
 const queryClient = new QueryClient();
 
@@ -154,8 +156,24 @@ const App = () => (
             <Route
               path="/dash"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                  <DashboardHome />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dash/comercial"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
                   <PerformanceDash />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dash/produtos"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                  <ProductsDashboard />
                 </ProtectedRoute>
               }
             />

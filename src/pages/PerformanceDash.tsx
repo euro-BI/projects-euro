@@ -1,6 +1,8 @@
 
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AssessorResumo } from "@/types/dashboard";
 import { format, parseISO, subMonths } from "date-fns";
@@ -33,7 +35,8 @@ import {
   Maximize2,
   Minimize2,
   Percent,
-  Briefcase
+  Briefcase,
+  ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
@@ -144,6 +147,45 @@ export default function PerformanceDash() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("geral");
+
+  const navigate = useNavigate();
+  const { userRole, userCode } = useAuth();
+
+  // Determine effective assessor ID based on role and active tab
+  const effectiveAssessorId = useMemo(() => {
+    if (userRole === "user" && userCode) {
+      // In Ranking tab, user can see all
+      if (activeTab === "ranking") {
+        return selectedAssessorId;
+      }
+      // In other tabs, FORCE user code
+      return userCode;
+    }
+    return selectedAssessorId;
+  }, [userRole, userCode, activeTab, selectedAssessorId]);
+
+  // Determine effective team based on role and active tab
+  const effectiveTeam = useMemo(() => {
+     return selectedTeam;
+  }, [selectedTeam]);
+
+  // Apply user filter if role is user
+  React.useEffect(() => {
+    if (userRole === "user" && userCode) {
+      // For Ranking tab, we don't want to filter by assessor ID
+      if (activeTab !== "ranking") {
+        setSelectedAssessorId(userCode);
+      } else {
+        // When entering Ranking, default to showing ALL
+        if (selectedAssessorId === userCode) {
+             setSelectedAssessorId("all");
+        }
+        if (selectedTeam !== "all") {
+             setSelectedTeam("all");
+        }
+      }
+    }
+  }, [userRole, userCode, activeTab]);
 
   // Toggle maximization and handle ESC key
   const toggleMaximize = async () => {
@@ -259,7 +301,7 @@ export default function PerformanceDash() {
 
   // Fetch dashboard data (Single Month)
   const { data: dashData, isLoading: isDashLoading } = useQuery({
-    queryKey: ["dash-data", selectedMonth, selectedTeam, selectedAssessorId],
+    queryKey: ["dash-data", selectedMonth, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedMonth,
     queryFn: async () => {
       // Fetch active teams first
@@ -275,15 +317,15 @@ export default function PerformanceDash() {
         .select("*")
         .eq("data_posicao", selectedMonth);
       
-      if (selectedTeam !== "all") {
-        query = query.eq("time", selectedTeam);
+      if (effectiveTeam !== "all") {
+        query = query.eq("time", effectiveTeam);
       } else {
         // Filter by active teams if "all" is selected
         query = query.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        query = query.eq("cod_assessor", selectedAssessorId);
+      if (effectiveAssessorId !== "all") {
+        query = query.eq("cod_assessor", effectiveAssessorId);
       }
 
       const { data, error } = await query.order("pontos_totais_acumulado", { ascending: false });
@@ -309,14 +351,14 @@ export default function PerformanceDash() {
         .select("*")
         .eq("data_posicao", prevMonth);
       
-      if (selectedTeam !== "all") {
-        prevQuery = prevQuery.eq("time", selectedTeam);
+      if (effectiveTeam !== "all") {
+        prevQuery = prevQuery.eq("time", effectiveTeam);
       } else {
         prevQuery = prevQuery.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        prevQuery = prevQuery.eq("cod_assessor", selectedAssessorId);
+      if (effectiveAssessorId !== "all") {
+        prevQuery = prevQuery.eq("cod_assessor", effectiveAssessorId);
       }
       
       const { data: prevData } = await prevQuery;
@@ -331,7 +373,7 @@ export default function PerformanceDash() {
 
   // Fetch Yearly Data for Funding Trend
   const { data: yearlyData, isLoading: isYearlyLoading } = useQuery({
-    queryKey: ["dash-yearly-data", selectedYear, selectedTeam, selectedAssessorId],
+    queryKey: ["dash-yearly-data", selectedYear, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedYear,
     queryFn: async () => {
       // Fetch active teams first
@@ -351,14 +393,14 @@ export default function PerformanceDash() {
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
       
-      if (selectedTeam !== "all") {
-        query = query.eq("time", selectedTeam);
+      if (effectiveTeam !== "all") {
+        query = query.eq("time", effectiveTeam);
       } else {
         query = query.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        query = query.eq("cod_assessor", selectedAssessorId);
+      if (effectiveAssessorId !== "all") {
+        query = query.eq("cod_assessor", effectiveAssessorId);
       }
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
@@ -369,7 +411,7 @@ export default function PerformanceDash() {
 
   // Fetch Previous Yearly Data for YoY Comparison
   const { data: prevYearlyData, isLoading: isPrevYearlyLoading } = useQuery({
-    queryKey: ["dash-prev-yearly-data", selectedYear, selectedTeam, selectedAssessorId],
+    queryKey: ["dash-prev-yearly-data", selectedYear, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedYear,
     queryFn: async () => {
       // Fetch active teams first
@@ -390,14 +432,14 @@ export default function PerformanceDash() {
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
       
-      if (selectedTeam !== "all") {
-        query = query.eq("time", selectedTeam);
+      if (effectiveTeam !== "all") {
+        query = query.eq("time", effectiveTeam);
       } else {
         query = query.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        query = query.eq("cod_assessor", selectedAssessorId);
+      if (effectiveAssessorId !== "all") {
+        query = query.eq("cod_assessor", effectiveAssessorId);
       }
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
@@ -408,7 +450,7 @@ export default function PerformanceDash() {
 
   // Fetch Financial Planning Data (Latest Month + 12 Months Trend) independent of filters
   const { data: fpData, isLoading: isFPLoading } = useQuery({
-    queryKey: ["fp-data", selectedTeam, selectedAssessorId],
+    queryKey: ["fp-data", effectiveTeam, effectiveAssessorId],
     queryFn: async () => {
       // 1. Get Latest Date
       const { data: latestEntry } = await supabase
@@ -437,14 +479,14 @@ export default function PerformanceDash() {
         .select("*")
         .eq("data_posicao", latestDate);
 
-      if (selectedTeam !== "all") {
-        currentQuery = currentQuery.eq("time", selectedTeam);
+      if (effectiveTeam !== "all") {
+        currentQuery = currentQuery.eq("time", effectiveTeam);
       } else {
         currentQuery = currentQuery.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        currentQuery = currentQuery.eq("cod_assessor", selectedAssessorId);
+      if (effectiveAssessorId !== "all") {
+        currentQuery = currentQuery.eq("cod_assessor", effectiveAssessorId);
       }
 
       const { data: currentData, error: currentError } = await currentQuery;
@@ -458,14 +500,14 @@ export default function PerformanceDash() {
         .lte("data_posicao", latestDate)
         .order("data_posicao", { ascending: true });
 
-      if (selectedTeam !== "all") {
-        trendQuery = trendQuery.eq("time", selectedTeam);
+      if (effectiveTeam !== "all") {
+        trendQuery = trendQuery.eq("time", effectiveTeam);
       } else {
         trendQuery = trendQuery.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        trendQuery = trendQuery.eq("cod_assessor", selectedAssessorId);
+      if (effectiveAssessorId !== "all") {
+        trendQuery = trendQuery.eq("cod_assessor", effectiveAssessorId);
       }
 
       const { data: trendData, error: trendError } = await trendQuery;
@@ -574,10 +616,10 @@ export default function PerformanceDash() {
         activeAssessors: current.length,
         avgROA: calculatedROA * 100,
         monthName: format(parseISO(selectedMonth), "MMMM yyyy", { locale: ptBR }),
-        teamName: selectedTeam === "all" ? "Todos os Times" : selectedTeam,
+        teamName: effectiveTeam === "all" ? "Todos os Times" : effectiveTeam,
       }
     };
-  }, [dashData, selectedMonth, selectedTeam]);
+  }, [dashData, selectedMonth, effectiveTeam]);
 
   const handleAssessorClick = (assessor: AssessorResumo) => {
     setSelectedAssessor(assessor);
@@ -608,6 +650,19 @@ export default function PerformanceDash() {
       <div className="max-w-[1600px] mx-auto space-y-12 relative z-10">
         {/* CENTRALIZED TOP TITLE WITH MAXIMIZE BUTTON */}
         <div className="relative flex items-center justify-center w-full mb-8">
+          <div className="absolute left-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/dash")}
+              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group flex items-center gap-2"
+              title="Voltar ao Menu"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-[10px] font-data uppercase tracking-wider hidden sm:inline">Voltar</span>
+            </Button>
+          </div>
+
           <h1 className="text-xl font-data text-euro-gold tracking-[0.4em] uppercase opacity-80">
             Performance Geral Eurostock
           </h1>
@@ -672,12 +727,14 @@ export default function PerformanceDash() {
                 >
                   Forecast
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="comparativo" 
-                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
-                >
-                  Batalha
-                </TabsTrigger>
+                {userRole !== 'user' && (
+                  <TabsTrigger 
+                    value="comparativo" 
+                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                  >
+                    Batalha
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <div className="w-px h-4 bg-white/10 mx-1" />
@@ -695,6 +752,7 @@ export default function PerformanceDash() {
                   setSelectedAssessorId={setSelectedAssessorId}
                   filtersData={filtersData}
                   filteredMonths={filteredMonths}
+                  userRole={activeTab === "ranking" ? "admin" : userRole}
                 />
               </div>
             </div>
@@ -1114,12 +1172,15 @@ export default function PerformanceDash() {
             <ForecastAnalysis 
               data={fpData?.trend || []} 
               selectedYear={selectedYear}
+              userRole={userRole}
             />
           </TabsContent>
 
-          <TabsContent value="comparativo" className="space-y-12 mt-0 border-none p-0 outline-none">
-            <ComparisonView />
-          </TabsContent>
+          {userRole !== 'user' && (
+            <TabsContent value="comparativo" className="space-y-12 mt-0 border-none p-0 outline-none">
+              <ComparisonView />
+            </TabsContent>
+          )}
 
 
         </Tabs>

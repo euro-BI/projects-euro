@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard, Tv, Settings } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard, Tv, Settings, BrainCircuit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -150,7 +150,7 @@ export const Header = () => {
   }, []);
 
   if (!user) return null;
-  if (location.pathname === "/dash" && isMaximized) return null;
+  if (location.pathname.startsWith("/dash") && isMaximized) return null;
 
   return (
     <>
@@ -194,6 +194,12 @@ export const Header = () => {
                   <Home className="w-4 h-4 mr-2" />
                   Início
                 </DropdownMenuItem>
+                {isAdminMaster && (
+                  <DropdownMenuItem onClick={() => navigate('/dash')}>
+                    <BrainCircuit className="w-4 h-4 mr-2" />
+                    Euro Intelligence
+                  </DropdownMenuItem>
+                )}
                 {(isAdminMaster || isAdmin) && (
                   <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                     <LayoutDashboard className="w-4 h-4 mr-2" />
@@ -374,6 +380,16 @@ export const Header = () => {
                     <Home className="w-4 h-4 mr-2" />
                     Início
                   </Button>
+                  {isAdminMaster && (
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => navigate('/dash')}
+                    >
+                      <BrainCircuit className="w-4 h-4 mr-2" />
+                      Euro Intelligence
+                    </Button>
+                  )}
                   {(isAdminMaster || isAdmin) && (
                     <Button
                       variant="ghost"
