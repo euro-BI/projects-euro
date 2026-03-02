@@ -1173,6 +1173,8 @@ export default function PerformanceDash() {
               data={fpData?.trend || []} 
               selectedYear={selectedYear}
               userRole={userRole}
+              userCode={userCode}
+              effectiveAssessorId={effectiveAssessorId}
             />
           </TabsContent>
 

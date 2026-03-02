@@ -10,7 +10,9 @@ import {
   Award,
   Sparkles,
   ArrowRight,
-  Info
+  Info,
+  Calendar,
+  BarChart2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRODUCT_KEYS, REPASSE_CONFIG } from "@/constants/revenue";
@@ -23,9 +25,11 @@ import {
 
 interface AdvisorSimulatorProps {
   data: AssessorResumo[];
+  userCode?: string | null;
+  userRole?: string;
 }
 
-export function AdvisorSimulator({ data }: AdvisorSimulatorProps) {
+export function AdvisorSimulator({ data, userCode, userRole }: AdvisorSimulatorProps) {
   // 1. Calcula distribuição histórica e taxas médias de repasse por produto
   const historicalMix = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -67,6 +71,79 @@ export function AdvisorSimulator({ data }: AdvisorSimulatorProps) {
       };
     }).sort((a, b) => b.value - a.value);
   }, [data]);
+
+  // 3. Análise Histórica (Nova Feature)
+  const historicalStats = useMemo(() => {
+    if (!data || data.length === 0) return null;
+
+    // Se o usuário não tiver código, não faz sentido calcular comparativo específico
+    // Mas se data já estiver filtrado, podemos usar.
+    // Porém, o pedido é explícito: "se o assessor logado não tiver codigo, informe que o assessor não tem codigo informado"
+    if (userRole === 'user' && !userCode) return null;
+
+    // a. Ordenar dados por data (mais recente primeiro)
+    const sortedData = [...data].sort((a, b) => 
+      new Date(b.data_posicao).getTime() - new Date(a.data_posicao).getTime()
+    );
+
+    // b. Calcular Net Income para cada mês histórico
+    const monthlyNetIncomes = sortedData.map(item => {
+      let monthNet = 0;
+      Object.entries(PRODUCT_KEYS).forEach(([key, label]) => {
+        const val = (item as any)[key] || 0;
+        
+        // Determina taxa (mesma lógica do historicalMix)
+        let baseRate = 0;
+        let productRate = 0;
+        if (key in REPASSE_CONFIG.investimentos.produtos) {
+          baseRate = REPASSE_CONFIG.investimentos.base;
+          productRate = (REPASSE_CONFIG.investimentos.produtos as any)[key];
+        } else if (key in REPASSE_CONFIG.cross_sell.produtos) {
+          baseRate = REPASSE_CONFIG.cross_sell.base;
+          productRate = (REPASSE_CONFIG.cross_sell.produtos as any)[key];
+        } else {
+          baseRate = 0.82;
+          productRate = 0.50;
+        }
+        const effectiveRate = baseRate * productRate;
+        
+        monthNet += val * effectiveRate;
+      });
+      return {
+        date: item.data_posicao,
+        netIncome: monthNet
+      };
+    });
+
+    // c. Extrair métricas
+    const lastMonth = monthlyNetIncomes[0]; // Último mês fechado
+    
+    const calculateAvg = (months: number) => {
+      const slice = monthlyNetIncomes.slice(0, months);
+      if (slice.length === 0) return 0;
+      return slice.reduce((acc, curr) => acc + curr.netIncome, 0) / slice.length;
+    };
+
+    return {
+      lastMonthIncome: lastMonth?.netIncome || 0,
+      avg3: calculateAvg(3),
+      avg6: calculateAvg(6),
+      avg9: calculateAvg(9),
+      avg12: calculateAvg(12),
+      history: monthlyNetIncomes
+    };
+  }, [data]);
+
+  const getComparison = (current: number, baseline: number) => {
+    if (!baseline) return { diff: 0, percent: 0, status: 'neutral' };
+    const diff = current - baseline;
+    const percent = (diff / baseline) * 100;
+    return {
+      diff,
+      percent,
+      status: diff > 0 ? 'positive' : diff < 0 ? 'negative' : 'neutral'
+    };
+  };
 
   // 2. Estado
   const [targetNetIncome, setTargetNetIncome] = useState<number>(10000); // Meta de Repasse Líquido
@@ -208,6 +285,77 @@ export function AdvisorSimulator({ data }: AdvisorSimulatorProps) {
                   </p>
                 )}
               </div>
+
+                {/* ANÁLISE COMPARATIVA HISTÓRICA */}
+                {(userRole === 'user' && !userCode) ? (
+                  <div className="pt-4 mt-4 border-t border-white/10">
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-3">
+                      <Info className="w-5 h-5 text-red-400" />
+                      <div>
+                        <p className="text-xs font-bold text-red-400 uppercase">Atenção</p>
+                        <p className="text-xs text-red-300/80">
+                          Seu usuário não possui um Código de Assessor vinculado. Não é possível gerar comparativos históricos personalizados.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : historicalStats ? (
+                  <div className="pt-4 mt-4 border-t border-white/10 space-y-4">
+                    <h5 className="text-xs font-data text-white/60 uppercase flex items-center gap-2">
+                      <BarChart2 className="w-3 h-3" />
+                      Performance Comparada
+                    </h5>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Vs Último Mês */}
+                      <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[10px] text-white/40 uppercase">Vs Mês Anterior</span>
+                          <span className="text-[10px] text-white/60">{formatMoney(historicalStats.lastMonthIncome)}</span>
+                        </div>
+                        {(() => {
+                          const comp = getComparison(currentSimulatedNetIncome, historicalStats.lastMonthIncome);
+                          return (
+                            <div className="flex items-center justify-between">
+                              <span className={cn(
+                                "text-sm font-bold font-mono",
+                                comp.status === 'positive' ? "text-emerald-400" : comp.status === 'negative' ? "text-red-400" : "text-white/40"
+                              )}>
+                                {comp.status === 'positive' ? '+' : ''}{comp.percent.toFixed(1)}%
+                              </span>
+                              <span className="text-[10px] text-white/30">
+                                {comp.diff > 0 ? `+${formatMoney(comp.diff)}` : formatMoney(comp.diff)}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+  
+                      {/* Vs Médias Móveis */}
+                      <div className="space-y-2">
+                        {[
+                          { label: 'Média 3 Meses', val: historicalStats.avg3 },
+                          { label: 'Média 6 Meses', val: historicalStats.avg6 },
+                          { label: 'Média 12 Meses', val: historicalStats.avg12 },
+                        ].map((metric) => {
+                           const comp = getComparison(currentSimulatedNetIncome, metric.val);
+                           return (
+                             <div key={metric.label} className="flex items-center justify-between text-xs">
+                                <span className="text-white/40 w-24">{metric.label}</span>
+                                <span className="text-white/60 font-mono text-[10px]">{formatMoney(metric.val)}</span>
+                                <span className={cn(
+                                  "font-mono font-bold w-12 text-right",
+                                  comp.status === 'positive' ? "text-emerald-400" : comp.status === 'negative' ? "text-red-400" : "text-white/40"
+                                )}>
+                                  {comp.status === 'positive' ? '+' : ''}{comp.percent.toFixed(0)}%
+                                </span>
+                             </div>
+                           );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
               <div className="bg-euro-gold/5 rounded-lg p-4 border border-euro-gold/10 mt-4">
                 <div className="flex items-start gap-3">

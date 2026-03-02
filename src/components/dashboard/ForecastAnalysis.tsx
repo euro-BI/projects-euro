@@ -43,6 +43,8 @@ interface ForecastAnalysisProps {
   data: AssessorResumo[];
   selectedYear: string;
   userRole?: string;
+  userCode?: string | null;
+  effectiveAssessorId?: string;
 }
 
 const COLORS = [
@@ -63,7 +65,7 @@ const COLORS = [
 
 
 
-export default function ForecastAnalysis({ data, selectedYear, userRole }: ForecastAnalysisProps) {
+export default function ForecastAnalysis({ data, selectedYear, userRole, userCode, effectiveAssessorId }: ForecastAnalysisProps) {
   const [activeMode, setActiveMode] = useState<"temporal" | "causal" | "advisor">(userRole === 'user' ? "advisor" : "temporal");
   const [showTutorial, setShowTutorial] = useState(false);
 
@@ -153,7 +155,19 @@ export default function ForecastAnalysis({ data, selectedYear, userRole }: Forec
              ) : activeMode === "causal" ? (
                <CausalSimulator data={data} />
              ) : (
-               <AdvisorSimulator data={data} />
+               (userRole !== 'user' && (!effectiveAssessorId || effectiveAssessorId === 'all')) ? (
+                 <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
+                   <div className="w-16 h-16 rounded-full bg-euro-gold/10 flex items-center justify-center animate-pulse">
+                     <Users className="w-8 h-8 text-euro-gold" />
+                   </div>
+                   <h3 className="text-xl font-display text-white">Selecione um Assessor</h3>
+                   <p className="text-sm text-white/60 max-w-md">
+                     Para utilizar o Simulador de Repasse, é necessário selecionar um assessor específico no filtro acima. A simulação individual requer dados históricos exclusivos.
+                   </p>
+                 </div>
+               ) : (
+                 <AdvisorSimulator data={data} userCode={userCode} userRole={userRole} />
+               )
              )
           )}
         </CardContent>
