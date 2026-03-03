@@ -362,10 +362,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
                     "border-white/10 group-hover:border-white/30"
                   )}>
                     {assessor.foto_url ? (
-                      // <img src={assessor.foto_url} alt={assessor.nome_assessor || "Assessor"} className="w-full h-full object-cover" />
-                      <span className="text-xs font-data text-white/60">
-                        {(assessor.nome_assessor || "A").split(" ").map(n => n[0]).join("").slice(0, 2)}
-                      </span>
+                      <img src={assessor.foto_url} alt={assessor.nome_assessor || "Assessor"} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-xs font-data text-white/40">
                         {(assessor.nome_assessor || "A").split(" ").map(n => n[0]).join("").slice(0, 2)}

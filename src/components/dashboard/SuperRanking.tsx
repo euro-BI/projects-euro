@@ -152,16 +152,11 @@ export default function SuperRanking({ data, selectedYear, onAssessorClick }: Su
 
         {/* Photo with Ring */}
         <div className={cn(
-          "relative w-28 h-28 rounded-full bg-euro-inset border-4 overflow-hidden mb-6 flex items-center justify-center",
+          "relative w-28 h-28 rounded-full bg-euro-inset border-4 overflow-hidden mb-6",
           colors[position as 1|2|3]
         )}>
           {assessor.foto_url ? (
-            // <img src={assessor.foto_url} alt={assessor.nome_assessor || ""} className="w-full h-full object-cover" />
-            <div className="text-3xl font-display text-white/60">
-              {assessor.nome_assessor ? (
-                assessor.nome_assessor.split(" ").map((n: string) => n[0]).join("").slice(0, 2)
-              ) : "A"}
-            </div>
+            <img src={assessor.foto_url} alt={assessor.nome_assessor || ""} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-2xl font-display opacity-20">
               {assessor.nome_assessor ? (
@@ -308,10 +303,9 @@ export default function SuperRanking({ data, selectedYear, onAssessorClick }: Su
                       <td className="p-4 text-sm font-data text-[#8A8A7A]">{idx + 4}</td>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden">
                             {assessor.foto_url ? (
-                              // <img src={assessor.foto_url} alt="" className="w-full h-full object-cover" />
-                              <User className="w-4 h-4 text-white/40" />
+                              <img src={assessor.foto_url} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-[10px] opacity-30">
                                 {assessor.nome_assessor ? assessor.nome_assessor[0] : "A"}

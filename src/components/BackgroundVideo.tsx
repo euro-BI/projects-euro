@@ -5,7 +5,7 @@ interface BackgroundVideoProps {
 }
 
 export const BackgroundVideo = ({ 
-  videoUrl = "https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos/fotos-escudos/login.mp4",
+  videoUrl = "https://pub-b2b30f370a3947899854a061170643ea.r2.dev/utils/login.mp4",
   opacity = "opacity-30"
 }: BackgroundVideoProps) => {
   return (

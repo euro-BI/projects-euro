@@ -283,13 +283,12 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                   <td className="py-3 px-4 border-r border-white/10 sticky left-0 bg-euro-navy group-hover:bg-[#1e2538] z-10 w-[80px] min-w-[80px] max-w-[80px]">
                     <div className="flex items-center justify-center">
                       {teamPhotos?.has(item.time.toUpperCase()) ? (
-                        <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden shadow-lg group-hover:border-euro-gold transition-colors bg-black/40 p-1 flex items-center justify-center">
-                          {/* <img 
+                        <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden shadow-lg group-hover:border-euro-gold transition-colors bg-black/40 p-1">
+                          <img 
                             src={teamPhotos.get(item.time.toUpperCase())} 
                             alt={item.time} 
                             className="w-full h-full object-contain"
-                          /> */}
-                          <span className="text-[8px] text-white/40">{item.time.substring(0, 3)}</span>
+                          />
                         </div>
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-euro-elevated flex items-center justify-center text-[10px] text-euro-gold/40 border border-white/5 group-hover:border-euro-gold">
@@ -308,8 +307,7 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                           item.lider && "border-euro-gold shadow-[0_0_12px_rgba(250,192,23,0.3)]"
                         )}>
                           {item.foto_url ? (
-                            // <img src={item.foto_url} alt={item.nome_assessor} className="w-full h-full object-cover" />
-                            <User className="w-5 h-5 opacity-50" />
+                            <img src={item.foto_url} alt={item.nome_assessor} className="w-full h-full object-cover" />
                           ) : (
                             <User className="w-5 h-5 opacity-20" />
                           )}

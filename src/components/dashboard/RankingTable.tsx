@@ -205,10 +205,9 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
                 <td className="p-4 text-sm font-data text-[#8A8A7A]">{idx + 1}</td>
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden flex-shrink-0">
                       {assessor.foto_url ? (
-                        // <img src={assessor.foto_url} alt="" className="w-full h-full object-cover" />
-                        <User className="w-4 h-4 text-white/40" />
+                        <img src={assessor.foto_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-[10px] opacity-30 text-white">
                           {assessor.nome_assessor ? (
