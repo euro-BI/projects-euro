@@ -510,7 +510,7 @@ export default function ComparisonView() {
               </div>
               <CardContent className="flex flex-col items-center pt-8 gap-4 relative z-10">
                 <Avatar className="w-32 h-32 border-4 border-euro-gold shadow-[0_0_20px_rgba(250,192,23,0.3)]">
-                  <AvatarImage src={comparisonData.p1.photo || ""} />
+                  {/* <AvatarImage src={comparisonData.p1.photo || ""} /> */}
                   <AvatarFallback className="bg-euro-gold text-euro-navy text-2xl font-bold">
                     {comparisonData.p1.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -628,7 +628,7 @@ export default function ComparisonView() {
               </div>
               <CardContent className="flex flex-col items-center pt-8 gap-4 relative z-10">
                 <Avatar className="w-32 h-32 border-4 border-blue-400 shadow-[0_0_20px_rgba(96,165,250,0.3)]">
-                  <AvatarImage src={comparisonData.p2.photo || ""} />
+                  {/* <AvatarImage src={comparisonData.p2.photo || ""} /> */}
                   <AvatarFallback className="bg-blue-400 text-euro-navy text-2xl font-bold">
                     {comparisonData.p2.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>

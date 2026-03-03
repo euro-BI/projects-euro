@@ -37,9 +37,9 @@ export const ImpactfulBackground = ({
   return (
     <div className="fixed inset-0 z-[-1] overflow-hidden bg-euro-navy pointer-events-none select-none">
       
-      {/* 1. Tech Background Video (Céu Estrelado MP4) */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <video
+      {/* 1. Tech Background Video (DISABLED FOR PERFORMANCE) */}
+      <div className="absolute inset-0 z-0 overflow-hidden bg-[#0A0A0B]">
+        {/* <video
           autoPlay
           muted
           loop
@@ -48,7 +48,7 @@ export const ImpactfulBackground = ({
           style={{ opacity }}
         >
           <source src={videoUrl} type="video/mp4" />
-        </video>
+        </video> */}
         {/* Subtle overlay */}
         <div className="absolute inset-0 bg-euro-navy/20 backdrop-blur-[1px]" />
       </div>
@@ -80,8 +80,8 @@ export const ImpactfulBackground = ({
         ))}
       </div>
 
-      {/* 3. Central Rock (Static and perfectly centered) */}
-      <div 
+      {/* 3. Central Rock (DISABLED FOR PERFORMANCE) */}
+      {/* <div 
         className="absolute top-[60%] left-1/2 z-20 w-[600px] h-[600px] -translate-x-1/2 -translate-y-1/2"
       >
         <img 
@@ -89,10 +89,10 @@ export const ImpactfulBackground = ({
           alt="Central Rock" 
           className="w-full h-full object-contain"
         />
-      </div>
+      </div> */}
 
-      {/* 4. Random Floating Rocks with Depth Animation (Coming towards user) */}
-      <div className="absolute inset-0 z-30 overflow-hidden">
+      {/* 4. Random Floating Rocks (DISABLED FOR PERFORMANCE) */}
+      {/* <div className="absolute inset-0 z-30 overflow-hidden">
         {rocks.map((rock) => (
           <motion.div
             key={rock.id}
@@ -124,7 +124,7 @@ export const ImpactfulBackground = ({
             />
           </motion.div>
         ))}
-      </div>
+      </div> */}
 
       {/* 5. Final Vignette and Atmospheric Blur */}
       <div className="absolute inset-0 z-40 bg-radial-gradient from-transparent via-transparent to-euro-navy/60 pointer-events-none" />

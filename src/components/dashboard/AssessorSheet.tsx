@@ -91,7 +91,8 @@ export default function AssessorSheet({ assessor, isOpen, onOpenChange }: Assess
                         assessor.lider && "ring-2 ring-euro-gold ring-offset-2 ring-offset-[#0A0A0B]"
                     )}>
                         {assessor.foto_url ? (
-                            <img src={assessor.foto_url} alt={assessor.nome_assessor} className="w-full h-full object-cover" />
+                            // <img src={assessor.foto_url} alt={assessor.nome_assessor} className="w-full h-full object-cover" />
+                            <span className="text-3xl font-display text-euro-gold">{assessor.nome_assessor.charAt(0)}</span>
                         ) : (
                             <span className="text-3xl font-display text-euro-gold">{assessor.nome_assessor.charAt(0)}</span>
                         )}

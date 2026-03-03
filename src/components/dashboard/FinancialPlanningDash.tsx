@@ -322,11 +322,12 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 flex items-center justify-center text-[10px] text-white/40 font-data overflow-hidden">
                           {teamPhotos?.has(team.name.toUpperCase()) ? (
-                            <img 
-                              src={teamPhotos.get(team.name.toUpperCase())} 
-                              alt={team.name} 
-                              className="w-full h-full object-contain"
-                            />
+                            // <img 
+                            //   src={teamPhotos.get(team.name.toUpperCase())} 
+                            //   alt={team.name} 
+                            //   className="w-full h-full object-contain"
+                            // />
+                            team.name.substring(0, 2)
                           ) : (
                             team.name.substring(0, 2)
                           )}
@@ -377,9 +378,10 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
                   <tr key={idx} className="hover:bg-white/5 transition-colors group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden flex items-center justify-center">
                           {assessor.photo ? (
-                            <img src={assessor.photo} className="w-full h-full object-cover" />
+                            // <img src={assessor.photo} className="w-full h-full object-cover" />
+                            <User className="w-4 h-4 text-white/40" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[10px] text-white/40 font-data">
                               {assessor.name.substring(0, 1)}
