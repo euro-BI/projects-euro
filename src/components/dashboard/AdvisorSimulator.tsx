@@ -357,14 +357,6 @@ export function AdvisorSimulator({ data, userCode, userRole }: AdvisorSimulatorP
                   </div>
                 ) : null}
 
-              <div className="bg-euro-gold/5 rounded-lg p-4 border border-euro-gold/10 mt-4">
-                <div className="flex items-start gap-3">
-                  <Info className="w-4 h-4 text-euro-gold mt-0.5 shrink-0" />
-                  <p className="text-xs text-euro-gold/80 leading-relaxed">
-                    <strong>Dica de Ouro:</strong> Produtos como <span className="text-white">Seguros</span> e <span className="text-white">Consórcios</span> possuem taxas de repasse menores para a casa (maior comissão para você). Aumente o mix deles para reduzir a Receita Bruta necessária!
-                  </p>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

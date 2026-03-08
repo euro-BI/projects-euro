@@ -146,7 +146,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
     if (isPlaying && processedData.length > 0) {
       interval = setInterval(() => {
         setCurrentStep((prev) => (prev + 1) % processedData.length);
-      }, 2500); // 2.5 seconds per month
+      }, 5000); // 5 seconds per month
     }
     return () => clearInterval(interval);
   }, [isPlaying, processedData.length]);

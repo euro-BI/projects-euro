@@ -35,6 +35,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { HelpCircle } from "lucide-react";
 
 interface CockpitDashProps {
   currentData: AssessorResumo[];
@@ -424,40 +433,134 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
             <p className="text-sm text-white/40 mt-1 font-data">Visão Estratégica Consolidada • {selectedYear}</p>
           </div>
 
-          <div className="flex bg-[#1A2030] p-1 rounded-lg border border-euro-gold/20 shadow-[0_0_15px_rgba(0,0,0,0.3)]">
-            <button
-              onClick={() => setDisplayMode('meta')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold",
-                displayMode === 'meta' 
-                  ? "bg-euro-gold text-black shadow-lg" 
-                  : "text-white/60 hover:text-white hover:bg-white/10"
-              )}
-            >
-              Meta
-            </button>
-            <button
-              onClick={() => setDisplayMode('proportional')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex items-center gap-1",
-                displayMode === 'proportional' 
-                  ? "bg-euro-gold text-black shadow-lg" 
-                  : "text-white/60 hover:text-white hover:bg-white/10"
-              )}
-            >
-              <span className="hidden md:inline">Meta</span> Prop.
-            </button>
-            <button
-              onClick={() => setDisplayMode('pace')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold",
-                displayMode === 'pace' 
-                  ? "bg-euro-gold text-black shadow-lg" 
-                  : "text-white/60 hover:text-white hover:bg-white/10"
-              )}
-            >
-              Pace
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="flex bg-[#1A2030] p-1 rounded-lg border border-euro-gold/20 shadow-[0_0_15px_rgba(0,0,0,0.3)]">
+              <button
+                onClick={() => setDisplayMode('meta')}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold",
+                  displayMode === 'meta' 
+                    ? "bg-euro-gold text-black shadow-lg" 
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                )}
+              >
+                Meta
+              </button>
+              <button
+                onClick={() => setDisplayMode('proportional')}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex items-center gap-1",
+                  displayMode === 'proportional' 
+                    ? "bg-euro-gold text-black shadow-lg" 
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                )}
+              >
+                Pace
+              </button>
+              <button
+                onClick={() => setDisplayMode('pace')}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold",
+                  displayMode === 'pace' 
+                    ? "bg-euro-gold text-black shadow-lg" 
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                )}
+              >
+                Projeção
+              </button>
+            </div>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40 hover:text-euro-gold hover:bg-white/5 rounded-full transition-all duration-300">
+                  <HelpCircle className="w-5 h-5" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-[#0A0A0B] border-euro-gold/20 text-white sm:max-w-[600px] p-0 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-euro-gold/10 via-transparent to-transparent pointer-events-none" />
+                
+                <DialogHeader className="p-6 pb-2 border-b border-white/5 bg-white/5">
+                  <DialogTitle className="text-euro-gold font-display text-xl tracking-wide flex items-center gap-3">
+                    <HelpCircle className="w-5 h-5 text-euro-gold" />
+                    Entenda os Modos de Visualização
+                  </DialogTitle>
+                  <DialogDescription className="text-white/60 font-data text-xs uppercase tracking-wider">
+                    Guia rápido de interpretação de métricas
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                  {/* Meta */}
+                  <div className="group relative overflow-hidden bg-white/5 hover:bg-white/10 transition-colors p-5 rounded-xl border border-white/5 hover:border-euro-gold/30">
+                     <div className="flex items-start gap-4">
+                       <div className="p-2 bg-euro-gold/10 rounded-lg text-euro-gold group-hover:bg-euro-gold group-hover:text-black transition-colors">
+                         <Target className="w-5 h-5" />
+                       </div>
+                       <div className="flex-1 space-y-2">
+                         <h4 className="text-white font-display text-base">Meta (Original)</h4>
+                         <p className="text-sm text-white/60 font-data leading-relaxed">
+                           Representa o <strong>objetivo total</strong> definido para o mês. É o valor fixo que você precisa alcançar até o último dia útil, independente de quanto tempo já passou.
+                         </p>
+                         <div className="bg-black/40 p-4 rounded-lg border border-white/5 mt-3 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                          <span className="text-euro-gold font-bold uppercase tracking-wider text-[10px] bg-euro-gold/10 px-2 py-1 rounded shrink-0 self-start mt-0.5">
+                            Exemplo
+                          </span> 
+                          <p className="text-xs text-white/80 font-data leading-relaxed">
+                            Sua meta mensal é <span className="text-white font-bold">R$ 100k</span>. O gráfico sempre mostrará 100k como alvo.
+                          </p>
+                        </div>
+                       </div>
+                     </div>
+                  </div>
+
+                  {/* Pace */}
+                  <div className="group relative overflow-hidden bg-white/5 hover:bg-white/10 transition-colors p-5 rounded-xl border border-white/5 hover:border-euro-gold/30">
+                     <div className="flex items-start gap-4">
+                       <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                         <TrendingUp className="w-5 h-5" />
+                       </div>
+                       <div className="flex-1 space-y-2">
+                         <h4 className="text-white font-display text-base">Pace (Ritmo Ideal)</h4>
+                         <p className="text-sm text-white/60 font-data leading-relaxed">
+                           Ajusta a meta proporcionalmente aos <strong>dias úteis decorridos</strong>. Indica quanto você <em>deveria ter feito</em> até hoje para estar "em dia" com a meta.
+                         </p>
+                         <div className="bg-black/40 p-4 rounded-lg border border-white/5 mt-3 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                          <span className="text-blue-400 font-bold uppercase tracking-wider text-[10px] bg-blue-500/10 px-2 py-1 rounded shrink-0 self-start mt-0.5">
+                            Exemplo
+                          </span> 
+                          <p className="text-xs text-white/80 font-data leading-relaxed">
+                            Dia 15 (50% do mês). Pace ideal: <span className="text-white font-bold">R$ 50k</span>. Se fez 40k, está atrasado.
+                          </p>
+                        </div>
+                       </div>
+                     </div>
+                  </div>
+
+                  {/* Projeção */}
+                  <div className="group relative overflow-hidden bg-white/5 hover:bg-white/10 transition-colors p-5 rounded-xl border border-white/5 hover:border-euro-gold/30">
+                     <div className="flex items-start gap-4">
+                       <div className="p-2 bg-purple-500/10 rounded-lg text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                         <ArrowUpRight className="w-5 h-5" />
+                       </div>
+                       <div className="flex-1 space-y-2">
+                         <h4 className="text-white font-display text-base">Projeção (Forecast)</h4>
+                         <p className="text-sm text-white/60 font-data leading-relaxed">
+                           Estima seu <strong>fechamento mensal</strong> assumindo que você manterá o mesmo ritmo de produção diária até o fim do mês.
+                         </p>
+                         <div className="bg-black/40 p-4 rounded-lg border border-white/5 mt-3 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                          <span className="text-purple-400 font-bold uppercase tracking-wider text-[10px] bg-purple-500/10 px-2 py-1 rounded shrink-0 self-start mt-0.5">
+                            Exemplo
+                          </span> 
+                          <p className="text-xs text-white/80 font-data leading-relaxed">
+                            Fez R$ 40k em 50% do mês? Sua projeção é <span className="text-white font-bold">R$ 80k</span> (não bate a meta de 100k).
+                          </p>
+                        </div>
+                       </div>
+                     </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
