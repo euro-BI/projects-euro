@@ -197,69 +197,76 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.05]">
-            {rankingData.map((assessor: any, idx) => (
-              <tr 
-                key={assessor.cod_assessor}
-                className="group hover:bg-white/[0.05] transition-colors"
-              >
-                <td className="p-4 text-sm font-data text-[#8A8A7A]">{idx + 1}</td>
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden flex-shrink-0">
-                      {assessor.foto_url ? (
-                        <img src={assessor.foto_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] opacity-30 text-white">
-                          {assessor.nome_assessor ? (
-                            assessor.nome_assessor.split(" ").map((n: string) => n[0]).join("").slice(0, 2)
-                          ) : "A"}
-                        </div>
-                      )}
+            {rankingData.map((assessor: any, idx) => {
+              const isInelegivel = assessor.elegibilidade === false || assessor.elegibilidade === "false";
+
+              return (
+                <tr 
+                  key={assessor.cod_assessor}
+                  className="group hover:bg-white/[0.05] transition-colors"
+                >
+                  <td className="p-4 text-sm font-data text-[#8A8A7A]">{idx + 1}</td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-3 relative">
+                      <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden flex-shrink-0">
+                        {assessor.foto_url ? (
+                          <img src={assessor.foto_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[10px] opacity-30 text-white">
+                            {assessor.nome_assessor ? (
+                              assessor.nome_assessor.split(" ").map((n: string) => n[0]).join("").slice(0, 2)
+                            ) : "A"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className={cn(
+                          "text-sm font-ui group-hover:text-euro-gold transition-colors truncate",
+                          isInelegivel ? "text-red-500 font-bold" : "text-[#F5F5F0]"
+                        )}>
+                          {assessor.nome_assessor}
+                        </span>
+                        <span className="text-xs font-data text-[#8A8A7A]">
+                          {assessor.cod_assessor}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="text-sm font-ui text-[#F5F5F0] group-hover:text-euro-gold transition-colors truncate">
-                        {assessor.nome_assessor}
-                      </span>
-                      <span className="text-xs font-data text-[#8A8A7A]">
-                        {assessor.cod_assessor}
-                      </span>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-4 text-right text-sm font-data text-[#F5F5F0] whitespace-nowrap">
-                  {(assessor.latest_custodia / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M
-                </td>
-                <td className="p-4 text-right">
-                  <span className="text-sm font-data text-euro-gold font-bold">
-                    {assessor.pontos_total.toLocaleString("pt-BR")}
-                  </span>
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090]">
-                  {assessor.pontos_captacao > 0 ? assessor.pontos_captacao.toLocaleString("pt-BR") : "--"}
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090] whitespace-nowrap">
-                  R$ {(assessor.captacao_liquida_total / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}k
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090]">
-                  {assessor.pontos_roa_invest > 0 ? assessor.pontos_roa_invest.toLocaleString("pt-BR") : "--"}
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090]">
-                  {assessor.pontos_roa_cs > 0 ? assessor.pontos_roa_cs.toLocaleString("pt-BR") : "--"}
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090]">
-                  {assessor.pontos_ativacoes > 0 ? assessor.pontos_ativacoes.toLocaleString("pt-BR") : "--"}
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090]">
-                  {assessor.ativacao_300k > 0 ? assessor.ativacao_300k.toLocaleString("pt-BR") : "--"}
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090]">
-                  {assessor.ativacao_1kk > 0 ? assessor.ativacao_1kk.toLocaleString("pt-BR") : "--"}
-                </td>
-                <td className="p-4 text-right text-xs font-data text-[#A0A090]">
-                  {assessor.pontos_lider > 0 ? assessor.pontos_lider.toLocaleString("pt-BR") : "--"}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="p-4 text-right text-sm font-data text-[#F5F5F0] whitespace-nowrap">
+                    {(assessor.latest_custodia / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M
+                  </td>
+                  <td className="p-4 text-right">
+                    <span className="text-sm font-data text-euro-gold font-bold">
+                      {assessor.pontos_total.toLocaleString("pt-BR")}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090]">
+                    {assessor.pontos_captacao > 0 ? assessor.pontos_captacao.toLocaleString("pt-BR") : "--"}
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090] whitespace-nowrap">
+                    R$ {(assessor.captacao_liquida_total / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}k
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090]">
+                    {assessor.pontos_roa_invest > 0 ? assessor.pontos_roa_invest.toLocaleString("pt-BR") : "--"}
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090]">
+                    {assessor.pontos_roa_cs > 0 ? assessor.pontos_roa_cs.toLocaleString("pt-BR") : "--"}
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090]">
+                    {assessor.pontos_ativacoes > 0 ? assessor.pontos_ativacoes.toLocaleString("pt-BR") : "--"}
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090]">
+                    {assessor.ativacao_300k > 0 ? assessor.ativacao_300k.toLocaleString("pt-BR") : "--"}
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090]">
+                    {assessor.ativacao_1kk > 0 ? assessor.ativacao_1kk.toLocaleString("pt-BR") : "--"}
+                  </td>
+                  <td className="p-4 text-right text-xs font-data text-[#A0A090]">
+                    {assessor.pontos_lider > 0 ? assessor.pontos_lider.toLocaleString("pt-BR") : "--"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

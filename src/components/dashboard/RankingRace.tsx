@@ -51,7 +51,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
 
       const { data, error } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("cod_assessor, nome_assessor, foto_url, pontos_totais_acumulado, data_posicao, time")
+        .select("cod_assessor, nome_assessor, foto_url, pontos_totais_acumulado, data_posicao, time, elegibilidade")
         .order("data_posicao", { ascending: true })
         .not("cod_assessor", "in", `(${BLOCKED_ASSESSORS.map(a => `"${a}"`).join(',')})`);
       
@@ -65,7 +65,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
         d.nome_assessor.toLowerCase() !== "undefined" &&
         d.time && 
         activeTeamNames.has(d.time)
-      ) as Pick<AssessorResumo, "cod_assessor" | "nome_assessor" | "foto_url" | "pontos_totais_acumulado" | "data_posicao" | "time">[];
+      ) as Pick<AssessorResumo, "cod_assessor" | "nome_assessor" | "foto_url" | "pontos_totais_acumulado" | "data_posicao" | "time" | "elegibilidade">[];
     }
   });
 
@@ -299,6 +299,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
           {currentData.assessors.map((assessor, index) => {
             const isSelected = selectedAssessorId === assessor.cod_assessor;
             const isOthers = selectedAssessorId && !isSelected;
+            const isInelegivel = assessor.elegibilidade === false || assessor.elegibilidade === "false";
             
             // Calculate width based on max points
             const widthPercentage = (assessor.pontos_totais_acumulado / (maxPoints || 1)) * 100;
@@ -376,13 +377,13 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
                     <div className="flex justify-between items-end mb-1 pr-4">
                         <span className={cn(
                             "text-sm font-display truncate transition-colors",
-                            isSelected ? "text-euro-gold text-base" : "text-white/80"
+                            isSelected ? "text-euro-gold text-base" : isInelegivel ? "text-red-500 font-bold" : "text-white/80"
                         )}>
                             {assessor.nome_assessor}
                         </span>
                         <span className={cn(
                             "text-xs font-data transition-colors",
-                            isSelected ? "text-euro-gold" : "text-white/40"
+                            isSelected ? "text-euro-gold" : isInelegivel ? "text-red-500/80" : "text-white/40"
                         )}>
                             {assessor.pontos_totais_acumulado.toLocaleString()} pts
                         </span>
@@ -398,6 +399,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
                                 index === 1 ? "bg-gradient-to-r from-gray-500 to-gray-300" :
                                 index === 2 ? "bg-gradient-to-r from-amber-800 to-amber-600" :
                                 isSelected ? "bg-gradient-to-r from-euro-gold/50 to-euro-gold shadow-[0_0_15px_rgba(250,192,23,0.5)]" :
+                                isInelegivel ? "bg-gradient-to-r from-red-800 to-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]" :
                                 "bg-white/20 group-hover:bg-white/30"
                             )}
                             animate={{ width: `${widthPercentage}%` }}

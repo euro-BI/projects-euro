@@ -60,6 +60,12 @@ export interface AssessorResumo {
   pontos_totais_acumulado: number;
   meta_ativacao_300k: number;
   roa: number;
+  
+  // Elegibilidade Super Ranking
+  total_clientes_ruptura?: number;
+  media_movel_clientes_6m?: number;
+  media_movel_rupturas_6m?: number;
+  elegibilidade?: boolean;
 }
 
 export type TimeResumo = {

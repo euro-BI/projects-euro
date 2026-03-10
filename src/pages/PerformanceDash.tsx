@@ -147,6 +147,12 @@ export default function PerformanceDash() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("geral");
+  
+  // RANKING TAB STATE (Independent of global filters)
+  const [rankingYear, setRankingYear] = useState<string>(() => {
+    const current = new Date().getFullYear();
+    return current < 2026 ? "2026" : current.toString();
+  });
 
   const navigate = useNavigate();
   const { userRole, userCode } = useAuth();
@@ -406,6 +412,59 @@ export default function PerformanceDash() {
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
       return data as AssessorResumo[];
+    }
+  });
+
+  // Fetch Yearly Data for Ranking Tab (Independent of global selectedYear)
+  const { data: rankingData, isLoading: isRankingLoading } = useQuery({
+    queryKey: ["dash-ranking-data", rankingYear, effectiveTeam, effectiveAssessorId],
+    enabled: !!rankingYear,
+    queryFn: async () => {
+      // Fetch active teams first
+      const { data: activeTeamsData } = await supabase
+        .from("dados_times")
+        .select("time")
+        .eq("status", "ATIVO");
+      
+      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
+
+      // Fetch active assessors (profiles) to filter out inactive ones based on current status
+      const { data: activeProfiles } = await supabase
+        .from("projects_profiles")
+        .select("codigo")
+        .eq("is_active", true);
+      
+      const activeAssessorCodes = new Set(activeProfiles?.map(p => p.codigo).filter(Boolean) || []);
+
+      const startDate = `${rankingYear}-01-01`;
+      const endDate = `${rankingYear}-12-31`;
+      
+      let query = supabase
+        .from("mv_resumo_assessor" as any)
+        .select("*")
+        .gte("data_posicao", startDate)
+        .lte("data_posicao", endDate);
+      
+      if (effectiveTeam !== "all") {
+        query = query.eq("time", effectiveTeam);
+      } else {
+        query = query.in("time", Array.from(activeTeamNames));
+      }
+
+      if (effectiveAssessorId !== "all") {
+        query = query.eq("cod_assessor", effectiveAssessorId);
+      }
+
+      const { data, error } = await query.order("data_posicao", { ascending: true });
+      if (error) throw error;
+
+      // Filter data to only include currently active assessors
+      // We filter in memory because "is_active" is on a different table and refers to current status
+      const filteredData = (data as AssessorResumo[]).filter(d => 
+        d.cod_assessor && activeAssessorCodes.has(d.cod_assessor)
+      );
+
+      return filteredData;
     }
   });
 
@@ -1147,23 +1206,24 @@ export default function PerformanceDash() {
 
           <TabsContent value="ranking" className="space-y-12 mt-0 border-none p-0 outline-none">
             <SuperRanking 
-              data={yearlyData || []} 
-              selectedYear={selectedYear}
+              data={rankingData || []} 
+              selectedYear={rankingYear}
+              onYearChange={setRankingYear}
             />
             
             <RankingEvolution 
-              data={yearlyData || []} 
-              selectedYear={selectedYear}
+              data={rankingData || []} 
+              selectedYear={rankingYear}
             />
             
             <RankingTable 
-              data={yearlyData || []} 
-              selectedYear={selectedYear}
+              data={rankingData || []} 
+              selectedYear={rankingYear}
             />
             
             <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-8">
               <div className="min-h-[400px]">
-                <RankingRace selectedYear={selectedYear} />
+                <RankingRace selectedYear={rankingYear} />
               </div>
             </div>
           </TabsContent>
