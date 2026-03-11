@@ -1,5 +1,6 @@
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { ScrollToTop } from "./ScrollToTop";
 
 interface PageLayoutProps {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ export const PageLayout = ({ children, className }: PageLayoutProps) => {
       )}
     >
       {children}
+      <ScrollToTop />
     </div>
   );
 };
