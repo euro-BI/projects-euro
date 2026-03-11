@@ -429,12 +429,31 @@ export default function PerformanceDash() {
       const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
 
       // Fetch active assessors (profiles) to filter out inactive ones based on current status
-      const { data: activeProfiles } = await supabase
-        .from("projects_profiles")
-        .select("codigo")
-        .eq("is_active", true);
+      // We will assume that assessors present in the latest data_posicao (across the whole system) are the currently active ones.
       
-      const activeAssessorCodes = new Set(activeProfiles?.map(p => p.codigo).filter(Boolean) || []);
+      // 1. Get latest data_posicao from the system
+      const { data: latestDateData } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const latestDate = latestDateData?.data_posicao;
+      
+      // 2. Get list of assessors present in that latest date
+      let activeAssessorCodes = new Set<string>();
+
+      if (latestDate) {
+         const { data: currentAssessors } = await supabase
+            .from("mv_resumo_assessor" as any)
+            .select("cod_assessor")
+            .eq("data_posicao", latestDate);
+         
+         currentAssessors?.forEach((a: any) => {
+            if (a.cod_assessor) activeAssessorCodes.add(a.cod_assessor);
+         });
+      }
 
       const startDate = `${rankingYear}-01-01`;
       const endDate = `${rankingYear}-12-31`;
@@ -458,8 +477,8 @@ export default function PerformanceDash() {
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
 
-      // Filter data to only include currently active assessors
-      // We filter in memory because "is_active" is on a different table and refers to current status
+      // Filter data to only include currently active assessors (present in latest data_posicao)
+      // We filter in memory to ensure historical data for currently inactive assessors is removed
       const filteredData = (data as AssessorResumo[]).filter(d => 
         d.cod_assessor && activeAssessorCodes.has(d.cod_assessor)
       );

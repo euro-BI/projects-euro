@@ -383,7 +383,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
                         </span>
                         <span className={cn(
                             "text-xs font-data transition-colors",
-                            isSelected ? "text-euro-gold" : isInelegivel ? "text-red-500/80" : "text-white/40"
+                            isSelected ? "text-euro-gold" : "text-white/40"
                         )}>
                             {assessor.pontos_totais_acumulado.toLocaleString()} pts
                         </span>
@@ -399,7 +399,6 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
                                 index === 1 ? "bg-gradient-to-r from-gray-500 to-gray-300" :
                                 index === 2 ? "bg-gradient-to-r from-amber-800 to-amber-600" :
                                 isSelected ? "bg-gradient-to-r from-euro-gold/50 to-euro-gold shadow-[0_0_15px_rgba(250,192,23,0.5)]" :
-                                isInelegivel ? "bg-gradient-to-r from-red-800 to-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]" :
                                 "bg-white/20 group-hover:bg-white/30"
                             )}
                             animate={{ width: `${widthPercentage}%` }}
