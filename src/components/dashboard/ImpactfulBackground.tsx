@@ -3,12 +3,10 @@ import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 
 interface ImpactfulBackgroundProps {
-  videoUrl?: string;
   opacity?: number;
 }
 
 export const ImpactfulBackground = ({ 
-  videoUrl = "https://pub-b2b30f370a3947899854a061170643ea.r2.dev/utils/ceu-estrelado.mp4",
   opacity = 0.3
 }: ImpactfulBackgroundProps) => {
   // URLs from user
@@ -37,21 +35,8 @@ export const ImpactfulBackground = ({
   return (
     <div className="fixed inset-0 z-[-1] overflow-hidden bg-euro-navy pointer-events-none select-none">
       
-      {/* 1. Tech Background Video */}
-      <div className="absolute inset-0 z-0 overflow-hidden bg-[#0A0A0B]">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute min-w-full min-h-full object-cover"
-          style={{ opacity }}
-        >
-          <source src={videoUrl} type="video/mp4" />
-        </video>
-        {/* Subtle overlay */}
-        <div className="absolute inset-0 bg-euro-navy/20 backdrop-blur-[1px]" />
-      </div>
+      {/* 1. Dark Background Overlay (Previously Video) */}
+      <div className="absolute inset-0 z-0 overflow-hidden bg-[#0A0A0B]" />
 
       {/* 2. Extra Animated Stars for Parallax depth */}
       <div className="absolute inset-0 z-10">

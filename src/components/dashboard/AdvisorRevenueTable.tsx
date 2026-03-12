@@ -14,6 +14,9 @@ import {
   Briefcase,
   PieChart,
   Target,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   Search
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,6 +40,24 @@ type ViewType = "geral" | "invest" | "cs";
 export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick, selectedMonth }: AdvisorRevenueTableProps) {
   const [view, setView] = useState<ViewType>("geral");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'receita_total',
+    direction: 'desc'
+  });
+
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="w-3 h-3 opacity-20 ml-auto" />;
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUp className="w-3 h-3 text-euro-navy ml-auto" /> 
+      : <ArrowDown className="w-3 h-3 text-euro-navy ml-auto" />;
+  };
 
   const formattedMonth = useMemo(() => {
     if (!selectedMonth) return "";
@@ -86,8 +107,26 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
           roa_invest,
           roa_cs
         };
+      })
+      .sort((a, b) => {
+        const { key, direction } = sortConfig;
+        let aValue: any = a[key as keyof typeof a];
+        let bValue: any = b[key as keyof typeof b];
+
+        if (aValue === null || aValue === undefined) aValue = "";
+        if (bValue === null || bValue === undefined) bValue = "";
+
+        if (typeof aValue === 'string') {
+          return direction === 'asc' 
+            ? aValue.localeCompare(bValue) 
+            : bValue.localeCompare(aValue);
+        }
+        
+        return direction === 'asc' 
+          ? (aValue > bValue ? 1 : -1) 
+          : (bValue > aValue ? 1 : -1);
       });
-  }, [data, searchTerm]);
+  }, [data, searchTerm, sortConfig]);
 
   const totals = useMemo(() => {
     const initial = {
@@ -223,48 +262,114 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
           <table className="w-full text-left border-collapse min-w-[1200px]">
             <thead className="sticky top-0 z-30">
               <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest border-b border-euro-navy/20">
-                <th className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] min-w-[80px] max-w-[80px]">Time</th>
-                <th className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-[80px] bg-euro-gold z-40 min-w-[220px]">Assessor</th>
+                <th 
+                  onClick={() => handleSort('time')}
+                  className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] min-w-[80px] max-w-[80px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2">Time <SortIcon column="time" /></div>
+                </th>
+                <th 
+                  onClick={() => handleSort('nome_assessor')}
+                  className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-[80px] bg-euro-gold z-40 min-w-[220px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2">Assessor <SortIcon column="nome_assessor" /></div>
+                </th>
                 
                 <AnimatePresence mode="wait">
                   {view === "geral" && (
                     <>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Net/Clientes</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Meta Captação</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Captação Líquida</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Meta Receita</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita Total</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita Invest</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita CS</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">ROA Total</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">ROA Invest</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">ROA CS</th>
-                      <th className="py-4 px-4 font-bold text-right">Repasse Total</th>
+                      <th onClick={() => handleSort('custodia_net')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Net/Clientes <SortIcon column="custodia_net" /></div>
+                      </th>
+                      <th onClick={() => handleSort('meta_captacao')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Meta Captação <SortIcon column="meta_captacao" /></div>
+                      </th>
+                      <th onClick={() => handleSort('captacao_liquida_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Captação Líquida <SortIcon column="captacao_liquida_total" /></div>
+                      </th>
+                      <th onClick={() => handleSort('meta_receita')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Meta Receita <SortIcon column="meta_receita" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita Total <SortIcon column="receita_total" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita Invest <SortIcon column="receita_invest" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita CS <SortIcon column="receita_cs" /></div>
+                      </th>
+                      <th onClick={() => handleSort('roa_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">ROA Total <SortIcon column="roa_total" /></div>
+                      </th>
+                      <th onClick={() => handleSort('roa_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">ROA Invest <SortIcon column="roa_invest" /></div>
+                      </th>
+                      <th onClick={() => handleSort('roa_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">ROA CS <SortIcon column="roa_cs" /></div>
+                      </th>
+                      <th onClick={() => handleSort('repasse_total')} className="py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Repasse Total <SortIcon column="repasse_total" /></div>
+                      </th>
                     </>
                   )}
                   {view === "invest" && (
                     <>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita Invest Total</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">ROA Invest</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Asset m-1</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita B3</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Estruturadas</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Cetipados</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Ofertas - Fundos</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Ofertas - RF</th>
-                      <th className="py-4 px-4 font-bold text-right">Receita Renda Fixa</th>
+                      <th onClick={() => handleSort('receita_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita Invest Total <SortIcon column="receita_invest" /></div>
+                      </th>
+                      <th onClick={() => handleSort('roa_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">ROA Invest <SortIcon column="roa_invest" /></div>
+                      </th>
+                      <th onClick={() => handleSort('asset_m_1')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Asset m-1 <SortIcon column="asset_m_1" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_b3')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita B3 <SortIcon column="receita_b3" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receitas_estruturadas')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Estruturadas <SortIcon column="receitas_estruturadas" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_cetipados')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Cetipados <SortIcon column="receita_cetipados" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receitas_ofertas_fundos')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Ofertas - Fundos <SortIcon column="receitas_ofertas_fundos" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receitas_ofertas_rf')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Ofertas - RF <SortIcon column="receitas_ofertas_rf" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_renda_fixa')} className="py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita Renda Fixa <SortIcon column="receita_renda_fixa" /></div>
+                      </th>
                     </>
                   )}
                   {view === "cs" && (
                     <>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita CS</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">ROA CS</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita Seguros</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita Previdência</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receita Consórcios</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receitas Compromissadas</th>
-                      <th className="py-4 px-4 font-bold text-right border-r border-euro-navy/5">Receitas Câmbio</th>
-                      <th className="py-4 px-4 font-bold text-right">Offshore</th>
+                      <th onClick={() => handleSort('receita_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita CS <SortIcon column="receita_cs" /></div>
+                      </th>
+                      <th onClick={() => handleSort('roa_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">ROA CS <SortIcon column="roa_cs" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_seguros')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita Seguros <SortIcon column="receita_seguros" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_previdencia')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita Previdência <SortIcon column="receita_previdencia" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_consorcios')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receita Consórcios <SortIcon column="receita_consorcios" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_compromissadas')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receitas Compromissadas <SortIcon column="receita_compromissadas" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receita_cambio')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Receitas Câmbio <SortIcon column="receita_cambio" /></div>
+                      </th>
+                      <th onClick={() => handleSort('receitas_offshore')} className="py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-end gap-2">Offshore <SortIcon column="receitas_offshore" /></div>
+                      </th>
                     </>
                   )}
                 </AnimatePresence>
