@@ -182,12 +182,12 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
 
           <div className="grid grid-cols-2 gap-4 mt-auto pt-6 border-t border-white/5 relative z-10">
             <div className="text-center border-r border-white/5">
-              <p className="text-[10px] font-data text-white/30 uppercase tracking-widest mb-1">Clientes na Base</p>
+              <p className="text-[10px] font-data text-white/30 uppercase tracking-widest mb-1">TOTAL REALIZADO</p>
               <p className="text-2xl font-display text-white">{kpis.total}</p>
             </div>
             <div className="text-center">
               <p className="text-[10px] font-data text-white/30 uppercase tracking-widest mb-1">Meta Total</p>
-              <p className="text-2xl font-display text-euro-gold">{kpis.meta}</p>
+              <p className="text-2xl font-display text-white">{kpis.meta}</p>
             </div>
           </div>
         </Card>
@@ -308,7 +308,7 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
           <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden shadow-2xl">
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-10 bg-euro-card/95 backdrop-blur-md border-b border-white/10">
-                <tr className="text-[10px] font-data text-white/50 uppercase tracking-wider">
+                <tr className="text-xs font-data text-white/50 uppercase tracking-wider">
                   <th className="p-4 font-normal">Time</th>
                   <th className="p-4 font-normal text-right">Meta</th>
                   <th className="p-4 font-normal text-right">Realizado</th>
@@ -331,20 +331,27 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
                             team.name.substring(0, 2)
                           )}
                         </div>
-                        <span className="text-xs font-ui text-white group-hover:text-euro-gold transition-colors">{team.name}</span>
+                        <span className="text-sm font-ui text-white group-hover:text-euro-gold transition-colors">{team.name}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-right text-xs font-data text-white/40">{team.meta}</td>
-                    <td className="p-4 text-right text-xs font-data text-white">{team.total}</td>
+                    <td className="p-4 text-right text-sm font-data text-white">{team.meta}</td>
+                    <td className="p-4 text-right text-sm font-data text-white">{team.total}</td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <span className={cn(
-                          "text-xs font-data font-bold",
+                          "text-sm font-data font-bold",
                           team.percent >= 100 ? "text-green-500" : team.percent >= 80 ? "text-euro-gold" : "text-red-500"
                         )}>
                           {team.percent.toFixed(1)}%
                         </span>
-                        {team.percent >= 100 ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : null}
+                        {/* Progress Bar */}
+                        <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden ml-2 hidden sm:block">
+                          <div 
+                            className={cn("h-full rounded-full", team.percent >= 100 ? "bg-green-500" : "bg-euro-gold")} 
+                            style={{ width: `${Math.min(team.percent, 100)}%` }} 
+                          />
+                        </div>
+                        {team.percent >= 100 ? <CheckCircle2 className="w-3 h-3 text-green-500 ml-1" /> : null}
                       </div>
                     </td>
                   </tr>
@@ -365,7 +372,7 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
           <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden shadow-2xl max-h-[500px] overflow-y-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-10 bg-euro-card/95 backdrop-blur-md border-b border-white/10">
-                <tr className="text-[10px] font-data text-white/50 uppercase tracking-wider">
+                <tr className="text-xs font-data text-white/50 uppercase tracking-wider">
                   <th className="p-4 font-normal">Assessor</th>
                   <th className="p-4 font-normal text-right">Meta</th>
                   <th className="p-4 font-normal text-right">Realizado</th>
@@ -387,17 +394,17 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
                           )}
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-ui text-white group-hover:text-euro-gold transition-colors">{assessor.name}</span>
+                          <span className="text-sm font-ui text-white group-hover:text-euro-gold transition-colors">{assessor.name}</span>
                           <span className="text-[10px] text-white/30">{assessor.team}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-right text-xs font-data text-white/40">{assessor.meta}</td>
-                    <td className="p-4 text-right text-xs font-data text-white">{assessor.total}</td>
+                    <td className="p-4 text-right text-sm font-data text-white">{assessor.meta}</td>
+                    <td className="p-4 text-right text-sm font-data text-white">{assessor.total}</td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <span className={cn(
-                          "text-xs font-data font-bold",
+                          "text-sm font-data font-bold",
                           assessor.percent >= 100 ? "text-green-500" : assessor.percent >= 80 ? "text-euro-gold" : "text-red-500"
                         )}>
                           {assessor.percent.toFixed(1)}%

@@ -128,7 +128,7 @@ export default function FundingEvolution({ data, title = "Análise de Captação
         background: "transparent",
         color: "#A0A090",
         fontFamily: "JetBrains Mono, monospace",
-        fontSize: "12px",
+        fontSize: "12.6px",
       },
       marginLeft: 60,
       marginBottom: 40,
@@ -179,7 +179,7 @@ export default function FundingEvolution({ data, title = "Análise de Captação
             else formattedVal = val.toFixed(0);
             return `R$ ${formattedVal} ${arrow}`;
           },
-          fontSize: 12,
+          fontSize: 12.6,
           fontWeight: "900",
           fill: (d) => d.liquida_total >= 0 ? "#22c55e" : "#ef4444",
         }),

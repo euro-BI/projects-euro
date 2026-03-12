@@ -633,7 +633,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                           isInelegivel && "opacity-70 grayscale-[0.8] hover:grayscale-0 hover:opacity-100 bg-red-500/[0.02]"
                         )}
                       >
-                        <td className="p-4 text-sm font-data text-[#8A8A7A]">{idx + 4}</td>
+                        <td className="p-4 text-sm font-data text-[#FFFFFF]">{idx + 4}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-3 relative">
                             {isInelegivel && (
@@ -652,7 +652,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-ui text-[#F5F5F0] group-hover:text-euro-gold transition-colors whitespace-nowrap">{assessor.nome_assessor}</span>
-                              <span className="text-xs font-data text-[#8A8A7A]">{assessor.cod_assessor}</span>
+                              <span className="text-xs font-data text-white">{assessor.cod_assessor}</span>
                             </div>
                           </div>
                         </td>
@@ -661,19 +661,19 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                             {assessor.pontos_total.toLocaleString("pt-BR")}
                           </span>
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-[#A0A090] hidden xl:table-cell">
+                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
                           {assessor.pontos_captacao > 0 ? assessor.pontos_captacao : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-[#A0A090] hidden xl:table-cell">
+                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
                           {assessor.pontos_roa_invest > 0 ? assessor.pontos_roa_invest : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-[#A0A090] hidden xl:table-cell">
+                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
                           {assessor.pontos_roa_cs > 0 ? assessor.pontos_roa_cs : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-[#A0A090] hidden xl:table-cell">
+                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
                           {assessor.pontos_ativacoes > 0 ? assessor.pontos_ativacoes : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-[#A0A090] hidden xl:table-cell">
+                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
                           {assessor.pontos_lider > 0 ? assessor.pontos_lider : "--"}
                         </td>
                       </tr>

@@ -381,10 +381,7 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
                         )}>
                             {assessor.nome_assessor}
                         </span>
-                        <span className={cn(
-                            "text-xs font-data transition-colors",
-                            isSelected ? "text-euro-gold" : "text-white/40"
-                        )}>
+                        <span className="text-sm font-data text-white transition-colors">
                             {assessor.pontos_totais_acumulado.toLocaleString()} pts
                         </span>
                     </div>

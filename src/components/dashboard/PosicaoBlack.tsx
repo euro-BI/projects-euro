@@ -206,7 +206,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
     const assessorStats = new Map<string, {
       cod_assessor: string;
       nome_assessor: string;
-      nivel: string;
+      nivel: string | null;
       trigger: number;
       oportunidades: number;
       novasBoletas: number;
@@ -237,7 +237,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
         assessorStats.set(cod, {
           cod_assessor: cod,
           nome_assessor: advisorInfo?.nome_assessor || row.nome_assessor || "",
-          nivel: row.nivel || "-",
+          nivel: row.nivel ?? null,
           trigger: row.trigger || 0,
           oportunidades: 0,
           novasBoletas: 0,
@@ -248,6 +248,9 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
       }
 
       const stats = assessorStats.get(cod)!;
+      if (!stats.nivel && row.nivel) {
+        stats.nivel = row.nivel;
+      }
 
       // 1. Oportunidades (sempre da posição atual; não respeita filtro de data)
       const isCurrentOperationMonth = isInMonth(row.data_ultima_operacao, selectedMonthKey);
@@ -288,6 +291,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
 
     const data = Array.from(assessorStats.values())
       .filter(item => {
+        if (item.nivel === null) return false;
         const searchLower = searchTerm.toLowerCase();
         const name = item.nome_assessor || "";
         const code = item.cod_assessor || "";
@@ -514,7 +518,26 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
   );
 
   const downloadXLSX = () => {
-    // ...
+    const rows = filteredOpportunities.map((op) => {
+      const advisorInfo = activeAssessorsData?.get(op.cod_assessor);
+      const assessorName = advisorInfo?.nome_assessor || op.nome_assessor || "";
+
+      return {
+        Time: advisorInfo?.time || "",
+        "Assessor": assessorName,
+        "Cód. Assessor": op.cod_assessor || "",
+        "Cód. Cliente": op.cod_cliente || "",
+        "Nome do Cliente": op.nome_cliente || "Nome não identificado",
+        "Custódia": op.net_em_m || 0,
+        "Última Operação": formatDate(op.data_ultima_operacao),
+        "Dias s/ Boletar": op.dias_desde_ultima_operacao || 0
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Oportunidades");
+    XLSX.writeFile(workbook, `oportunidades_posicao_black_${selectedMonthKey}.xlsx`);
   };
 
   const SortIcon = ({ column, config }: { column: string, config: { key: string, direction: 'asc' | 'desc' } }) => {
@@ -630,7 +653,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
            <div className="overflow-auto custom-scrollbar relative max-h-[650px]">
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead className="sticky top-0 z-30">
-                <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest border-b border-euro-navy/20">
+                <tr className="bg-euro-gold text-euro-navy text-[10.5px] font-data uppercase tracking-widest border-b border-euro-navy/20">
                   <th 
                     onClick={() => handleAdvisorSort('time')}
                     className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] text-center cursor-pointer hover:bg-euro-gold/80 transition-colors"
@@ -693,7 +716,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                     key={item.cod_assessor}
                     onClick={() => handleRowClick(item.cod_assessor, item.novasBoletas)}
                     className={cn(
-                      "group even:bg-white/[0.02] transition-all text-xs font-data border-b border-white/5",
+                      "group even:bg-white/[0.02] transition-all text-[12.6px] font-data border-b border-white/5",
                       item.novasBoletas > 0 ? "cursor-pointer hover:bg-euro-gold/20" : "opacity-80"
                     )}
                   >
@@ -721,7 +744,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                       <div className="flex items-center gap-3">
                         <div className="relative flex-shrink-0">
                           <div className={cn(
-                            "w-10 h-10 rounded-full bg-euro-inset flex items-center justify-center text-xs font-bold text-euro-gold/40 border border-white/10 overflow-hidden group-hover:border-euro-gold transition-colors",
+                            "w-10 h-10 rounded-full bg-euro-inset flex items-center justify-center text-[12.6px] font-bold text-euro-gold/40 border border-white/10 overflow-hidden group-hover:border-euro-gold transition-colors",
                             item.advisorInfo?.lider && "border-euro-gold shadow-[0_0_12px_rgba(250,192,23,0.3)]"
                           )}>
                             {item.advisorInfo?.foto_url ? (
@@ -740,7 +763,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                           <span className="text-white font-bold truncate group-hover:text-euro-gold transition-colors uppercase tracking-tight">
                             {item.nome_assessor}
                           </span>
-                          <div className="flex items-center gap-2 text-xs text-white/90 font-medium">
+                          <div className="flex items-center gap-2 text-[12.6px] text-white/90 font-medium">
                             <span className="font-mono">{item.cod_assessor}</span>
                             {item.advisorInfo?.cluster && (
                               <>
@@ -757,23 +780,26 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                     <td className="py-3 px-4 text-center text-white/80 border-r border-white/5">
                       {item.nivel || "-"}
                     </td>
-                    <td className="py-3 px-4 text-right text-white/80 border-r border-white/5 font-mono">
+                    <td className="py-3 px-4 text-right text-white/80 border-r border-white/5">
                       {formatCurrency(item.trigger)}
                     </td>
                     <td className="py-3 px-4 text-center text-white border-r border-white/5 font-bold">
                       {formatNumber(item.oportunidades)}
                     </td>
                     <td className="py-3 px-4 text-center text-euro-gold border-r border-white/5 font-bold">
-                      {formatNumber(item.novasBoletas)}
+                      {item.novasBoletas === 0 ? "--" : formatNumber(item.novasBoletas)}
                     </td>
                     <td className="py-3 px-4 text-center text-white border-r border-white/5">
-                      {formatNumber(item.validosBonus)}
+                      {item.validosBonus === 0 ? "--" : formatNumber(item.validosBonus)}
                     </td>
                     <td className="py-3 px-4 text-right text-white border-r border-white/5">
-                      {formatCurrency(item.bonusBruto)}
+                      {item.bonusBruto === 0 ? "--" : formatCurrency(item.bonusBruto)}
                     </td>
-                    <td className="py-3 px-4 text-right text-green-400 font-bold">
-                      {formatCurrency(item.bonusBruto * 0.82)}
+                    <td className={cn(
+                      "py-3 px-4 text-right font-bold",
+                      item.bonusBruto === 0 ? "text-white" : "text-green-400"
+                    )}>
+                      {item.bonusBruto === 0 ? "--" : formatCurrency(item.bonusBruto * 0.82)}
                     </td>
                   </tr>
                 ))}
@@ -830,7 +856,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
           <div className="overflow-auto custom-scrollbar relative">
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead className="sticky top-0 z-30">
-                <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest border-b border-euro-navy/20">
+                <tr className="bg-euro-gold text-euro-navy text-[10.5px] font-data uppercase tracking-widest border-b border-euro-navy/20">
                   <th 
                     onClick={() => handleSort('time')}
                     className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] text-center cursor-pointer hover:bg-euro-gold/80 transition-colors"
@@ -883,7 +909,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                   return (
                     <tr
                       key={`${op.cod_cliente}-${op.cod_assessor}`}
-                      className="group even:bg-white/[0.02] hover:bg-euro-gold/10 transition-all text-xs font-data"
+                      className="group even:bg-white/[0.02] hover:bg-euro-gold/10 transition-all text-[12.6px] font-data"
                     >
                       {/* Time */}
                       <td className="py-3 px-4 border-r border-white/10 sticky left-0 bg-euro-navy group-hover:bg-[#1e2538] z-10 w-[80px]">
@@ -925,14 +951,14 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                             )}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-white font-bold truncate group-hover:text-euro-gold transition-colors uppercase tracking-tight">
+                            <span className="text-white font-bold truncate group-hover:text-white transition-colors uppercase tracking-tight">
                               {assessorName}
                             </span>
-                            <div className="flex items-center gap-2 text-xs text-white/90 font-medium">
-                              <span className="font-mono">{op.cod_assessor}</span>
+                            <div className="flex items-center gap-2 text-[12.6px] text-white font-medium">
+                              <span>{op.cod_assessor}</span>
                               {advisorInfo?.cluster && (
                                 <>
-                                  <span className="text-white/40">•</span>
+                                  <span className="text-white">•</span>
                                   <span className="uppercase">{advisorInfo.cluster}</span>
                                 </>
                               )}
@@ -941,7 +967,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 border-r border-white/10 font-mono text-white/40">
+                      <td className="py-3 px-4 border-r border-white/10 text-white">
                         {op.cod_cliente}
                       </td>
                       <td className="py-3 px-4 border-r border-white/10">
@@ -949,13 +975,13 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                           {op.nome_cliente || "Nome não identificado"}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right border-r border-white/10 font-mono text-white/80">
+                      <td className="py-3 px-4 text-right border-r border-white/10 text-white">
                         {formatCurrency(op.net_em_m)}
                       </td>
-                      <td className="py-3 px-4 text-center border-r border-white/10 text-white/60 font-mono">
+                      <td className="py-3 px-4 text-center border-r border-white/10 text-white">
                         {formatDate(op.data_ultima_operacao)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-euro-gold">
+                      <td className="py-3 px-4 text-right font-bold text-euro-gold">
                         {formatNumber(op.dias_desde_ultima_operacao || 0)}
                       </td>
                     </tr>
@@ -1091,7 +1117,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                         <td className="py-3 px-4 text-right font-mono text-white border-r border-white/5">
                           {formatCurrency(client.comissao_ultima_operacao)}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono text-white border-r border-white/5">
+                        <td className="py-3 px-4 text-right text-white border-r border-white/5">
                           {formatCurrency(client.trigger)}
                         </td>
                         <td className="py-3 px-4 text-center font-bold text-white border-r border-white/5">
@@ -1202,7 +1228,7 @@ function KPICard({
         </div>
         {delta !== undefined && (
           <div className="flex items-center justify-between px-1 mb-3 gap-3">
-            <span className="text-[10px] font-data uppercase tracking-widest text-white/30">
+            <span className="text-[10px] font-data uppercase tracking-widest text-white">
               vs mês anterior
             </span>
             <div className="flex flex-col items-end leading-none">
@@ -1218,7 +1244,7 @@ function KPICard({
                   {deltaValueText}
                 </span>
               </div>
-              <span className="text-[10px] font-data tabular-nums text-white/30 whitespace-nowrap mt-1">
+              <span className="text-xs font-data tabular-nums text-white whitespace-nowrap mt-1">
                 {deltaPctText}
               </span>
             </div>
@@ -1236,11 +1262,11 @@ function KPICard({
           <div className="space-y-2">
             {breakdown!.map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-3">
-                <span className="text-[10px] font-data uppercase tracking-widest text-white/30 whitespace-nowrap">
+                <span className="text-[10px] font-data uppercase tracking-widest text-white whitespace-nowrap">
                   {item.label}
                 </span>
                 <span className="text-[10px] font-data tabular-nums text-white/70 whitespace-nowrap">
-                  {formatNumber(item.value)} ({item.pct.toFixed(1)}%)
+                  {formatNumber(item.value)} <span className="text-xs text-white">({item.pct.toFixed(1)}%)</span>
                 </span>
               </div>
             ))}

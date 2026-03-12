@@ -286,7 +286,7 @@ export default function EvolutionTrend({
         background: "transparent",
         color: "#A0A090",
         fontFamily: "JetBrains Mono, monospace",
-        fontSize: "12px",
+        fontSize: "12.6px",
       },
       marginLeft: 60,
       marginBottom: 40,
@@ -361,7 +361,7 @@ export default function EvolutionTrend({
             text: (d) => `MÉDIA: ${formatDisplayValue(d, true)}`,
             x: monthlyData[0]?.date,
             dy: -10,
-            fontSize: 12,
+            fontSize: 12.6,
             fill: "#FFFFFF",
             fillOpacity: 0.5,
           })
@@ -413,7 +413,7 @@ export default function EvolutionTrend({
             return "";
           },
           dy: -25,
-          fontSize: 12,
+          fontSize: 12.6,
           fontWeight: "bold",
           fill: (d) => {
             if (analysisType === "mom") return d.percentage > 0 ? "#22c55e" : "#ef4444";
@@ -438,7 +438,7 @@ export default function EvolutionTrend({
             return val.toLocaleString("pt-BR");
           },
           dy: -12,
-          fontSize: 12,
+          fontSize: 12.6,
           fontWeight: "500",
           fill: "#FFFFFF",
         }),

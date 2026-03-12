@@ -163,12 +163,12 @@ export default function PerformanceDash() {
     }
   };
 
-  const formatMetaValue = (val: number) => {
+  const formatMetaValue = (val: number, decimals: number = 1) => {
     const absVal = Math.abs(val);
     if (absVal >= 1000000) {
-      return (val / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " Mi";
+      return (val / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + " Mi";
     } else {
-      return (val / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " K";
+      return (val / 1000).toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + " K";
     }
   };
 
@@ -873,7 +873,7 @@ export default function PerformanceDash() {
                 </CardHeader>
                 <CardContent className="pb-4">
                   <div className="flex flex-col items-center justify-center py-2 border-b border-euro-gold/20 mb-3">
-                    <span className="text-xl md:text-2xl xl:text-3xl font-display text-[#F5F5F0] text-center">
+                    <span className="text-lg md:text-xl xl:text-2xl font-display text-[#F5F5F0] text-center">
                       {stats.clients.total.toLocaleString("pt-BR")}
                     </span>
                   </div>
@@ -986,15 +986,15 @@ export default function PerformanceDash() {
                 </CardHeader>
                 <CardContent className="pb-4">
                   <div className="flex flex-col items-center justify-center py-2 border-b border-euro-gold/20 mb-3">
-                    <span className="text-xl md:text-2xl xl:text-3xl font-display text-[#F5F5F0] text-center leading-tight">
+                    <span className="text-lg md:text-xl xl:text-2xl font-display text-[#F5F5F0] text-center leading-tight">
                       R$ {(stats.revenue.total / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}k
                     </span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-xs font-data text-[#E8E8E0]">ROA: {stats.revenue.roa.toFixed(2)}%</span>
+                      <span className="text-sm font-data text-[#E8E8E0]">ROA: {stats.revenue.roa.toFixed(2)}%</span>
                       <span className={cn(
-                        "text-xs font-data",
+                        "text-sm font-data",
                         stats.revenue.achievement >= 100 ? "text-green-500" : stats.revenue.achievement >= 70 ? "text-euro-gold" : "text-red-500"
                       )}>
                         {stats.revenue.achievement.toFixed(0)}%
@@ -1026,13 +1026,13 @@ export default function PerformanceDash() {
                 </CardHeader>
                 <CardContent className="pb-4">
                   <div className="flex flex-col items-center justify-center py-2 border-b border-euro-gold/20 mb-3">
-                    <span className="text-xl md:text-2xl xl:text-3xl font-display text-[#F5F5F0] text-center leading-tight">
+                    <span className="text-lg md:text-xl xl:text-2xl font-display text-[#F5F5F0] text-center leading-tight">
                       R$ {(stats.custody.total / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Mi
                     </span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-xs font-data text-[#E8E8E0]">FP300k+: {stats.custody.fpAchievement.toFixed(0)}%</span>
+                      <span className="text-sm font-data text-[#E8E8E0]">FP300k+: {stats.custody.fpAchievement.toFixed(0)}%</span>
                     </div>
                     <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                       <div 
@@ -1117,15 +1117,15 @@ export default function PerformanceDash() {
                 </CardHeader>
                 <CardContent className="pb-4">
                   <div className="flex flex-col items-center justify-center py-2 border-b border-euro-gold/20 mb-3">
-                    <span className="text-xl md:text-2xl xl:text-3xl font-display text-[#F5F5F0] text-center leading-tight">
+                    <span className="text-lg md:text-xl xl:text-2xl font-display text-[#F5F5F0] text-center leading-tight">
                       R$ {formatCurrencyValue(stats.funding.total)}
                     </span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-xs font-data text-[#E8E8E0] truncate max-w-[70%]">Meta (R$ {formatMetaValue(stats.funding.meta)}):</span>
+                      <span className="text-sm font-data text-[#E8E8E0] truncate max-w-[70%]">Meta (R$ {formatMetaValue(stats.funding.meta, 0)}):</span>
                       <span className={cn(
-                        "text-xs font-data",
+                        "text-sm font-data",
                         stats.funding.achievement >= 100 ? "text-green-500" : stats.funding.achievement >= 70 ? "text-euro-gold" : "text-red-500"
                       )}>
                         {stats.funding.achievement.toFixed(0)}%
@@ -1157,15 +1157,15 @@ export default function PerformanceDash() {
                 </CardHeader>
                 <CardContent className="pb-4">
                   <div className="flex flex-col items-center justify-center py-2 border-b border-euro-gold/20 mb-3">
-                    <span className="text-xl md:text-2xl xl:text-3xl font-display text-[#F5F5F0] text-center leading-tight">
+                    <span className="text-lg md:text-xl xl:text-2xl font-display text-[#F5F5F0] text-center leading-tight">
                       {stats.activations.total.toLocaleString("pt-BR")}
                     </span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-xs font-data text-[#E8E8E0] truncate max-w-[70%]">Meta ({stats.activations.meta} ativ.):</span>
+                      <span className="text-sm font-data text-[#E8E8E0] truncate max-w-[70%]">Meta ({stats.activations.meta} ativ.):</span>
                       <span className={cn(
-                        "text-xs font-data",
+                        "text-sm font-data",
                         stats.activations.achievement >= 80 ? "text-green-500" : stats.activations.achievement >= 50 ? "text-euro-gold" : "text-red-500"
                       )}>
                         {stats.activations.achievement.toFixed(0)}%
