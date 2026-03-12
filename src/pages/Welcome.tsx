@@ -31,7 +31,7 @@ export default function Welcome() {
       description: "Acesse dashboards exclusivos de inteligência comercial e produtos.",
       icon: BrainCircuit,
       path: "/dash",
-      roles: ["admin_master"],
+      roles: ["admin_master", "admin"],
       color: "text-amber-400",
       bgColor: "bg-amber-400/10",
       borderColor: "border-amber-400/20"

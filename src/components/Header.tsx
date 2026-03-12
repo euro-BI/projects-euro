@@ -240,7 +240,7 @@ export const Header = () => {
                   <Home className="w-4 h-4 mr-2" />
                   Início
                 </DropdownMenuItem>
-                {isAdminMaster && (
+                {(isAdminMaster || isAdmin) && (
                   <DropdownMenuItem onClick={() => navigate('/dash')}>
                     <BrainCircuit className="w-4 h-4 mr-2" />
                     Euro Intelligence
