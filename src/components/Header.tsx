@@ -36,6 +36,7 @@ export const Header = () => {
   const isMobile = useIsMobile();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [isHeaderHidden, setIsHeaderHidden] = useState(false);
 
   // Helper booleans for role checks
   const isAdminMaster = userRole === "admin_master";
@@ -149,12 +150,57 @@ export const Header = () => {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    setIsHeaderHidden(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (location.pathname.startsWith("/dash") && isMaximized) return;
+
+    const lastYRef = { current: window.scrollY };
+    const hiddenRef = { current: false };
+    let ticking = false;
+
+    const update = () => {
+      ticking = false;
+      const y = window.scrollY;
+      const delta = y - lastYRef.current;
+
+      const nextHidden =
+        y < 100 ? false :
+        delta > 10 ? true :
+        hiddenRef.current;
+
+      if (nextHidden !== hiddenRef.current) {
+        hiddenRef.current = nextHidden;
+        setIsHeaderHidden(nextHidden);
+      }
+
+      lastYRef.current = y;
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(update);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [user, location.pathname, isMaximized]);
+
   if (!user) return null;
   if (location.pathname.startsWith("/dash") && isMaximized) return null;
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header
+        className={[
+          "fixed top-0 left-0 right-0 z-50 h-16 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-out",
+          isHeaderHidden ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
+        ].join(" ")}
+      >
         <div className="container mx-auto h-full flex items-center justify-between px-4">
           <button 
             onClick={() => navigate("/")}

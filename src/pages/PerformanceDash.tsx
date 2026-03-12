@@ -154,6 +154,24 @@ export default function PerformanceDash() {
     return current < 2026 ? "2026" : current.toString();
   });
 
+  const formatCurrencyValue = (val: number) => {
+    const absVal = Math.abs(val);
+    if (absVal >= 1000000) {
+      return (val / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " Mi";
+    } else {
+      return (val / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " K";
+    }
+  };
+
+  const formatMetaValue = (val: number) => {
+    const absVal = Math.abs(val);
+    if (absVal >= 1000000) {
+      return (val / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " Mi";
+    } else {
+      return (val / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " K";
+    }
+  };
+
   const navigate = useNavigate();
   const { userRole, userCode } = useAuth();
 
@@ -269,7 +287,9 @@ export default function PerformanceDash() {
       
       // Map of unique assessors: cod_assessor -> { name, teams }
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
-      data.forEach((d: any) => {
+      const latestDate = data?.[0]?.data_posicao;
+      const latestRows = latestDate ? data.filter((d: any) => d.data_posicao === latestDate) : [];
+      latestRows.forEach((d: any) => {
         if (d.cod_assessor && d.nome_assessor) {
           if (!assessorMap.has(d.cod_assessor)) {
             assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });
@@ -1081,11 +1101,11 @@ export default function PerformanceDash() {
                         <div className="mt-6 pt-6 border-t border-white/5 flex justify-between items-end">
                           <div>
                             <span className="text-xs font-data text-[#5C5C50] uppercase">Resultado Líquido</span>
-                            <p className="text-2xl font-display text-[#F5F5F0]">R$ {(stats.funding.total / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} Mi</p>
+                            <p className="text-2xl font-display text-[#F5F5F0]">R$ {formatCurrencyValue(stats.funding.total)}</p>
                           </div>
                           <div className="text-right">
                             <span className="text-xs font-data text-[#5C5C50] uppercase">Meta</span>
-                            <p className="text-base font-data text-euro-gold">R$ {(stats.funding.meta / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 1 })} Mi</p>
+                            <p className="text-base font-data text-euro-gold">R$ {formatMetaValue(stats.funding.meta)}</p>
                           </div>
                         </div>
                       </DialogContent>
@@ -1098,12 +1118,12 @@ export default function PerformanceDash() {
                 <CardContent className="pb-4">
                   <div className="flex flex-col items-center justify-center py-2 border-b border-euro-gold/20 mb-3">
                     <span className="text-xl md:text-2xl xl:text-3xl font-display text-[#F5F5F0] text-center leading-tight">
-                      R$ {(stats.funding.total / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Mi
+                      R$ {formatCurrencyValue(stats.funding.total)}
                     </span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-xs font-data text-[#E8E8E0] truncate max-w-[70%]">Meta (R$ {(stats.funding.meta / 1000000).toFixed(1)}M):</span>
+                      <span className="text-xs font-data text-[#E8E8E0] truncate max-w-[70%]">Meta (R$ {formatMetaValue(stats.funding.meta)}):</span>
                       <span className={cn(
                         "text-xs font-data",
                         stats.funding.achievement >= 100 ? "text-green-500" : stats.funding.achievement >= 70 ? "text-euro-gold" : "text-red-500"

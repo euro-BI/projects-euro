@@ -25,6 +25,7 @@ import {
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
+import { PosicaoBlack } from "@/components/dashboard/PosicaoBlack";
 
 export default function ProductsDashboard() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -133,7 +134,9 @@ export default function ProductsDashboard() {
         .filter(teamName => teamName && activeTeamNames.has(teamName));
       
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
-      data.forEach((d: any) => {
+      const latestDate = data?.[0]?.data_posicao;
+      const latestRows = latestDate ? data.filter((d: any) => d.data_posicao === latestDate) : [];
+      latestRows.forEach((d: any) => {
         if (d.cod_assessor && d.nome_assessor) {
           if (!assessorMap.has(d.cod_assessor)) {
             assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });
@@ -149,6 +152,25 @@ export default function ProductsDashboard() {
         .sort((a, b) => a.name.localeCompare(b.name));
       
       return { allMonths, years, teams, assessors };
+    }
+  });
+
+  // Fetch Team Photos
+  const { data: teamPhotos } = useQuery({
+    queryKey: ["team-photos"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dados_times")
+        .select("time, foto_url")
+        .eq("status", "ATIVO");
+
+      const map = new Map<string, string>();
+      data?.forEach((t: any) => {
+        if (t.time && t.foto_url) {
+          map.set(t.time.toUpperCase(), t.foto_url);
+        }
+      });
+      return map;
     }
   });
 
@@ -266,19 +288,28 @@ export default function ProductsDashboard() {
           {/* TABS CONTENT */}
           {tabs.map((tab) => (
             <TabsContent key={tab.id} value={tab.id} className="mt-0 border-none p-0 outline-none">
-              <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[400px] flex items-center justify-center">
-                <CardContent className="flex flex-col items-center justify-center space-y-4 p-12">
-                  <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center animate-pulse">
-                    <Construction className="w-10 h-10 text-euro-gold/50" />
-                  </div>
-                  <h2 className="text-2xl font-display text-white tracking-wide">
-                    {tab.label}
-                  </h2>
-                  <p className="text-[#A0A090] font-light text-lg">
-                    EM DESENVOLVIMENTO
-                  </p>
-                </CardContent>
-              </Card>
+              {tab.id === "posicao-black" ? (
+                <PosicaoBlack
+                  selectedMonth={selectedMonth}
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={selectedAssessorId}
+                  teamPhotos={teamPhotos}
+                />
+              ) : (
+                <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[400px] flex items-center justify-center">
+                  <CardContent className="flex flex-col items-center justify-center space-y-4 p-12">
+                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center animate-pulse">
+                      <Construction className="w-10 h-10 text-euro-gold/50" />
+                    </div>
+                    <h2 className="text-2xl font-display text-white tracking-wide">
+                      {tab.label}
+                    </h2>
+                    <p className="text-[#A0A090] font-light text-lg">
+                      EM DESENVOLVIMENTO
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           ))}
         </Tabs>

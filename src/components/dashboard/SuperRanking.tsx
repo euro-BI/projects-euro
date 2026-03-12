@@ -159,8 +159,8 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     const reasons: string[] = [];
     
     // Regra 1: Média Clientes >= 120
-    if (assessor.media_movel_clientes_6m !== undefined && assessor.media_movel_clientes_6m < 120) {
-      reasons.push(`Média Clientes (${Math.round(assessor.media_movel_clientes_6m)}) < 120`);
+    if (assessor.media_movel_clientes_6m !== undefined && assessor.media_movel_clientes_6m >= 120) {
+      reasons.push(`Média Clientes (${Math.round(assessor.media_movel_clientes_6m)}) ≥ 120`);
     }
 
     // Regra 2: Atingimento FP 300k+ > 50%
@@ -228,23 +228,33 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
         onClick={() => onAssessorClick?.(assessor)}
         className={cn(
           "flex flex-col items-center justify-end flex-1 transition-all duration-500 hover:scale-105 cursor-pointer group relative",
-          order[position as 1|2|3],
-          isInelegivel && "opacity-70 grayscale-[0.8] hover:grayscale-0 hover:opacity-100"
+          order[position as 1|2|3]
         )}
       >
-        {isInelegivel && (
-          <div className="absolute top-0 right-10 bg-red-500/20 p-2 rounded-full border border-red-500/50 animate-pulse z-20 pointer-events-none">
-            <AlertCircle className="w-6 h-6 text-red-500" />
-          </div>
-        )}
-
         {/* Name and Rank */}
         <div className="text-center mb-4 space-y-1">
-          <span className={cn("text-sm font-data uppercase tracking-widest font-bold", colors[position as 1|2|3])}>
-            {assessor.nome_assessor ? (
-              `${assessor.nome_assessor.split(" ")[0]} ${assessor.nome_assessor.split(" ").slice(-1)[0][0]}.`
-            ) : "Assessor"}
-          </span>
+          {isInelegivel ? (
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <span className={cn("text-sm font-data uppercase tracking-widest font-bold", "text-red-500")}>
+                    {assessor.nome_assessor ? (
+                      `${assessor.nome_assessor.split(" ")[0]} ${assessor.nome_assessor.split(" ").slice(-1)[0][0]}.`
+                    ) : "Assessor"}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="z-[100] bg-euro-card/95 border-red-500/30 backdrop-blur-xl p-3 shadow-2xl max-w-[250px]" side="top">
+                  {getInelegibilityReason(assessor)}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span className={cn("text-sm font-data uppercase tracking-widest font-bold", colors[position as 1|2|3])}>
+              {assessor.nome_assessor ? (
+                `${assessor.nome_assessor.split(" ")[0]} ${assessor.nome_assessor.split(" ").slice(-1)[0][0]}.`
+              ) : "Assessor"}
+            </span>
+          )}
           <div className="flex items-center justify-center gap-2">
             {icons[position as 1|2|3]}
           </div>
@@ -302,21 +312,6 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
         </div>
       </div>
     );
-
-    if (isInelegivel) {
-      return (
-        <TooltipProvider key={assessor.cod_assessor}>
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              {content}
-            </TooltipTrigger>
-            <TooltipContent className="z-[100] bg-euro-card/95 border-red-500/30 backdrop-blur-xl p-3 shadow-2xl max-w-[250px]" side="top">
-              {getInelegibilityReason(assessor)}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
 
     return content;
   };
@@ -461,6 +456,62 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                     <p className="text-[10px] text-white/50 mt-2 italic">
                       * O rebaixamento será avaliado com base no resultado consolidado do semestre, independentemente de oscilações mensais.
                     </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
+                    <ArrowUp className="w-4 h-4 text-euro-gold" /> Critérios para Ascensão de Cluster
+                  </h3>
+                  <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
+                    <ul className="space-y-2 text-white/80">
+                      <li className="flex items-start gap-2">
+                        <span className="text-euro-gold font-bold">•</span>
+                        <span>Subidas de cluster acontecem semestralmente.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-euro-gold font-bold">•</span>
+                        <span>Apenas dois assessores sobem por cluster em cada ciclo.</span>
+                      </li>
+                    </ul>
+
+                    <div className="mt-3 space-y-2">
+                      <p className="text-white/90 font-medium">Tamanho mínimo de base necessário para acessar o cluster:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="bg-black/20 p-3 rounded border border-white/5">
+                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster A</span>
+                          <p className="text-xs text-white/70">a partir de 50M</p>
+                        </div>
+                        <div className="bg-black/20 p-3 rounded border border-white/5">
+                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster B</span>
+                          <p className="text-xs text-white/70">25M a 50M</p>
+                        </div>
+                        <div className="bg-black/20 p-3 rounded border border-white/5">
+                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster C</span>
+                          <p className="text-xs text-white/70">10M a 25M</p>
+                        </div>
+                        <div className="bg-black/20 p-3 rounded border border-white/5">
+                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster D</span>
+                          <p className="text-xs text-white/70">de zero a 10M</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2 text-white/80 mt-3">
+                      <li className="flex items-start gap-2">
+                        <span className="text-euro-gold font-bold">•</span>
+                        <span>Necessário cumprir pelo menos 50% do objetivo de captação líquida do cluster em que está inserido.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-euro-gold font-bold">•</span>
+                        <span>Necessário conquistar pelo menos 810 pontos no período (equivalente a 50% dos pontos base).</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-euro-gold font-bold">•</span>
+                        <span>Terminar o ciclo em primeiro ou segundo lugar no seu cluster.</span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
 
