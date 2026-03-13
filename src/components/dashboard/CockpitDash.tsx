@@ -693,7 +693,10 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                     <div className="text-right">Real.</div>
                     <div className="text-right">Gap</div>
                   </div>
-                  {kpis.groups.cs.products.map((p: any, i: number) => (
+                  {kpis.groups.cs.products
+                    .slice()
+                    .sort((a: any, b: any) => b.realized - a.realized)
+                    .map((p: any, i: number) => (
                     <div key={i} className="grid grid-cols-4 gap-2 text-[9px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/5 transition-colors rounded-sm px-1">
                       <div className="text-white truncate col-span-1 flex items-center" title={p.label}>{p.label}</div>
                       <div className="text-right text-white/60">{formatCurrency(p.target)}</div>
