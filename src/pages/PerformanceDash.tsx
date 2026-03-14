@@ -144,6 +144,7 @@ export default function PerformanceDash() {
   const [selectedAssessorId, setSelectedAssessorId] = useState<string>("all");
   const [isAssessorPopoverOpen, setIsAssessorPopoverOpen] = useState(false);
   const [selectedAssessor, setSelectedAssessor] = useState<AssessorResumo | null>(null);
+  const [selectedAssessorRank, setSelectedAssessorRank] = useState<number | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("geral");
@@ -159,11 +160,11 @@ export default function PerformanceDash() {
     if (absVal >= 1000000) {
       return (val / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " Mi";
     } else {
-      return (val / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " K";
+      return (val / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " K";
     }
   };
 
-  const formatMetaValue = (val: number, decimals: number = 1) => {
+  const formatMetaValue = (val: number, decimals: number = 2) => {
     const absVal = Math.abs(val);
     if (absVal >= 1000000) {
       return (val / 1000000).toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + " Mi";
@@ -719,8 +720,9 @@ export default function PerformanceDash() {
     };
   }, [dashData, selectedMonth, effectiveTeam]);
 
-  const handleAssessorClick = (assessor: AssessorResumo) => {
+  const handleAssessorClick = (assessor: AssessorResumo, rank?: number) => {
     setSelectedAssessor(assessor);
+    setSelectedAssessorRank(rank);
     setIsSheetOpen(true);
   };
 
@@ -739,38 +741,49 @@ export default function PerformanceDash() {
 
   return (
     <PageLayout className={cn(
-      "bg-transparent text-[#E8E8E0] font-ui px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative transition-all duration-500",
-      isMaximized ? "pt-8" : "pt-24"
+      "bg-transparent text-[#E8E8E0] font-ui px-4 sm:px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative transition-all duration-500",
+      isMaximized ? "pt-4 sm:pt-8" : "pt-20 sm:pt-24"
     )}>
       <LoadingOverlay isLoading={isDataLoading} />
       <ImpactfulBackground opacity={0.3} />
 
-      <div className="max-w-[1600px] mx-auto space-y-12 relative z-10">
-        {/* CENTRALIZED TOP TITLE WITH MAXIMIZE BUTTON */}
-        <div className="relative flex items-center justify-center w-full mb-8">
-          <div className="absolute left-0">
+      <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-12 relative z-10">
+        <div className="relative flex items-center justify-center w-full mb-4 sm:mb-8 px-2 min-h-[32px]">
+          {/* Back Action */}
+          <div className="absolute left-2 sm:left-0 top-1 sm:top-0 z-50 sm:z-10">
+            {/* Desktop Button */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate("/dash")}
-              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group flex items-center gap-2"
+              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group hidden sm:flex items-center gap-2 h-8"
               title="Voltar ao Menu"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span className="text-[10px] font-data uppercase tracking-wider hidden sm:inline">Voltar</span>
+              <span className="text-[10px] font-data uppercase tracking-wider">Voltar</span>
+            </Button>
+            
+            {/* Mobile icon button (smaller, discrete) */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => navigate("/dash")}
+              className="sm:hidden glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold rounded-full w-8 h-8 transition-all duration-300"
+            >
+              <ArrowLeft className="w-4 h-4" />
             </Button>
           </div>
 
-          <h1 className="text-xl font-data text-euro-gold tracking-[0.4em] uppercase opacity-80">
-            Performance Geral Eurostock
+          <h1 className="text-base sm:text-xl font-data text-euro-gold tracking-[0.2em] sm:tracking-[0.4em] uppercase opacity-80 text-center leading-tight sm:leading-normal">
+            Performance Comercial
           </h1>
           
-          <div className="absolute right-0">
+          <div className="absolute right-2 sm:right-0 top-0 z-10">
             <Button
               variant="outline"
               size="sm"
               onClick={toggleMaximize}
-              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group"
+              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group h-8 hidden sm:flex"
               title={isMaximized ? "Sair da Tela Cheia (Esc)" : "Tela Cheia"}
             >
               {isMaximized ? (
@@ -788,16 +801,16 @@ export default function PerformanceDash() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-12">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 sm:space-y-12">
           {/* FILTERS & NAVIGATION HEADER - FLOATING GLASS DOCK STYLE */}
-          <div className="sticky top-4 z-50 mx-auto max-w-fit">
-            <div className="flex flex-row items-center gap-2 p-1.5 rounded-full bg-[#0F1218]/80 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20 hover:bg-[#0F1218]/90">
+          <div className="sticky top-4 z-50 mx-auto w-full sm:max-w-fit px-4 sm:px-0">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-2 p-2 sm:p-1.5 rounded-2xl sm:rounded-full bg-[#0F1218]/90 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20">
               
               {/* NAVIGATION TABS */}
-              <TabsList className="bg-transparent border-none flex-shrink-0 h-9 p-0 gap-1 mx-2">
+              <TabsList className="bg-transparent border-none flex-shrink-0 h-9 p-0 gap-1 mx-2 w-full sm:w-auto flex justify-center overflow-x-auto flex-nowrap scrollbar-hide">
                 <TabsTrigger 
                   value="geral" 
-                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none whitespace-nowrap"
                 >
                   Geral
                 </TabsTrigger>
@@ -808,12 +821,6 @@ export default function PerformanceDash() {
                   Financial
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="cockpit" 
-                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
-                >
-                  Cockpit
-                </TabsTrigger>
-                <TabsTrigger 
                   value="ranking" 
                   className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
                 >
@@ -821,14 +828,14 @@ export default function PerformanceDash() {
                 </TabsTrigger>
                 <TabsTrigger 
                   value="forecast" 
-                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
                 >
                   Forecast
                 </TabsTrigger>
                 {userRole !== 'user' && (
                   <TabsTrigger 
                     value="comparativo" 
-                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
                   >
                     Batalha
                   </TabsTrigger>
@@ -914,11 +921,11 @@ export default function PerformanceDash() {
                             <div className="flex justify-between items-end">
                               <div>
                                 <span className="text-xs font-data text-white/90 uppercase tracking-wider">Receita Realizada</span>
-                                <p className="text-lg font-display text-[#F5F5F0]">R$ {(stats.revenue.total / 1000).toLocaleString("pt-BR")}k</p>
+                                <p className="text-lg font-display text-[#F5F5F0]">R$ {formatCurrencyValue(stats.revenue.total)}</p>
                               </div>
                               <div className="text-right">
                                 <span className="text-xs font-data text-white/90 uppercase tracking-wider">Meta Receita</span>
-                                <p className="text-sm font-data text-euro-gold">R$ {(stats.revenue.meta / 1000).toLocaleString("pt-BR")}k</p>
+                                <p className="text-sm font-data text-euro-gold">R$ {formatMetaValue(stats.revenue.meta)}</p>
                               </div>
                             </div>
                             <div className="space-y-1">
@@ -987,7 +994,7 @@ export default function PerformanceDash() {
                 <CardContent className="pb-4">
                   <div className="flex flex-col items-center justify-center py-2 border-b border-euro-gold/20 mb-3">
                     <span className="text-lg md:text-xl xl:text-2xl font-display text-[#F5F5F0] text-center leading-tight">
-                      R$ {(stats.revenue.total / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}k
+                      R$ {formatCurrencyValue(stats.revenue.total)}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -1074,28 +1081,28 @@ export default function PerformanceDash() {
                               <ArrowUpRight className="w-4 h-4" />
                               <span className="text-xs font-data uppercase tracking-wider">Entradas</span>
                             </div>
-                            <p className="text-base font-display">R$ {(stats.funding.entries / 1000).toLocaleString("pt-BR")}k</p>
+                            <p className="text-base font-display">R$ {formatCurrencyValue(stats.funding.entries)}</p>
                           </div>
                           <div className="bg-white/5 p-4 rounded-lg border border-white/5 space-y-1">
                             <div className="flex items-center gap-2 text-red-400">
                               <ArrowDownRight className="w-4 h-4" />
                               <span className="text-xs font-data uppercase tracking-wider">Saídas</span>
                             </div>
-                            <p className="text-base font-display">R$ {(stats.funding.exits / 1000).toLocaleString("pt-BR")}k</p>
+                            <p className="text-base font-display">R$ {formatCurrencyValue(stats.funding.exits)}</p>
                           </div>
                           <div className="bg-white/5 p-4 rounded-lg border border-white/5 space-y-1">
                             <div className="flex items-center gap-2 text-blue-400">
                               <ArrowRightLeft className="w-4 h-4" />
                               <span className="text-xs font-data uppercase tracking-wider">Transf. Ent.</span>
                             </div>
-                            <p className="text-base font-display">R$ {(stats.funding.transfersIn / 1000).toLocaleString("pt-BR")}k</p>
+                            <p className="text-base font-display">R$ {formatCurrencyValue(stats.funding.transfersIn)}</p>
                           </div>
                           <div className="bg-white/5 p-4 rounded-lg border border-white/5 space-y-1">
                             <div className="flex items-center gap-2 text-orange-400">
                               <ArrowRightLeft className="w-4 h-4" />
                               <span className="text-xs font-data uppercase tracking-wider">Transf. Saí.</span>
                             </div>
-                            <p className="text-base font-display">R$ {(stats.funding.transfersOut / 1000).toLocaleString("pt-BR")}k</p>
+                            <p className="text-base font-display">R$ {formatCurrencyValue(stats.funding.transfersOut)}</p>
                           </div>
                         </div>
                         <div className="mt-6 pt-6 border-t border-white/5 flex justify-between items-end">
@@ -1123,7 +1130,7 @@ export default function PerformanceDash() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-sm font-data text-[#E8E8E0] truncate max-w-[70%]">Meta (R$ {formatMetaValue(stats.funding.meta, 0)}):</span>
+                      <span className="text-sm font-data text-[#E8E8E0] truncate max-w-[70%]">Meta (R$ {formatMetaValue(stats.funding.meta, 1)}):</span>
                       <span className={cn(
                         "text-sm font-data",
                         stats.funding.achievement >= 100 ? "text-green-500" : stats.funding.achievement >= 70 ? "text-euro-gold" : "text-red-500"
@@ -1187,7 +1194,7 @@ export default function PerformanceDash() {
             </div>
 
             {/* ANÁLISES DE EVOLUÇÃO */}
-            <div className="flex flex-col gap-8">
+            <div className="hidden sm:flex flex-col gap-8">
               <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[450px]">
                 <RevenueEvolution 
                   data={yearlyData || []} 
@@ -1235,13 +1242,6 @@ export default function PerformanceDash() {
             />
           </TabsContent>
 
-          <TabsContent value="cockpit" className="space-y-12 mt-0 border-none p-0 outline-none">
-            <CockpitDash
-              currentData={dashData.current}
-              yearlyData={yearlyData || []}
-              selectedYear={selectedYear}
-            />
-          </TabsContent>
 
           <TabsContent value="ranking" className="space-y-12 mt-0 border-none p-0 outline-none">
             <SuperRanking 
@@ -1250,17 +1250,19 @@ export default function PerformanceDash() {
               onYearChange={setRankingYear}
             />
             
-            <RankingEvolution 
-              data={rankingData || []} 
-              selectedYear={rankingYear}
-            />
+            <div className="hidden sm:block">
+              <RankingEvolution 
+                data={rankingData || []} 
+                selectedYear={rankingYear}
+              />
+            </div>
             
             <RankingTable 
               data={rankingData || []} 
               selectedYear={rankingYear}
             />
             
-            <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-8">
+            <div className="hidden sm:block bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-8">
               <div className="min-h-[400px]">
                 <RankingRace selectedYear={rankingYear} />
               </div>
@@ -1289,6 +1291,7 @@ export default function PerformanceDash() {
 
       <AssessorSheet 
         assessor={selectedAssessor}
+        rank={selectedAssessorRank}
         isOpen={isSheetOpen}
         onOpenChange={setIsSheetOpen}
       />

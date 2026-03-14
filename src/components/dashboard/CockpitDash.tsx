@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { AssessorResumo } from "@/types/dashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -44,6 +45,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { HelpCircle } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CockpitDashProps {
   currentData: AssessorResumo[];
@@ -53,7 +55,17 @@ interface CockpitDashProps {
 
 type MetricType = 'funding' | 'allocation' | 'variable' | 'banking' | 'insurance';
 
-const METRIC_CONFIG = {
+interface MetricConfigEntry {
+  label: string;
+  icon: any;
+  color: string;
+  fields: string[];
+  targetField?: string;
+  isRoaBased: boolean;
+  roaTarget?: number;
+}
+
+const METRIC_CONFIG: Record<MetricType, MetricConfigEntry> = {
   funding: {
     label: "Captação Líquida",
     icon: Wallet,
@@ -142,7 +154,9 @@ const getProgressBarColor = (percent: number) => {
 };
 
 export default function CockpitDash({ currentData, yearlyData, selectedYear }: CockpitDashProps) {
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('funding');
+  const { userCode } = useAuth();
+  const isMobile = useIsMobile();
+  const [selectedMetric, setSelectedMetric] = useState<MetricType>('funding'); // Changed from 'cap_liquida' to 'funding' to match METRIC_CONFIG keys
   const [viewMode, setViewMode] = useState<'monthly' | 'accumulated'>('monthly');
   const [displayMode, setDisplayMode] = useState<'meta' | 'proportional' | 'pace'>('meta');
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
@@ -150,8 +164,8 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
   useEffect(() => {
     const fetchReferenceDate = async () => {
       try {
-        const { data, error } = await supabase
-          .from('wv_tabelas_atualizacao')
+        const { data, error } = await (supabase
+          .from('wv_tabelas_atualizacao' as any) as any)
           .select('ultima_atualizacao')
           .order('ultima_atualizacao', { ascending: false })
           .limit(1);
@@ -186,10 +200,12 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     const totalDays = eachDayOfInterval({ start, end }).filter(d => !isWeekend(d)).length;
     
     // Dias úteis passados até a data de referência (inclusive)
-    const passedDays = eachDayOfInterval({ start, end: referenceDate }).filter(d => !isWeekend(d)).length;
+    // Aplicamos D-2 para compensar o delay de atualização do relatório
+    const rawPassedDays = eachDayOfInterval({ start, end: referenceDate }).filter(d => !isWeekend(d)).length;
+    const passedDays = Math.max(1, rawPassedDays - 2);
     
     // Se ainda estamos no começo do mês (ex: dia 1), evitamos divisão por zero ou projeção exagerada
-    const effectivePassedDays = Math.max(1, passedDays);
+    const effectivePassedDays = passedDays;
 
     if (effectivePassedDays > 0 && totalDays > 0) {
       return (value / effectivePassedDays) * totalDays;
@@ -214,7 +230,8 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     const end = endOfMonth(referenceDate);
     
     const totalDays = eachDayOfInterval({ start, end }).filter(d => !isWeekend(d)).length;
-    const passedDays = eachDayOfInterval({ start, end: referenceDate }).filter(d => !isWeekend(d)).length;
+    const rawPassedDays = eachDayOfInterval({ start, end: referenceDate }).filter(d => !isWeekend(d)).length;
+    const passedDays = Math.max(1, rawPassedDays - 2);
     
     if (totalDays > 0) {
       return (target / totalDays) * passedDays;
@@ -427,18 +444,18 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
   return (
     <div className="space-y-8">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 pb-6">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-white/10 pb-6 text-center md:text-left">
+        <div className="flex flex-col md:flex-row items-center gap-4 w-full">
           <div>
-            <p className="text-sm text-white/40 mt-1 font-data">Visão Estratégica Consolidada • {selectedYear}</p>
+            <p className="text-[10px] sm:text-sm text-white mt-1 font-data uppercase tracking-widest">Visão Estratégica • {selectedYear}</p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex bg-[#1A2030] p-1 rounded-lg border border-euro-gold/20 shadow-[0_0_15px_rgba(0,0,0,0.3)]">
+          <div className="flex items-center justify-center gap-3 w-full md:w-auto">
+            <div className="flex bg-[#1A2030] p-1 rounded-lg border border-euro-gold/20 shadow-[0_0_15px_rgba(0,0,0,0.3)] w-full sm:w-auto">
               <button
                 onClick={() => setDisplayMode('meta')}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold",
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex-1 sm:flex-initial",
                   displayMode === 'meta' 
                     ? "bg-euro-gold text-black shadow-lg" 
                     : "text-white/60 hover:text-white hover:bg-white/10"
@@ -449,7 +466,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
               <button
                 onClick={() => setDisplayMode('proportional')}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex items-center gap-1",
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex items-center justify-center gap-1 flex-1 sm:flex-initial",
                   displayMode === 'proportional' 
                     ? "bg-euro-gold text-black shadow-lg" 
                     : "text-white/60 hover:text-white hover:bg-white/10"
@@ -460,7 +477,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
               <button
                 onClick={() => setDisplayMode('pace')}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold",
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex-1 sm:flex-initial",
                   displayMode === 'pace' 
                     ? "bg-euro-gold text-black shadow-lg" 
                     : "text-white/60 hover:text-white hover:bg-white/10"
@@ -472,7 +489,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40 hover:text-euro-gold hover:bg-white/5 rounded-full transition-all duration-300">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40 hover:text-euro-gold hover:bg-white/5 rounded-full transition-all duration-300 hidden sm:flex">
                   <HelpCircle className="w-5 h-5" />
                 </Button>
               </DialogTrigger>
@@ -567,155 +584,8 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
 
       {/* PHENOMENAL INDICATOR SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT: INVEST vs CS BREAKDOWN */}
-        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* INVEST CARD */}
-          <Card className="bg-gradient-to-b from-[#1A2030] to-[#11141D] border-euro-gold/30 shadow-[0_0_30px_rgba(250,192,23,0.05)] overflow-hidden relative group">
-             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <TrendingUp className="w-24 h-24 text-blue-400" />
-             </div>
-             <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-sm font-data text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4" />
-                      EUROSTOCK
-                    </h3>
-                    <p className="text-xs text-white/40 mt-1">Alocação + Renda Variável</p>
-                  </div>
-                  <div className="text-right">
-                    <span className={cn("text-3xl font-display", getStatusColor(kpis.groups.invest.percent))}>
-                      {kpis.groups.invest.percent.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-
-                <div className="w-full bg-white/5 h-2 rounded-full mb-6 overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(kpis.groups.invest.percent, 100)}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={cn("h-full rounded-full", getProgressBarColor(kpis.groups.invest.percent))}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 mb-6">
-                  <div>
-                    <span className="text-[10px] text-white/40 font-data uppercase">Meta</span>
-                    <p className="text-[10px] lg:text-xs xl:text-base font-display text-euro-gold">{formatCurrency(kpis.groups.invest.target)}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-white/40 font-data uppercase">Realizado</span>
-                    <p className="text-[10px] lg:text-xs xl:text-base font-display text-white">{formatCurrency(kpis.groups.invest.realized)}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-white/40 font-data uppercase">Gap</span>
-                    <p className={cn("text-[10px] lg:text-xs xl:text-base font-display", kpis.groups.invest.gap > 0 ? "text-red-400" : "text-green-400")}>
-                      {kpis.groups.invest.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(kpis.groups.invest.gap))}
-                    </p>
-                  </div>
-                </div>
-
-            {/* PRODUCT TABLE */}
-                <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
-                  <div className="grid grid-cols-4 gap-2 text-[10px] text-white/40 font-data uppercase tracking-wider mb-2">
-                    <div className="col-span-1">Produto</div>
-                    <div className="text-right">Meta</div>
-                    <div className="text-right">Real.</div>
-                    <div className="text-right">Gap</div>
-                  </div>
-                  {kpis.groups.invest.products
-                    .slice()
-                    .sort((a: any, b: any) => b.target - a.target)
-                    .map((p: any, i: number) => (
-                    <div key={i} className="grid grid-cols-4 gap-2 text-[9px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/5 transition-colors rounded-sm px-1">
-                      <div className="text-white truncate col-span-1 flex items-center" title={p.label}>{p.label}</div>
-                      <div className="text-right text-white/60">{formatCurrency(p.target)}</div>
-                      <div className="text-right text-white">{formatCurrency(p.realized)}</div>
-                      <div className={cn("text-right", p.gap > 0 ? "text-red-400" : "text-green-400")}>
-                         {p.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(p.gap))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-             </CardContent>
-          </Card>
-
-          {/* CS CARD */}
-          <Card className="bg-gradient-to-b from-[#1A2030] to-[#11141D] border-euro-gold/30 shadow-[0_0_30px_rgba(250,192,23,0.05)] overflow-hidden relative group">
-             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Briefcase className="w-24 h-24 text-purple-400" />
-             </div>
-             <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-sm font-data text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                      <Briefcase className="w-4 h-4" />
-                      AFFARE
-                    </h3>
-                    <p className="text-xs text-white/40 mt-1">Banking + Seguros</p>
-                  </div>
-                  <div className="text-right">
-                    <span className={cn("text-3xl font-display", getStatusColor(kpis.groups.cs.percent))}>
-                      {kpis.groups.cs.percent.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-
-                <div className="w-full bg-white/5 h-2 rounded-full mb-6 overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(kpis.groups.cs.percent, 100)}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={cn("h-full rounded-full", getProgressBarColor(kpis.groups.cs.percent))}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 mb-6">
-                  <div>
-                    <span className="text-[10px] text-white/40 font-data uppercase">Meta</span>
-                    <p className="text-[10px] lg:text-xs xl:text-base font-display text-euro-gold">{formatCurrency(kpis.groups.cs.target)}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-white/40 font-data uppercase">Realizado</span>
-                    <p className="text-[10px] lg:text-xs xl:text-base font-display text-white">{formatCurrency(kpis.groups.cs.realized)}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-white/40 font-data uppercase">Gap</span>
-                    <p className={cn("text-[10px] lg:text-xs xl:text-base font-display", kpis.groups.cs.gap > 0 ? "text-red-400" : "text-green-400")}>
-                      {kpis.groups.cs.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(kpis.groups.cs.gap))}
-                    </p>
-                  </div>
-                </div>
-
-                {/* PRODUCT TABLE */}
-                <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
-                  <div className="grid grid-cols-4 gap-2 text-[10px] text-white/40 font-data uppercase tracking-wider mb-2">
-                    <div className="col-span-1">Produto</div>
-                    <div className="text-right">Meta</div>
-                    <div className="text-right">Real.</div>
-                    <div className="text-right">Gap</div>
-                  </div>
-                  {kpis.groups.cs.products
-                    .slice()
-                    .sort((a: any, b: any) => b.target - a.target)
-                    .map((p: any, i: number) => (
-                    <div key={i} className="grid grid-cols-4 gap-2 text-[9px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/5 transition-colors rounded-sm px-1">
-                      <div className="text-white truncate col-span-1 flex items-center" title={p.label}>{p.label}</div>
-                      <div className="text-right text-white/60">{formatCurrency(p.target)}</div>
-                      <div className="text-right text-white">{formatCurrency(p.realized)}</div>
-                      <div className={cn("text-right", p.gap > 0 ? "text-red-400" : "text-green-400")}>
-                         {p.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(p.gap))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-             </CardContent>
-          </Card>
-        </div>
-
-        {/* RIGHT: GLOBAL PHENOMENAL INDICATOR */}
-        <Card className="lg:col-span-4 bg-gradient-to-b from-[#1A2030] to-[#11141D] border-euro-gold/30 shadow-[0_0_30px_rgba(250,192,23,0.05)] relative overflow-hidden flex flex-col justify-center items-center py-8">
+        {/* GLOBAL PHENOMENAL INDICATOR - NOW FIRST ON MOBILE */}
+        <Card className="lg:col-span-4 lg:order-2 bg-gradient-to-b from-[#1A2030] to-[#11141D] border-euro-gold/30 shadow-[0_0_30px_rgba(250,192,23,0.05)] relative overflow-hidden flex flex-col justify-center items-center py-8 order-1">
            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-euro-gold/5 via-transparent to-transparent" />
            
            <div className="relative z-10 text-center mb-6">
@@ -761,25 +631,172 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
 
            <div className="grid grid-cols-3 w-full px-2 gap-2 border-t border-white/5 pt-6">
              <div className="text-center overflow-hidden">
-                <p className="text-[8px] lg:text-[9px] text-white/40 font-data uppercase tracking-widest mb-1 whitespace-nowrap">Meta Global</p>
-                <p className="text-[10px] lg:text-xs xl:text-base font-display text-euro-gold whitespace-nowrap text-ellipsis overflow-hidden" title={formatCurrency(kpis.groups.global.target)}>{formatCurrency(kpis.groups.global.target)}</p>
+                <p className="text-[9px] lg:text-[9px] text-white/40 font-data uppercase tracking-widest mb-1 whitespace-nowrap">Meta Global</p>
+                <p className="text-[11px] lg:text-xs xl:text-base font-display text-euro-gold whitespace-nowrap text-ellipsis overflow-hidden" title={formatCurrency(kpis.groups.global.target)}>{formatCurrency(kpis.groups.global.target)}</p>
              </div>
              <div className="text-center border-l border-white/5 pl-2 overflow-hidden">
-                <p className="text-[8px] lg:text-[9px] text-white/40 font-data uppercase tracking-widest mb-1 whitespace-nowrap">Total Realizado</p>
-                <p className="text-[10px] lg:text-xs xl:text-base font-display text-white whitespace-nowrap text-ellipsis overflow-hidden" title={formatCurrency(kpis.groups.global.realized)}>{formatCurrency(kpis.groups.global.realized)}</p>
+                <p className="text-[9px] lg:text-[9px] text-white/40 font-data uppercase tracking-widest mb-1 whitespace-nowrap">Total Realizado</p>
+                <p className="text-[11px] lg:text-xs xl:text-base font-display text-white whitespace-nowrap text-ellipsis overflow-hidden" title={formatCurrency(kpis.groups.global.realized)}>{formatCurrency(kpis.groups.global.realized)}</p>
              </div>
              <div className="text-center border-l border-white/5 pl-2 overflow-hidden">
-                <p className="text-[8px] lg:text-[9px] text-white/40 font-data uppercase tracking-widest mb-1 whitespace-nowrap">Gap Global</p>
-                <p className={cn("text-[10px] lg:text-xs xl:text-base font-display whitespace-nowrap text-ellipsis overflow-hidden", kpis.groups.global.gap > 0 ? "text-red-400" : "text-green-400")} title={(kpis.groups.global.gap > 0 ? "-" : "+") + formatCurrency(Math.abs(kpis.groups.global.gap))}>
+                <p className="text-[9px] lg:text-[9px] text-white/40 font-data uppercase tracking-widest mb-1 whitespace-nowrap">Gap Global</p>
+                <p className={cn("text-[11px] lg:text-xs xl:text-base font-display whitespace-nowrap text-ellipsis overflow-hidden", kpis.groups.global.gap > 0 ? "text-red-400" : "text-green-400")} title={(kpis.groups.global.gap > 0 ? "-" : "+") + formatCurrency(Math.abs(kpis.groups.global.gap))}>
                   {kpis.groups.global.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(kpis.groups.global.gap))}
                 </p>
              </div>
            </div>
         </Card>
+
+        {/* INVEST & CS BREAKDOWN */}
+        <div className="lg:col-span-8 lg:order-1 grid grid-cols-1 md:grid-cols-2 gap-6 order-2">
+          {/* INVEST CARD */}
+          <Card className="bg-gradient-to-b from-[#1A2030] to-[#11141D] border-euro-gold/30 shadow-[0_0_30px_rgba(250,192,23,0.05)] overflow-hidden relative group">
+             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <TrendingUp className="w-24 h-24 text-blue-400" />
+             </div>
+             <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-sm font-data text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      EUROSTOCK
+                    </h3>
+                    <p className="text-xs text-white/40 mt-1">Alocação + Renda Variável</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={cn("text-3xl font-display", getStatusColor(kpis.groups.invest.percent))}>
+                      {kpis.groups.invest.percent.toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full bg-white/5 h-2 rounded-full mb-6 overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(kpis.groups.invest.percent, 100)}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={cn("h-full rounded-full", getProgressBarColor(kpis.groups.invest.percent))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mb-6">
+                  <div>
+                    <span className="text-[11px] text-white/40 font-data uppercase">Meta</span>
+                    <p className="text-[11px] lg:text-xs xl:text-base font-display text-euro-gold">{formatCurrency(kpis.groups.invest.target)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-white/40 font-data uppercase">Realizado</span>
+                    <p className="text-[11px] lg:text-xs xl:text-base font-display text-white">{formatCurrency(kpis.groups.invest.realized)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-white/40 font-data uppercase">Gap</span>
+                    <p className={cn("text-[11px] lg:text-xs xl:text-base font-display", kpis.groups.invest.gap > 0 ? "text-red-400" : "text-green-400")}>
+                      {kpis.groups.invest.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(kpis.groups.invest.gap))}
+                    </p>
+                  </div>
+                </div>
+
+                {/* PRODUCT TABLE */}
+                <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                  <div className="grid grid-cols-4 gap-2 text-[11px] text-white/40 font-data uppercase tracking-wider mb-2">
+                    <div className="col-span-1">Produto</div>
+                    <div className="text-right">Meta</div>
+                    <div className="text-right">Real.</div>
+                    <div className="text-right">Gap</div>
+                  </div>
+                  {kpis.groups.invest.products
+                    .slice()
+                    .sort((a: any, b: any) => b.target - a.target)
+                    .map((p: any, i: number) => (
+                    <div key={i} className="grid grid-cols-4 gap-2 text-[10px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/5 transition-colors rounded-sm px-1">
+                      <div className="text-white truncate col-span-1 flex items-center" title={p.label}>{p.label}</div>
+                      <div className="text-right text-white/60">{formatCurrency(p.target)}</div>
+                      <div className="text-right text-white">{formatCurrency(p.realized)}</div>
+                      <div className={cn("text-right", p.gap > 0 ? "text-red-400" : "text-green-400")}>
+                         {p.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(p.gap))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+             </CardContent>
+          </Card>
+
+          {/* CS CARD */}
+          <Card className="bg-gradient-to-b from-[#1A2030] to-[#11141D] border-euro-gold/30 shadow-[0_0_30px_rgba(250,192,23,0.05)] overflow-hidden relative group">
+             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Briefcase className="w-24 h-24 text-purple-400" />
+             </div>
+             <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-sm font-data text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      AFFARE
+                    </h3>
+                    <p className="text-xs text-white/40 mt-1">Banking + Seguros</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={cn("text-3xl font-display", getStatusColor(kpis.groups.cs.percent))}>
+                      {kpis.groups.cs.percent.toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full bg-white/5 h-2 rounded-full mb-6 overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(kpis.groups.cs.percent, 100)}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={cn("h-full rounded-full", getProgressBarColor(kpis.groups.cs.percent))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mb-6">
+                  <div>
+                    <span className="text-[11px] text-white/40 font-data uppercase">Meta</span>
+                    <p className="text-[11px] lg:text-xs xl:text-base font-display text-euro-gold">{formatCurrency(kpis.groups.cs.target)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-white/40 font-data uppercase">Realizado</span>
+                    <p className="text-[11px] lg:text-xs xl:text-base font-display text-white">{formatCurrency(kpis.groups.cs.realized)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-white/40 font-data uppercase">Gap</span>
+                    <p className={cn("text-[11px] lg:text-xs xl:text-base font-display", kpis.groups.cs.gap > 0 ? "text-red-400" : "text-green-400")}>
+                      {kpis.groups.cs.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(kpis.groups.cs.gap))}
+                    </p>
+                  </div>
+                </div>
+
+                {/* PRODUCT TABLE */}
+                <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                  <div className="grid grid-cols-4 gap-2 text-[11px] text-white/40 font-data uppercase tracking-wider mb-2">
+                    <div className="col-span-1">Produto</div>
+                    <div className="text-right">Meta</div>
+                    <div className="text-right">Real.</div>
+                    <div className="text-right">Gap</div>
+                  </div>
+                  {kpis.groups.cs.products
+                    .slice()
+                    .sort((a: any, b: any) => b.target - a.target)
+                    .map((p: any, i: number) => (
+                    <div key={i} className="grid grid-cols-4 gap-2 text-[10px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/5 transition-colors rounded-sm px-1">
+                      <div className="text-white truncate col-span-1 flex items-center" title={p.label}>{p.label}</div>
+                      <div className="text-right text-white/60">{formatCurrency(p.target)}</div>
+                      <div className="text-right text-white">{formatCurrency(p.realized)}</div>
+                      <div className={cn("text-right", p.gap > 0 ? "text-red-400" : "text-green-400")}>
+                         {p.gap > 0 ? "-" : "+"}{formatCurrency(Math.abs(p.gap))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+             </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* KPI CARDS - 5 MAIN INDICATORS */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4">
         {(Object.keys(METRIC_CONFIG) as MetricType[]).map((metric) => {
           const data = kpis[metric];
           const config = METRIC_CONFIG[metric];
@@ -789,16 +806,17 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
           return (
             <Card 
               key={metric}
-              onClick={() => setSelectedMetric(metric)}
+              onClick={() => !isMobile && setSelectedMetric(metric)}
               className={cn(
-                "relative overflow-hidden cursor-pointer transition-all duration-300 border rounded-2xl shadow-2xl group",
+                "relative overflow-hidden transition-all duration-300 border rounded-2xl shadow-2xl group",
+                !isMobile && "cursor-pointer",
                 "bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl",
-                isSelected 
+                !isMobile && isSelected 
                   ? "border-euro-gold shadow-[0_0_20px_rgba(250,192,23,0.1)]" 
-                  : "border-white/20 hover:border-euro-gold/50"
+                  : "border-white/20 sm:hover:border-euro-gold/50"
               )}
             >
-              {isSelected && <div className="absolute top-0 left-0 w-full h-0.5 bg-euro-gold shadow-[0_0_10px_#FAC017]" />}
+              {!isMobile && isSelected && <div className="absolute top-0 left-0 w-full h-0.5 bg-euro-gold shadow-[0_0_10px_#FAC017]" />}
               
               <CardContent className="p-5 flex flex-col h-full justify-between">
                 {/* Header */}
@@ -806,7 +824,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                   <div>
                     <span className={cn(
                       "text-[10px] font-data uppercase tracking-widest block mb-1",
-                      isSelected ? "text-euro-gold" : "text-white/50"
+                      !isMobile && isSelected ? "text-euro-gold" : "text-white/50"
                     )}>
                       {config.label}
                     </span>
@@ -823,7 +841,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                   </div>
                   <div className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                    isSelected ? "bg-euro-gold text-black" : "bg-white/5 text-white/40"
+                    !isMobile && isSelected ? "bg-euro-gold text-black" : "bg-white/5 text-white/40"
                   )}>
                     <Icon className="w-4 h-4" />
                   </div>
@@ -863,7 +881,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
       </div>
 
       {/* CHART SECTION */}
-      <Card className="bg-[#11141D]/80 backdrop-blur-md border-white/10 p-6">
+      <Card className="bg-[#11141D]/80 backdrop-blur-md border-white/10 p-6 hidden sm:block">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
           <div>
             <h3 className="text-lg font-display text-white flex items-center gap-2">

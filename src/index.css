@@ -229,4 +229,14 @@ All colors MUST be HSL.
   .custom-scrollbar:hover::-webkit-scrollbar-thumb {
     background: rgba(250, 192, 23, 0.4);
   }
+
+  /* Utility to hide scrollbar for horizontal/vertical scroll elements */
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
 }

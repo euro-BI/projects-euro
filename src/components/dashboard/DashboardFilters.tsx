@@ -107,7 +107,7 @@ export function DashboardFilters({
         >
           <div className="flex items-center gap-2">
             <Filter className={cn("w-4 h-4 text-euro-gold", isOpen && "fill-euro-gold/20")} />
-            <span className="text-sm font-data text-white/80 uppercase tracking-wider">Filtros</span>
+            <span className="text-sm font-data text-white/80 uppercase tracking-wider hidden sm:inline">Filtros</span>
           </div>
           
           <div className="h-4 w-px bg-white/10" />
@@ -134,7 +134,7 @@ export function DashboardFilters({
         </Button>
       </PopoverTrigger>
       
-      <PopoverContent align="end" className="w-[340px] p-4 bg-[#0F1218]/95 backdrop-blur-xl border border-white/10 shadow-2xl rounded-xl space-y-5">
+      <PopoverContent align="center" className="w-[calc(100vw-32px)] sm:w-[340px] p-4 bg-[#0F1218]/95 backdrop-blur-xl border border-white/10 shadow-2xl rounded-xl space-y-5">
         <div className="flex items-center justify-between pb-2 border-b border-white/5">
            <h4 className="text-sm font-display text-white flex items-center gap-2">
              <Filter className="w-4 h-4 text-euro-gold" />
@@ -255,7 +255,7 @@ export function DashboardFilters({
                   <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0 bg-[#1A1D24] border-white/10" side="left">
+              <PopoverContent className="w-[calc(100vw-64px)] sm:w-[300px] p-0 bg-[#1A1D24] border-white/10" align="center" side="bottom">
                 <Command className="bg-transparent text-white">
                   <CommandInput placeholder="Buscar assessor..." className="h-9 text-xs font-data" />
                   <CommandList className="custom-scrollbar">

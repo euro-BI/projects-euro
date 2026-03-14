@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 interface AdvisorRevenueTableProps {
   data: AssessorResumo[];
   teamPhotos?: Map<string, string>;
-  onAssessorClick?: (assessor: AssessorResumo) => void;
+  onAssessorClick?: (assessor: AssessorResumo, rank?: number) => void;
   selectedMonth?: string;
 }
 
@@ -128,6 +128,16 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
       });
   }, [data, searchTerm, sortConfig]);
 
+  // Pre-compute Super Ranking positions based on pontos_totais_acumulado
+  const superRankingMap = useMemo(() => {
+    const sorted = [...data].sort((a, b) => (b.pontos_totais_acumulado || 0) - (a.pontos_totais_acumulado || 0));
+    const map = new Map<string, number>();
+    sorted.forEach((item, index) => {
+      if (item.cod_assessor) map.set(item.cod_assessor, index + 1);
+    });
+    return map;
+  }, [data]);
+
   const totals = useMemo(() => {
     const initial = {
       custodia_net: 0,
@@ -216,7 +226,7 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
             />
           </div>
 
-          <div className="flex bg-euro-elevated p-1 rounded-lg border border-white/5 shadow-inner flex-shrink-0">
+          <div className="hidden xl:flex bg-euro-elevated p-1 rounded-lg border border-white/5 shadow-inner flex-shrink-0">
             <button
               onClick={() => setView("geral")}
               className={cn(
@@ -259,56 +269,56 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
         <div className="absolute inset-0 bg-gradient-to-b from-euro-gold/5 to-transparent pointer-events-none opacity-20" />
         
         <div className="overflow-auto custom-scrollbar relative max-h-[650px]">
-          <table className="w-full text-left border-collapse min-w-[1200px]">
+          <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-30">
               <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest border-b border-euro-navy/20">
-                <th 
-                  onClick={() => handleSort('time')}
-                  className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] min-w-[80px] max-w-[80px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
-                >
-                  <div className="flex items-center gap-2">Time <SortIcon column="time" /></div>
-                </th>
-                <th 
-                  onClick={() => handleSort('nome_assessor')}
-                  className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-[80px] bg-euro-gold z-40 min-w-[220px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
-                >
-                  <div className="flex items-center gap-2">Assessor <SortIcon column="nome_assessor" /></div>
-                </th>
+              <th 
+                onClick={() => handleSort('time')}
+                className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] min-w-[80px] max-w-[80px] cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell"
+              >
+                <div className="flex items-center gap-2">Time <SortIcon column="time" /></div>
+              </th>
+              <th 
+                onClick={() => handleSort('nome_assessor')}
+                className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 md:left-[80px] bg-euro-gold z-40 min-w-[220px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
+              >
+                <div className="flex items-center gap-2">Assessor <SortIcon column="nome_assessor" /></div>
+              </th>
                 
                 <AnimatePresence mode="wait">
                   {view === "geral" && (
                     <>
-                      <th onClick={() => handleSort('custodia_net')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('custodia_net')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">Net/Clientes <SortIcon column="custodia_net" /></div>
                       </th>
-                      <th onClick={() => handleSort('meta_captacao')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('meta_captacao')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">Meta Captação <SortIcon column="meta_captacao" /></div>
                       </th>
-                      <th onClick={() => handleSort('captacao_liquida_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('captacao_liquida_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">Captação Líquida <SortIcon column="captacao_liquida_total" /></div>
                       </th>
-                      <th onClick={() => handleSort('meta_receita')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('meta_receita')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">Meta Receita <SortIcon column="meta_receita" /></div>
                       </th>
                       <th onClick={() => handleSort('receita_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
                         <div className="flex items-center justify-end gap-2">Receita Total <SortIcon column="receita_total" /></div>
                       </th>
-                      <th onClick={() => handleSort('receita_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('receita_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">Receita Invest <SortIcon column="receita_invest" /></div>
                       </th>
-                      <th onClick={() => handleSort('receita_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('receita_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">Receita CS <SortIcon column="receita_cs" /></div>
                       </th>
-                      <th onClick={() => handleSort('roa_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('roa_total')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">ROA Total <SortIcon column="roa_total" /></div>
                       </th>
-                      <th onClick={() => handleSort('roa_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('roa_invest')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">ROA Invest <SortIcon column="roa_invest" /></div>
                       </th>
-                      <th onClick={() => handleSort('roa_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('roa_cs')} className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">ROA CS <SortIcon column="roa_cs" /></div>
                       </th>
-                      <th onClick={() => handleSort('repasse_total')} className="py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('repasse_total')} className="py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">Repasse Total <SortIcon column="repasse_total" /></div>
                       </th>
                     </>
@@ -377,15 +387,15 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
             </thead>
             
             <tbody className="divide-y divide-white/[0.05]">
-              {calculatedData.map((item) => (
+              {calculatedData.map((item, index) => (
                 <motion.tr 
                   layout
                   key={item.cod_assessor}
-                  onClick={() => onAssessorClick?.(item)}
+                  onClick={() => onAssessorClick?.(item, superRankingMap.get(item.cod_assessor))}
                   className="group even:bg-white/[0.02] hover:bg-euro-gold/10 transition-all cursor-pointer text-xs font-data"
                 >
                   {/* Time */}
-                  <td className="py-3 px-4 border-r border-white/10 sticky left-0 bg-euro-navy group-hover:bg-[#1e2538] z-10 w-[80px] min-w-[80px] max-w-[80px]">
+                  <td className="py-3 px-4 border-r border-white/10 sticky left-0 bg-euro-navy group-hover:bg-[#1e2538] z-10 w-[80px] min-w-[80px] max-w-[80px] hidden md:table-cell">
                     <div className="flex items-center justify-center">
                       {teamPhotos?.has(item.time.toUpperCase()) ? (
                         <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden shadow-lg group-hover:border-euro-gold transition-colors bg-black/40 p-1">
@@ -404,7 +414,7 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                   </td>
 
                   {/* Assessor */}
-                  <td className="py-3 px-4 border-r border-white/10 sticky left-[80px] bg-euro-navy group-hover:bg-[#1e2538] z-10">
+                  <td className="py-3 px-4 border-r border-white/10 sticky left-0 md:left-[80px] bg-euro-navy group-hover:bg-[#1e2538] z-10">
                     <div className="flex items-center gap-3">
                       <div className="relative flex-shrink-0">
                         <div className={cn(
@@ -439,16 +449,16 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                   {/* Metrics View Geral */}
                   {view === "geral" && (
                     <>
-                      <td className="py-3 px-4 text-right border-r border-white/5">
+                      <td className="py-3 px-4 text-right border-r border-white/5 hidden md:table-cell">
                         <div className="flex flex-col">
                           <span className="text-white">{formatCurrency(item.custodia_net)}</span>
                           <span className="text-[10px] text-white/60">({item.total_clientes})</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.meta_captacao)}
                       </td>
-                      <td className="py-3 px-4 text-right border-r border-white/5">
+                      <td className="py-3 px-4 text-right border-r border-white/5 hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">
                           <span className={cn(
                             "font-bold",
@@ -459,7 +469,7 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                           {renderTrendIcon(item.captacao_liquida_total, item.meta_captacao)}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.meta_receita)}
                       </td>
                       <td className="py-3 px-4 text-right border-r border-white/5">
@@ -470,25 +480,25 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                           {renderTrendIcon(item.receita_total, item.meta_receita)}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_invest)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_cs)}
                       </td>
-                      <td className="py-3 px-4 text-right border-r border-white/5">
+                      <td className="py-3 px-4 text-right border-r border-white/5 hidden md:table-cell">
                         <div className="flex items-center justify-end gap-2">
                           <span className="text-white">{formatPercent(item.roa_total)}</span>
                           {renderTrendIcon(item.roa_total, 1.0)}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatPercent(item.roa_invest)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatPercent(item.roa_cs)}
                       </td>
-                      <td className="py-3 px-4 text-right font-bold text-white">
+                      <td className="py-3 px-4 text-right font-bold text-white hidden md:table-cell">
                         {formatCurrency(item.repasse_total)}
                       </td>
                     </>
@@ -497,31 +507,31 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                   {/* Metrics View Invest */}
                   {view === "invest" && (
                     <>
-                      <td className="py-3 px-4 text-right font-bold text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right font-bold text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_invest)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatPercent(item.roa_invest)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.asset_m_1)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_b3)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receitas_estruturadas)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_cetipados)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receitas_ofertas_fundos)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receitas_ofertas_rf)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white">
+                      <td className="py-3 px-4 text-right text-white hidden md:table-cell">
                         {formatCurrency(item.receita_renda_fixa)}
                       </td>
                     </>
@@ -530,28 +540,28 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
                   {/* Metrics View CS */}
                   {view === "cs" && (
                     <>
-                      <td className="py-3 px-4 text-right font-bold text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right font-bold text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_cs)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatPercent(item.roa_cs)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_seguros)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_previdencia)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_consorcios)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_compromissadas)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                      <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden md:table-cell">
                         {formatCurrency(item.receita_cambio)}
                       </td>
-                      <td className="py-3 px-4 text-right text-white">
+                      <td className="py-3 px-4 text-right text-white hidden md:table-cell">
                         {formatCurrency(item.receitas_offshore)}
                       </td>
                     </>
@@ -562,54 +572,54 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
             
             <tfoot className="sticky bottom-0 z-30">
               <tr className="bg-black/80 backdrop-blur-md text-xs font-bold font-data border-t-2 border-euro-gold">
-                <td colSpan={1} className="py-4 px-4 text-euro-gold uppercase tracking-widest sticky left-0 bg-black/90 z-40 border-r border-white/10 w-[80px] min-w-[80px] max-w-[80px]">Total</td>
-                <td className="sticky left-[80px] bg-black/90 z-40 border-r border-white/10"></td>
+                <td colSpan={1} className="py-4 px-4 text-euro-gold uppercase tracking-widest sticky left-0 bg-black/90 z-40 border-r border-white/10 w-[80px] min-w-[80px] max-w-[80px] hidden md:table-cell">Total</td>
+                <td className="sticky left-0 md:left-[80px] bg-black/90 z-40 border-r border-white/10"></td>
                 
                 {view === "geral" && (
                   <>
-                    <td className="py-4 px-4 text-right border-r border-white/5 bg-black/80">
+                    <td className="py-4 px-4 text-right border-r border-white/5 bg-black/80 hidden md:table-cell">
                       <div className="flex flex-col">
                         <span className="text-white">{formatCurrency(totals.custodia_net)}</span>
                         <span className="text-[10px] text-white/60">({totals.total_clientes})</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.meta_captacao)}</td>
-                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatCurrency(totals.captacao_liquida_total)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.meta_receita)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.meta_captacao)}</td>
+                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.captacao_liquida_total)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.meta_receita)}</td>
                     <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_total)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_invest)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_cs)}</td>
-                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatPercent(totals.roa_total)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatPercent(totals.roa_invest)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatPercent(totals.roa_cs)}</td>
-                    <td className="py-4 px-4 text-right text-euro-gold bg-black/80">{formatCurrency(totals.repasse_total)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_invest)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_cs)}</td>
+                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80 hidden md:table-cell">{formatPercent(totals.roa_total)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatPercent(totals.roa_invest)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatPercent(totals.roa_cs)}</td>
+                    <td className="py-4 px-4 text-right text-euro-gold bg-black/80 hidden md:table-cell">{formatCurrency(totals.repasse_total)}</td>
                   </>
                 )}
 
                 {view === "invest" && (
                   <>
-                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_invest)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatPercent(totals.roa_invest)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.asset_m_1)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_b3)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receitas_estruturadas)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_cetipados)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receitas_ofertas_fundos)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receitas_ofertas_rf)}</td>
-                    <td className="py-4 px-4 text-right text-white bg-black/80">{formatCurrency(totals.receita_renda_fixa)}</td>
+                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_invest)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatPercent(totals.roa_invest)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.asset_m_1)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_b3)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receitas_estruturadas)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_cetipados)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receitas_ofertas_fundos)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receitas_ofertas_rf)}</td>
+                    <td className="py-4 px-4 text-right text-white bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_renda_fixa)}</td>
                   </>
                 )}
 
                 {view === "cs" && (
                   <>
-                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_cs)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatPercent(totals.roa_cs)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_seguros)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_previdencia)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_consorcios)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_compromissadas)}</td>
-                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals.receita_cambio)}</td>
-                    <td className="py-4 px-4 text-right text-white bg-black/80">{formatCurrency(totals.receitas_offshore)}</td>
+                    <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_cs)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatPercent(totals.roa_cs)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_seguros)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_previdencia)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_consorcios)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_compromissadas)}</td>
+                    <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80 hidden md:table-cell">{formatCurrency(totals.receita_cambio)}</td>
+                    <td className="py-4 px-4 text-right text-white bg-black/80 hidden md:table-cell">{formatCurrency(totals.receitas_offshore)}</td>
                   </>
                 )}
               </tr>
@@ -619,7 +629,7 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
       </div>
 
       {/* Info Legend */}
-      <div className="flex flex-wrap gap-6 items-center text-[10px] font-data text-[#5C5C50] uppercase tracking-widest px-2">
+      <div className="hidden xl:flex flex-wrap gap-6 items-center text-[10px] font-data text-[#5C5C50] uppercase tracking-widest px-2">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500" />
           <span>Meta Atingida</span>

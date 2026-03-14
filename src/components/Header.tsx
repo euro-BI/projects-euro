@@ -391,7 +391,7 @@ export const Header = () => {
               </SheetTrigger>
               <SheetContent side="right" className="glass-card">
                 <SheetHeader>
-                  <SheetTitle>Navegação</SheetTitle>
+                  <SheetTitle>Perfil do Usuário</SheetTitle>
                 </SheetHeader>
                 
                 {/* User welcome section */}
@@ -417,127 +417,10 @@ export const Header = () => {
                   </div>
                 </div>
                 
-                <div className="grid gap-2">
-                  <Button
-                    variant="ghost"
-                    className="justify-start"
-                    onClick={() => navigate("/")}
-                  >
-                    <Home className="w-4 h-4 mr-2" />
-                    Início
-                  </Button>
-                  {isAdminMaster && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/dash')}
-                    >
-                      <BrainCircuit className="w-4 h-4 mr-2" />
-                      Euro Intelligence
-                    </Button>
-                  )}
-                  {(isAdminMaster || isAdmin) && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate("/dashboard")}
-                    >
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </Button>
-                  )}
-
-                  {/* Navegação mobile */}
-                  {(isAdminMaster || isAdmin) && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/projects')}
-                    >
-                      <FolderKanban className="w-4 h-4 mr-2" />
-                      Projetos
-                    </Button>
-                  )}
-                  {isAdminMaster && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/bi-dashboard')}
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Atualizações BD
-                    </Button>
-                  )}
-                  {(isAdminMaster || isConsorcio) && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/consorcios')}
-                    >
-                      <FileSpreadsheet className="w-4 h-4 mr-2" />
-                      Consórcios
-                    </Button>
-                  )}
-                  {isAdminMaster && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/dashboard-management')}
-                    >
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Gerenciar Dashboards
-                    </Button>
-                  )}
-                  {isAdminMaster && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/users')}
-                    >
-                      <Users className="w-4 h-4 mr-2" />
-                      Gerenciar Usuários
-                    </Button>
-                  )}
-                  {canAccessPowerBIAndIA && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/powerbi')}
-                    >
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Power BI
-                    </Button>
-                  )}
-                  {canAccessPowerBIAndIA && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/chat')}
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      IA Chat
-                    </Button>
-                  )}
-                  {(isAdminMaster || isAdmin) && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/tv-published')}
-                    >
-                      <Tv className="w-4 h-4 mr-2" />
-                      TV Dashboards
-                    </Button>
-                  )}
-                  {isAdminMaster && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start"
-                      onClick={() => navigate('/tv-presentations')}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Gestão TV
-                    </Button>
-                  )}
+                <div className="border-t border-white/5 pt-4 grid gap-2">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground px-2 mb-2">
+                    Ações de Conta
+                  </DropdownMenuLabel>
                   <Button
                     variant="ghost"
                     className="justify-start"
