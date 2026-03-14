@@ -91,30 +91,57 @@ export default function ComparisonView() {
   const { data: filters, isLoading: isLoadingFilters } = useQuery({
     queryKey: ["comparison-filters"],
     queryFn: async () => {
-      // Fetch Active Teams
+      // 1. Fetch latest data_posicao to determine active status
+      const { data: latestEntry } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const latestDate = (latestEntry as any)?.data_posicao;
+
+      // 2. Fetch active teams
       const { data: activeTeamsData } = await supabase
-        .from("dados_times")
+        .from("dados_times" as any)
         .select("time")
         .eq("status", "ATIVO");
-      const activeTeams = new Set(activeTeamsData?.map((t) => t.time) || []);
+      const activeTeams = new Set(activeTeamsData?.map((t: any) => t.time) || []);
 
-      // Fetch Assessors and Months from MV
+      // 3. Fetch all potential assessors and months
       const { data } = await supabase
-        .from("mv_resumo_assessor")
+        .from("mv_resumo_assessor" as any)
         .select("cod_assessor, nome_assessor, time, data_posicao")
         .order("data_posicao", { ascending: false });
 
       if (!data) return { assessors: [], teams: [], months: [] };
 
-      // Process Months
-      const months = Array.from(new Set(data.map((d) => d.data_posicao))).sort(
+      // 4. Identify assessors present in the latest position (active)
+      const activeAssessorCodes = new Set();
+      if (latestDate) {
+        (data as any[]).forEach(d => {
+          if (d.data_posicao === latestDate && d.cod_assessor) {
+            activeAssessorCodes.add(d.cod_assessor);
+          }
+        });
+      }
+
+      // 5. Process Months
+      const months = Array.from(new Set((data as any[]).map((d) => d.data_posicao))).sort(
         (a, b) => b.localeCompare(a)
       );
 
-      // Process Assessors (Unique)
+      // 6. Process Assessors (Unique & Active)
       const assessorMap = new Map();
-      data.forEach((d) => {
-        if (d.cod_assessor && d.nome_assessor && !assessorMap.has(d.cod_assessor)) {
+      (data as any[]).forEach((d) => {
+        // Only include if assessor is active (present in latest date) and in an active team
+        if (
+          d.cod_assessor && 
+          d.nome_assessor && 
+          !assessorMap.has(d.cod_assessor) && 
+          activeAssessorCodes.has(d.cod_assessor) &&
+          activeTeams.has(d.time)
+        ) {
           assessorMap.set(d.cod_assessor, {
             id: d.cod_assessor,
             name: d.nome_assessor,
@@ -122,12 +149,12 @@ export default function ComparisonView() {
           });
         }
       });
-      const assessors = Array.from(assessorMap.values()).sort((a, b) =>
+      const assessors = Array.from(assessorMap.values()).sort((a, b: any) =>
         a.name.localeCompare(b.name)
       );
 
-      // Process Teams (from Active Teams + MV occurrences)
-      const teams = Array.from(activeTeams).sort();
+      // 7. Process Teams (Active)
+      const teams = Array.from(activeTeams).sort() as string[];
 
       return { assessors, teams, months };
     },
@@ -158,10 +185,10 @@ export default function ComparisonView() {
       // Fetch active teams photos if mode is times
       if (mode === "times") {
         const { data: teamsData } = await supabase
-          .from("dados_times")
+          .from("dados_times" as any)
           .select("time, foto_url");
           
-        teamsData?.forEach((t) => {
+        (teamsData as any[])?.forEach((t) => {
           if (t.time && t.foto_url) {
             teamPhotosMap.set(t.time, t.foto_url);
           }
@@ -183,7 +210,7 @@ export default function ComparisonView() {
       }
 
       const query = supabase
-        .from("mv_resumo_assessor")
+        .from("mv_resumo_assessor" as any)
         .select("*")
         .gte("data_posicao", dateFilter.start)
         .lte("data_posicao", dateFilter.end);
@@ -199,7 +226,7 @@ export default function ComparisonView() {
 
       // Aggregation Logic
       const aggregate = (entityId: string, isTeam: boolean) => {
-        const records = data.filter((d) =>
+        const records = (data as any[]).filter((d: any) =>
           isTeam ? d.time === entityId : d.cod_assessor === entityId
         );
 
@@ -207,7 +234,7 @@ export default function ComparisonView() {
 
         // Sum metrics
         const summed = records.reduce(
-          (acc, curr) => ({
+          (acc, curr: any) => ({
             ...acc,
             receita_total: (acc.receita_total || 0) + (curr.receita_total || 0),
             custodia_net: (acc.custodia_net || 0) + (curr.custodia_net || 0),
@@ -230,7 +257,7 @@ export default function ComparisonView() {
             // Points
             pontos_total: (acc.pontos_total || 0) + (curr.pontos_total || 0),
           }),
-          {} as Partial<AssessorResumo>
+          {} as any
         );
 
         const count = periodType === "average" ? records.length : 1;
@@ -294,18 +321,19 @@ export default function ComparisonView() {
         const months = new Set(entityRecords.map(r => r.data_posicao)).size;
         const divisor = periodType === "average" ? (months || 1) : 1;
 
-        const totalReceita = entityRecords.reduce((a, b) => a + (b.receita_total || 0), 0);
-        const totalCustodia = entityRecords.reduce((a, b) => a + (b.custodia_net || 0), 0);
-        const totalCaptacao = entityRecords.reduce((a, b) => a + (b.captacao_liquida_total || 0), 0);
+        const totalReceita = entityRecords.reduce((a, b: any) => a + (b.receita_total || 0), 0);
+        const totalCustodia = entityRecords.reduce((a, b: any) => a + (b.custodia_net || 0), 0);
+        const totalCaptacao = entityRecords.reduce((a, b: any) => a + (b.captacao_liquida_total || 0), 0);
+        const totalPontos = entityRecords.reduce((a, b: any) => a + (b.pontos_total || 0), 0);
         
         // Products
-        const prodRF = entityRecords.reduce((a, b) => a + (b.receita_renda_fixa || 0), 0);
-        const prodRV = entityRecords.reduce((a, b) => a + (b.receita_b3 || 0), 0);
-        const prodFundos = entityRecords.reduce((a, b) => a + (b.receitas_ofertas_fundos || 0), 0);
-        const prodSeguros = entityRecords.reduce((a, b) => a + (b.receita_seguros || 0), 0);
-        const prodPrev = entityRecords.reduce((a, b) => a + (b.receita_previdencia || 0), 0);
-        const prodCons = entityRecords.reduce((a, b) => a + (b.receita_consorcios || 0), 0);
-        const prodOff = entityRecords.reduce((a, b) => a + (b.receitas_offshore || 0), 0);
+        const prodRF = entityRecords.reduce((a, b: any) => a + (b.receita_renda_fixa || 0), 0);
+        const prodRV = entityRecords.reduce((a, b: any) => a + (b.receita_b3 || 0), 0);
+        const prodFundos = entityRecords.reduce((a, b: any) => a + (b.receitas_ofertas_fundos || 0), 0);
+        const prodSeguros = entityRecords.reduce((a, b: any) => a + (b.receita_seguros || 0), 0);
+        const prodPrev = entityRecords.reduce((a, b: any) => a + (b.receita_previdencia || 0), 0);
+        const prodCons = entityRecords.reduce((a, b: any) => a + (b.receita_consorcios || 0), 0);
+        const prodOff = entityRecords.reduce((a, b: any) => a + (b.receitas_offshore || 0), 0);
 
         // Name/Photo
         let name = id;
@@ -313,7 +341,7 @@ export default function ComparisonView() {
         let photo = null;
 
         if (mode === "assessores") {
-          const first = entityRecords[0];
+          const first = entityRecords[0] as any;
           name = first.nome_assessor;
           sub = first.time;
           photo = first.foto_url;
@@ -326,7 +354,7 @@ export default function ComparisonView() {
         // If team: Sum of clients of all assessors in that month.
         // Let's simplify: Sum of 'total_clientes' / months
         // Note: 'total_clientes' in MV is per assessor.
-        const totalClientesSum = entityRecords.reduce((a, b) => a + (b.total_clientes || 0), 0);
+        const totalClientesSum = entityRecords.reduce((a, b: any) => a + (b.total_clientes || 0), 0);
         
         return {
           id,
@@ -338,7 +366,8 @@ export default function ComparisonView() {
             custodia: totalCustodia / divisor, // Custody is also snapshot-ish, but usually we treat as avg volume maintained? Or just snapshot avg.
             captacao: totalCaptacao / divisor,
             clientes: totalClientesSum / divisor, // This might be slightly off for teams (summing clients across months then dividing), but acceptable proxy for "Average Active Clients"
-            roa: totalCustodia > 0 ? (totalReceita / totalCustodia) * 100 : 0 // Recalculated ROA
+            roa: totalCustodia > 0 ? (totalReceita / totalCustodia) * 100 : 0, // Recalculated ROA
+            pontos: totalPontos / divisor
           },
           products: [
             { subject: "Renda Fixa", A: prodRF / divisor, fullMark: 150 },

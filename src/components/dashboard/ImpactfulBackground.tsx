@@ -39,7 +39,7 @@ export const ImpactfulBackground = ({
       <div className="absolute inset-0 z-0 overflow-hidden bg-[#0A0A0B]" />
 
       {/* 2. Extra Animated Stars for Parallax depth */}
-      <div className="absolute inset-0 z-10">
+      <div className="absolute inset-0 z-10 hidden sm:block">
         {stars.map((star) => (
           <motion.div
             key={star.id}
@@ -77,7 +77,7 @@ export const ImpactfulBackground = ({
       </div>
 
       {/* 4. Random Floating Rocks with Depth Animation (Coming towards user) */}
-      <div className="absolute inset-0 z-30 overflow-hidden">
+      <div className="absolute inset-0 z-30 overflow-hidden hidden sm:block">
         {rocks.map((rock) => (
           <motion.div
             key={rock.id}

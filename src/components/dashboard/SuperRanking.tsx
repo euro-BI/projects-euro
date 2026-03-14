@@ -318,6 +318,189 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     return content;
   };
 
+  const rulesContent = (
+    <DialogContent className="bg-euro-navy border-white/10 text-[#E8E8E0] max-w-2xl max-h-[85vh] overflow-y-auto custom-scrollbar">
+      <DialogHeader>
+        <DialogTitle className="text-xl font-display text-euro-gold flex items-center gap-2">
+          <HelpCircle className="w-5 h-5" />
+          Regras de Pontuação – Resumo
+        </DialogTitle>
+      </DialogHeader>
+      
+      <div className="space-y-6 mt-4 pr-2">
+        {/* Seção Captação */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
+            <Banknote className="w-4 h-4 text-euro-gold" /> Captação (Cap)
+          </h3>
+          <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
+            <p className="text-white/80">Pontuação proporcional à meta do cluster (pode dobrar).</p>
+            <ul className="list-disc list-inside space-y-1 text-white/70 ml-2">
+              <li><span className="text-euro-gold font-bold">100 pts</span> = 100% da meta</li>
+              <li><span className="text-euro-gold font-bold">200 pts</span> = 200% da meta (limite máximo)</li>
+            </ul>
+            <p className="text-xs italic text-white/50 mt-2 border-l-2 border-white/10 pl-2">
+              Exemplo: Meta Cluster A = R$ 1.500.000 → Se fizer R$ 3.000.000, recebe 200 pts.
+            </p>
+          </div>
+        </div>
+
+        {/* Seção ROA Investimentos */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
+            <TrendingUp className="w-4 h-4 text-euro-gold" /> ROA Investimentos
+          </h3>
+          <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
+            <p className="text-white/80">Pontua até 1% de ROA conforme escala definida.</p>
+            <ul className="list-disc list-inside space-y-1 text-white/70 ml-2">
+              <li>Pontuação: <span className="text-euro-gold font-bold">70 pts</span> para 100% da meta (não dobra).</li>
+            </ul>
+            <div className="grid grid-cols-4 gap-2 mt-2 text-center text-xs">
+              <div className="bg-white/5 p-2 rounded text-white/70">A: 0,70%</div>
+              <div className="bg-white/5 p-2 rounded text-white/70">B: 0,80%</div>
+              <div className="bg-white/5 p-2 rounded text-white/70">C: 0,90%</div>
+              <div className="bg-white/5 p-2 rounded text-white/70">D: 1,00%</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Seção Ativação */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
+            <UserPlus className="w-4 h-4 text-euro-gold" /> Ativação de Contas Novas
+          </h3>
+          <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
+            <p className="text-white/80">Sem limite de pontuação. Considera contas abertas e transferidas.</p>
+            <div className="flex gap-4 mt-2">
+              <div className="flex-1 bg-white/5 p-3 rounded border border-white/5 text-center">
+                <span className="block text-xs text-white/50 uppercase">300k+</span>
+                <span className="text-euro-gold font-bold text-lg">20 pts</span>
+              </div>
+              <div className="flex-1 bg-white/5 p-3 rounded border border-white/5 text-center">
+                <span className="block text-xs text-white/50 uppercase">1M+</span>
+                <span className="text-euro-gold font-bold text-lg">50 pts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Seção ROA Cross-Sell */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
+            <ArrowRightLeft className="w-4 h-4 text-euro-gold" /> ROA Cross-Sell
+          </h3>
+          <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
+            <p className="text-white/80">Pontuação limitada e acumulada mensalmente.</p>
+            <p className="text-white/70 text-xs leading-relaxed">Considera ROA em produtos complementares: Previdência, Seguros, Offshore, Câmbio (PF/PJ), Crédito, Consórcio, Compromissadas e outros fora do core de investimentos.</p>
+            <p className="text-xs italic text-white/50 mt-2 border-l-2 border-white/10 pl-2">
+              Conta receita recorrente, mesmo de negócios antigos. Exemplo: Receita mensal de um consórcio antigo continua pontuando.
+            </p>
+          </div>
+        </div>
+
+        {/* Seção Elegibilidade */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
+            <Medal className="w-4 h-4 text-euro-gold" /> Elegibilidade (Top 100)
+          </h3>
+          <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
+            <p className="text-white/90 font-medium">Para concorrer, o assessor deve atender a todos os critérios:</p>
+            <ul className="space-y-2 text-white/80">
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> NPS ≥ 80</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 5 clientes em ruptura (média semestral)</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> FP 300k+ ≥ 50%</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média semestral)</li>
+            </ul>
+            <p className="text-[10px] text-white/50 mt-2">* Casos de conta PJ com grande volume podem ser analisados individualmente.</p>
+          </div>
+        </div>
+
+        {/* Seção Rebaixamento */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-red-400">
+            <AlertTriangle className="w-4 h-4" /> Critérios para Rebaixamento
+          </h3>
+          <div className="bg-red-500/5 p-4 rounded-lg border border-red-500/10 text-sm space-y-3">
+            <p className="text-white/80">Serão rebaixados de cluster os assessores que, ao final do ciclo semestral, falharem em cumprir qualquer um dos critérios abaixo:</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-black/20 p-3 rounded border border-white/5">
+                <span className="text-xs font-bold text-red-400 uppercase block mb-1">Captação / Pontuação Base</span>
+                <p className="text-xs text-white/70">Não atingir pelo menos 30% do objetivo de captação do cluster ou dos pontos base definidos.</p>
+              </div>
+              <div className="bg-black/20 p-3 rounded border border-white/5">
+                <span className="text-xs font-bold text-red-400 uppercase block mb-1">Net</span>
+                <p className="text-xs text-white/70">Encerrar o ciclo com o Net abaixo do mínimo permitido para o respectivo cluster.</p>
+              </div>
+            </div>
+            
+            <p className="text-[10px] text-white/50 mt-2 italic">
+              * O rebaixamento será avaliado com base no resultado consolidado do semestre, independentemente de oscilações mensais.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
+            <ArrowUp className="w-4 h-4 text-euro-gold" /> Critérios para Ascensão de Cluster
+          </h3>
+          <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
+            <ul className="space-y-2 text-white/80">
+              <li className="flex items-start gap-2">
+                <span className="text-euro-gold font-bold">•</span>
+                <span>Subidas de cluster acontecem semestralmente.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-euro-gold font-bold">•</span>
+                <span>Apenas dois assessores sobem por cluster em cada ciclo.</span>
+              </li>
+            </ul>
+
+            <div className="mt-3 space-y-2">
+              <p className="text-white/90 font-medium">Tamanho mínimo de base necessário para acessar o cluster:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-black/20 p-3 rounded border border-white/5">
+                  <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster A</span>
+                  <p className="text-xs text-white/70">a partir de 50M</p>
+                </div>
+                <div className="bg-black/20 p-3 rounded border border-white/5">
+                  <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster B</span>
+                  <p className="text-xs text-white/70">25M a 50M</p>
+                </div>
+                <div className="bg-black/20 p-3 rounded border border-white/5">
+                  <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster C</span>
+                  <p className="text-xs text-white/70">10M a 25M</p>
+                </div>
+                <div className="bg-black/20 p-3 rounded border border-white/5">
+                  <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster D</span>
+                  <p className="text-xs text-white/70">de zero a 10M</p>
+                </div>
+              </div>
+            </div>
+
+            <ul className="space-y-2 text-white/80 mt-3">
+              <li className="flex items-start gap-2">
+                <span className="text-euro-gold font-bold">•</span>
+                <span>Necessário cumprir pelo menos 50% do objetivo de captação líquida do cluster em que está inserido.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-euro-gold font-bold">•</span>
+                <span>Necessário conquistar pelo menos 810 pontos no período (equivalente a 50% dos pontos base).</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-euro-gold font-bold">•</span>
+                <span>Terminar o ciclo em primeiro ou segundo lugar no seu cluster.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </DialogContent>
+  );
+
   return (
     <div className="space-y-12">
       {/* HEADER & FILTERS */}
@@ -331,399 +514,35 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
               <h2 className="text-xl md:text-2xl font-display text-[#F5F5F0] tracking-wide flex items-center gap-2">
                 <span className="md:hidden">Super Ranking</span>
                 <span className="hidden md:inline">Super Ranking Eurostock</span>
+                
+                {/* Mobile Help Icon */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button
+                      className="md:hidden w-7 h-7 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold flex items-center justify-center transition-colors ml-1"
+                      title="Regras do Ranking"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                    </button>
+                  </DialogTrigger>
+                  {rulesContent}
+                </Dialog>
               </h2>
               <p className="text-sm font-ui text-[#A0A090]">Elite de assessores e performance consolidada</p>
             </div>
           </div>
-
-          {/* Botão de ajuda (mobile e desktop), alinhado ao título */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <button
-                className="w-8 h-8 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold flex items-center justify-center transition-colors"
-                title="Regras do Ranking"
-              >
-                <HelpCircle className="w-4 h-4" />
-              </button>
-            </DialogTrigger>
-            <DialogContent className="bg-euro-navy border-white/10 text-[#E8E8E0] max-w-2xl max-h-[85vh] overflow-y-auto custom-scrollbar">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-display text-euro-gold flex items-center gap-2">
-                  <HelpCircle className="w-5 h-5" />
-                  Regras de Pontuação – Resumo
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6 mt-4 pr-2">
-                {/* Seção Captação */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <Banknote className="w-4 h-4 text-euro-gold" /> Captação (Cap)
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Pontuação proporcional à meta do cluster (pode dobrar).</p>
-                    <ul className="list-disc list-inside space-y-1 text-white/70 ml-2">
-                      <li><span className="text-euro-gold font-bold">100 pts</span> = 100% da meta</li>
-                      <li><span className="text-euro-gold font-bold">200 pts</span> = 200% da meta (limite máximo)</li>
-                    </ul>
-                    <p className="text-xs italic text-white/50 mt-2 border-l-2 border-white/10 pl-2">
-                      Exemplo: Meta Cluster A = R$ 1.500.000 → Se fizer R$ 3.000.000, recebe 200 pts.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Seção ROA Investimentos */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <TrendingUp className="w-4 h-4 text-euro-gold" /> ROA Investimentos
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Pontua até 1% de ROA conforme escala definida.</p>
-                    <ul className="list-disc list-inside space-y-1 text-white/70 ml-2">
-                      <li>Pontuação: <span className="text-euro-gold font-bold">70 pts</span> para 100% da meta (não dobra).</li>
-                    </ul>
-                    <div className="grid grid-cols-4 gap-2 mt-2 text-center text-xs">
-                      <div className="bg-white/5 p-2 rounded text-white/70">A: 0,70%</div>
-                      <div className="bg-white/5 p-2 rounded text-white/70">B: 0,80%</div>
-                      <div className="bg-white/5 p-2 rounded text-white/70">C: 0,90%</div>
-                      <div className="bg-white/5 p-2 rounded text-white/70">D: 1,00%</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seção Ativação */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <UserPlus className="w-4 h-4 text-euro-gold" /> Ativação de Contas Novas
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Sem limite de pontuação. Considera contas abertas e transferidas.</p>
-                    <div className="flex gap-4 mt-2">
-                      <div className="flex-1 bg-white/5 p-3 rounded border border-white/5 text-center">
-                        <span className="block text-xs text-white/50 uppercase">300k+</span>
-                        <span className="text-euro-gold font-bold text-lg">20 pts</span>
-                      </div>
-                      <div className="flex-1 bg-white/5 p-3 rounded border border-white/5 text-center">
-                        <span className="block text-xs text-white/50 uppercase">1M+</span>
-                        <span className="text-euro-gold font-bold text-lg">50 pts</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seção ROA Cross-Sell */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <ArrowRightLeft className="w-4 h-4 text-euro-gold" /> ROA Cross-Sell
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Pontuação limitada e acumulada mensalmente.</p>
-                    <p className="text-white/70 text-xs leading-relaxed">
-                      Considera ROA em produtos complementares: Previdência, Seguros, Offshore, Câmbio (PF/PJ),
-                      Crédito, Consórcio, Compromissadas e outros fora do core de investimentos.
-                    </p>
-                    <p className="text-xs italic text-white/50 mt-2 border-l-2 border-white/10 pl-2">
-                      Conta receita recorrente, mesmo de negócios antigos. Exemplo: Receita mensal de um consórcio antigo continua pontuando.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Seção Elegibilidade */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <Medal className="w-4 h-4 text-euro-gold" /> Elegibilidade (Top 100)
-                  </h3>
-                  <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
-                    <p className="text-white/90 font-medium">Para concorrer, o assessor deve atender a todos os critérios:</p>
-                    <ul className="space-y-2 text-white/80">
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> NPS ≥ 80</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 5 clientes em ruptura (média semestral)</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> FP 300k+ ≥ 50%</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média semestral)</li>
-                    </ul>
-                    <p className="text-[10px] text-white/50 mt-2">* Casos de conta PJ com grande volume podem ser analisados individualmente.</p>
-                  </div>
-                </div>
-
-                {/* Seção Rebaixamento */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-red-400">
-                    <AlertTriangle className="w-4 h-4" /> Critérios para Rebaixamento
-                  </h3>
-                  <div className="bg-red-500/5 p-4 rounded-lg border border-red-500/10 text-sm space-y-3">
-                    <p className="text-white/80">
-                      Serão rebaixados de cluster os assessores que, ao final do ciclo semestral, falharem em cumprir qualquer um dos critérios abaixo:
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-black/20 p-3 rounded border border-white/5">
-                        <span className="text-xs font-bold text-red-400 uppercase block mb-1">Captação / Pontuação Base</span>
-                        <p className="text-xs text-white/70">
-                          Não atingir pelo menos 30% do objetivo de captação do cluster ou dos pontos base definidos.
-                        </p>
-                      </div>
-                      <div className="bg-black/20 p-3 rounded border border-white/5">
-                        <span className="text-xs font-bold text-red-400 uppercase block mb-1">Net</span>
-                        <p className="text-xs text-white/70">
-                          Encerrar o ciclo com o Net abaixo do mínimo permitido para o respectivo cluster.
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-white/50 mt-2 italic">
-                      * O rebaixamento será avaliado com base no resultado consolidado do semestre, independentemente de oscilações mensais.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Seção Ascensão */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <ArrowUp className="w-4 h-4 text-euro-gold" /> Critérios para Ascensão de Cluster
-                  </h3>
-                  <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
-                    <ul className="space-y-2 text-white/80">
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Subidas de cluster acontecem semestralmente.</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Apenas dois assessores sobem por cluster em cada ciclo.</span>
-                      </li>
-                    </ul>
-
-                    <div className="mt-3 space-y-2">
-                      <p className="text-white/90 font-medium">Tamanho mínimo de base necessário para acessar o cluster:</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster A</span>
-                          <p className="text-xs text-white/70">a partir de 50M</p>
-                        </div>
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster B</span>
-                          <p className="text-xs text-white/70">25M a 50M</p>
-                        </div>
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster C</span>
-                          <p className="text-xs text-white/70">10M a 25M</p>
-                        </div>
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster D</span>
-                          <p className="text-xs text-white/70">de zero a 10M</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <ul className="space-y-2 text-white/80 mt-3">
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Necessário cumprir pelo menos 50% do objetivo de captação líquida do cluster em que está inserido.</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Necessário conquistar pelo menos 810 pontos no período (equivalente a 50% dos pontos base).</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Terminar o ciclo em primeiro ou segundo lugar no seu cluster.</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
 
         <div className="flex items-center gap-2 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl p-2 rounded-lg border border-white/20">
+          {/* Desktop Help Icon */}
           <Dialog>
             <DialogTrigger asChild>
-              <button className="hidden md:inline-flex p-1.5 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold transition-colors" title="Regras do Ranking">
+              <button className="hidden md:flex p-1.5 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold transition-colors" title="Regras do Ranking">
                 <HelpCircle className="w-4 h-4" />
               </button>
             </DialogTrigger>
-            <DialogContent className="bg-euro-navy border-white/10 text-[#E8E8E0] max-w-2xl max-h-[85vh] overflow-y-auto custom-scrollbar">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-display text-euro-gold flex items-center gap-2">
-                  <HelpCircle className="w-5 h-5" />
-                  Regras de Pontuação – Resumo
-                </DialogTitle>
-              </DialogHeader>
-              
-              <div className="space-y-6 mt-4 pr-2">
-                {/* Seção Captação */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <Banknote className="w-4 h-4 text-euro-gold" /> Captação (Cap)
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Pontuação proporcional à meta do cluster (pode dobrar).</p>
-                    <ul className="list-disc list-inside space-y-1 text-white/70 ml-2">
-                      <li><span className="text-euro-gold font-bold">100 pts</span> = 100% da meta</li>
-                      <li><span className="text-euro-gold font-bold">200 pts</span> = 200% da meta (limite máximo)</li>
-                    </ul>
-                    <p className="text-xs italic text-white/50 mt-2 border-l-2 border-white/10 pl-2">
-                      Exemplo: Meta Cluster A = R$ 1.500.000 → Se fizer R$ 3.000.000, recebe 200 pts.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Seção ROA Investimentos */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <TrendingUp className="w-4 h-4 text-euro-gold" /> ROA Investimentos
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Pontua até 1% de ROA conforme escala definida.</p>
-                    <ul className="list-disc list-inside space-y-1 text-white/70 ml-2">
-                      <li>Pontuação: <span className="text-euro-gold font-bold">70 pts</span> para 100% da meta (não dobra).</li>
-                    </ul>
-                    <div className="grid grid-cols-4 gap-2 mt-2 text-center text-xs">
-                      <div className="bg-white/5 p-2 rounded text-white/70">A: 0,70%</div>
-                      <div className="bg-white/5 p-2 rounded text-white/70">B: 0,80%</div>
-                      <div className="bg-white/5 p-2 rounded text-white/70">C: 0,90%</div>
-                      <div className="bg-white/5 p-2 rounded text-white/70">D: 1,00%</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seção Ativação */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <UserPlus className="w-4 h-4 text-euro-gold" /> Ativação de Contas Novas
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Sem limite de pontuação. Considera contas abertas e transferidas.</p>
-                    <div className="flex gap-4 mt-2">
-                      <div className="flex-1 bg-white/5 p-3 rounded border border-white/5 text-center">
-                        <span className="block text-xs text-white/50 uppercase">300k+</span>
-                        <span className="text-euro-gold font-bold text-lg">20 pts</span>
-                      </div>
-                      <div className="flex-1 bg-white/5 p-3 rounded border border-white/5 text-center">
-                        <span className="block text-xs text-white/50 uppercase">1M+</span>
-                        <span className="text-euro-gold font-bold text-lg">50 pts</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seção ROA Cross-Sell */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <ArrowRightLeft className="w-4 h-4 text-euro-gold" /> ROA Cross-Sell
-                  </h3>
-                  <div className="bg-white/5 p-4 rounded-lg border border-white/5 text-sm space-y-2">
-                    <p className="text-white/80">Pontuação limitada e acumulada mensalmente.</p>
-                    <p className="text-white/70 text-xs leading-relaxed">Considera ROA em produtos complementares: Previdência, Seguros, Offshore, Câmbio (PF/PJ), Crédito, Consórcio, Compromissadas e outros fora do core de investimentos.</p>
-                    <p className="text-xs italic text-white/50 mt-2 border-l-2 border-white/10 pl-2">
-                      Conta receita recorrente, mesmo de negócios antigos. Exemplo: Receita mensal de um consórcio antigo continua pontuando.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Seção Elegibilidade */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <Medal className="w-4 h-4 text-euro-gold" /> Elegibilidade (Top 100)
-                  </h3>
-                  <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
-                    <p className="text-white/90 font-medium">Para concorrer, o assessor deve atender a todos os critérios:</p>
-                    <ul className="space-y-2 text-white/80">
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> NPS ≥ 80</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 5 clientes em ruptura (média semestral)</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> FP 300k+ ≥ 50%</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média semestral)</li>
-                    </ul>
-                    <p className="text-[10px] text-white/50 mt-2">* Casos de conta PJ com grande volume podem ser analisados individualmente.</p>
-                  </div>
-                </div>
-
-                {/* Seção Rebaixamento */}
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-red-400">
-                    <AlertTriangle className="w-4 h-4" /> Critérios para Rebaixamento
-                  </h3>
-                  <div className="bg-red-500/5 p-4 rounded-lg border border-red-500/10 text-sm space-y-3">
-                    <p className="text-white/80">Serão rebaixados de cluster os assessores que, ao final do ciclo semestral, falharem em cumprir qualquer um dos critérios abaixo:</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-black/20 p-3 rounded border border-white/5">
-                        <span className="text-xs font-bold text-red-400 uppercase block mb-1">Captação / Pontuação Base</span>
-                        <p className="text-xs text-white/70">Não atingir pelo menos 30% do objetivo de captação do cluster ou dos pontos base definidos.</p>
-                      </div>
-                      <div className="bg-black/20 p-3 rounded border border-white/5">
-                        <span className="text-xs font-bold text-red-400 uppercase block mb-1">Net</span>
-                        <p className="text-xs text-white/70">Encerrar o ciclo com o Net abaixo do mínimo permitido para o respectivo cluster.</p>
-                      </div>
-                    </div>
-                    
-                    <p className="text-[10px] text-white/50 mt-2 italic">
-                      * O rebaixamento será avaliado com base no resultado consolidado do semestre, independentemente de oscilações mensais.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
-                    <ArrowUp className="w-4 h-4 text-euro-gold" /> Critérios para Ascensão de Cluster
-                  </h3>
-                  <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
-                    <ul className="space-y-2 text-white/80">
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Subidas de cluster acontecem semestralmente.</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Apenas dois assessores sobem por cluster em cada ciclo.</span>
-                      </li>
-                    </ul>
-
-                    <div className="mt-3 space-y-2">
-                      <p className="text-white/90 font-medium">Tamanho mínimo de base necessário para acessar o cluster:</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster A</span>
-                          <p className="text-xs text-white/70">a partir de 50M</p>
-                        </div>
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster B</span>
-                          <p className="text-xs text-white/70">25M a 50M</p>
-                        </div>
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster C</span>
-                          <p className="text-xs text-white/70">10M a 25M</p>
-                        </div>
-                        <div className="bg-black/20 p-3 rounded border border-white/5">
-                          <span className="text-xs font-bold text-euro-gold uppercase block mb-1">Cluster D</span>
-                          <p className="text-xs text-white/70">de zero a 10M</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <ul className="space-y-2 text-white/80 mt-3">
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Necessário cumprir pelo menos 50% do objetivo de captação líquida do cluster em que está inserido.</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Necessário conquistar pelo menos 810 pontos no período (equivalente a 50% dos pontos base).</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-euro-gold font-bold">•</span>
-                        <span>Terminar o ciclo em primeiro ou segundo lugar no seu cluster.</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-              </div>
-            </DialogContent>
+            {rulesContent}
           </Dialog>
-
           <div className="w-px h-6 bg-white/10 mx-1" />
 
           <Select 

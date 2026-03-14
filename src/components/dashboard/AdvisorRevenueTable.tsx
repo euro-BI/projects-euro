@@ -629,7 +629,7 @@ export default function AdvisorRevenueTable({ data, teamPhotos, onAssessorClick,
       </div>
 
       {/* Info Legend */}
-      <div className="hidden xl:flex flex-wrap gap-6 items-center text-[10px] font-data text-[#5C5C50] uppercase tracking-widest px-2">
+      <div className="hidden xl:flex flex-wrap gap-6 items-center text-[10px] font-data text-white uppercase tracking-widest px-2">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500" />
           <span>Meta Atingida</span>
