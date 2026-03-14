@@ -308,7 +308,7 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
           <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden shadow-2xl">
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-10 bg-euro-card/95 backdrop-blur-md border-b border-white/10">
-                <tr className="text-xs font-data text-white/50 uppercase tracking-wider">
+                <tr className="text-[10px] sm:text-xs font-data text-white/50 uppercase tracking-wider">
                   <th className="p-4 font-normal">Time</th>
                   <th className="p-4 font-normal text-right">Meta</th>
                   <th className="p-4 font-normal text-right">Realizado</th>
@@ -331,15 +331,18 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
                             team.name.substring(0, 2)
                           )}
                         </div>
-                        <span className="text-sm font-ui text-white group-hover:text-euro-gold transition-colors">{team.name}</span>
+                        {/* No mobile, esconder o nome do time para ganhar espaço */}
+                        <span className="hidden sm:inline text-xs sm:text-sm font-ui text-white group-hover:text-euro-gold transition-colors">
+                          {team.name}
+                        </span>
                       </div>
                     </td>
-                    <td className="p-4 text-right text-sm font-data text-white">{team.meta}</td>
-                    <td className="p-4 text-right text-sm font-data text-white">{team.total}</td>
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right text-xs sm:text-sm font-data text-white">{team.meta}</td>
+                    <td className="p-4 text-right text-xs sm:text-sm font-data text-white">{team.total}</td>
+                    <td className="pl-4 pr-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <span className={cn(
-                          "text-sm font-data font-bold",
+                          "text-xs sm:text-sm font-data font-bold whitespace-nowrap",
                           team.percent >= 100 ? "text-green-500" : team.percent >= 80 ? "text-euro-gold" : "text-red-500"
                         )}>
                           {team.percent.toFixed(1)}%
@@ -347,7 +350,14 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
                         {/* Progress Bar */}
                         <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden ml-2 hidden sm:block">
                           <div 
-                            className={cn("h-full rounded-full", team.percent >= 100 ? "bg-green-500" : "bg-euro-gold")} 
+                            className={cn(
+                              "h-full rounded-full",
+                              team.percent >= 100
+                                ? "bg-green-500"
+                                : team.percent >= 80
+                                ? "bg-euro-gold"
+                                : "bg-red-500"
+                            )} 
                             style={{ width: `${Math.min(team.percent, 100)}%` }} 
                           />
                         </div>
@@ -372,11 +382,10 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
           <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden shadow-2xl max-h-[500px] overflow-y-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-10 bg-euro-card/95 backdrop-blur-md border-b border-white/10">
-                <tr className="text-xs font-data text-white/50 uppercase tracking-wider">
+                <tr className="text-[10px] sm:text-xs font-data text-white/50 uppercase tracking-wider">
                   <th className="p-4 font-normal">Assessor</th>
                   <th className="p-4 font-normal text-right">Meta</th>
                   <th className="p-4 font-normal text-right">Realizado</th>
-                  <th className="p-4 font-normal text-right">Atingimento</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -384,38 +393,30 @@ export default function FinancialPlanningDash({ currentData, yearlyData, selecte
                   <tr key={idx} className="hover:bg-white/5 transition-colors group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-euro-inset border border-white/10 overflow-hidden">
-                          {assessor.photo ? (
-                            <img src={assessor.photo} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[10px] text-white/40 font-data">
-                              {assessor.name.substring(0, 1)}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-ui text-white group-hover:text-euro-gold transition-colors">{assessor.name}</span>
-                          <span className="text-[10px] text-white/30">{assessor.team}</span>
-                        </div>
+                        {/* Nome completo do assessor, mesma fonte em todas as versões e sem foto */}
+                        <span className="text-sm font-ui text-white group-hover:text-euro-gold transition-colors truncate">
+                          {assessor.name || ""}
+                        </span>
                       </div>
                     </td>
-                    <td className="p-4 text-right text-sm font-data text-white">{assessor.meta}</td>
-                    <td className="p-4 text-right text-sm font-data text-white">{assessor.total}</td>
+                    <td className="p-4 text-right text-xs sm:text-sm font-data text-white">{assessor.meta}</td>
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className={cn(
-                          "text-sm font-data font-bold",
-                          assessor.percent >= 100 ? "text-green-500" : assessor.percent >= 80 ? "text-euro-gold" : "text-red-500"
-                        )}>
-                          {assessor.percent.toFixed(1)}%
+                      <div className="flex items-center justify-end gap-1 sm:gap-2">
+                        <span className="text-xs sm:text-sm font-data text-white">
+                          {assessor.total}
                         </span>
-                        {/* Simple Bar for visual context */}
-                        <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden ml-2 hidden sm:block">
-                          <div 
-                            className={cn("h-full rounded-full", assessor.percent >= 100 ? "bg-green-500" : "bg-euro-gold")} 
-                            style={{ width: `${Math.min(assessor.percent, 100)}%` }} 
-                          />
-                        </div>
+                        <span
+                          className={cn(
+                            "text-[10px] sm:text-xs font-data",
+                            assessor.percent >= 100
+                              ? "text-green-500"
+                              : assessor.percent >= 80
+                              ? "text-euro-gold"
+                              : "text-red-500"
+                          )}
+                        >
+                          ({assessor.percent.toFixed(1)}%)
+                        </span>
                       </div>
                     </td>
                   </tr>

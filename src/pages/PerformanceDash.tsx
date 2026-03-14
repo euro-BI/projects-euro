@@ -1257,11 +1257,15 @@ export default function PerformanceDash() {
               />
             </div>
             
-            <RankingTable 
-              data={rankingData || []} 
-              selectedYear={rankingYear}
-            />
+            {/* Detalhamento de pontos por cluster - apenas desktop */}
+            <div className="hidden sm:block">
+              <RankingTable 
+                data={rankingData || []} 
+                selectedYear={rankingYear}
+              />
+            </div>
             
+            {/* Ranking Race - apenas desktop */}
             <div className="hidden sm:block bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-8">
               <div className="min-h-[400px]">
                 <RankingRace selectedYear={rankingYear} />
