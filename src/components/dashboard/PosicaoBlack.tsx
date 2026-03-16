@@ -43,6 +43,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -117,6 +118,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
     direction: 'asc' | 'desc';
   }>({ key: 'validosBonus', direction: 'desc' });
   const itemsPerPage = 10;
+  const isMobile = useIsMobile();
 
   // 1. Fetch ALL data from the view (Centralized)
   const { data: allViewData, isLoading: isLoadingView } = useQuery({
@@ -127,7 +129,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
         .select("*");
         
       if (error) throw error;
-      return data as ClientePosicaoBlack[];
+      return data as any as ClientePosicaoBlack[];
     }
   });
 
@@ -170,7 +172,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
         .limit(1)
         .single();
       
-      const latestDate = latestDateData?.data_posicao;
+      const latestDate = (latestDateData as any)?.data_posicao;
       if (!latestDate) return new Map<string, AssessorInfo>();
 
       // 2. Get assessors info in that date
@@ -292,6 +294,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
     const data = Array.from(assessorStats.values())
       .filter(item => {
         if (item.nivel === null) return false;
+        if (isMobile && item.bonusBruto <= 0) return false;
         const searchLower = searchTerm.toLowerCase();
         const name = item.nome_assessor || "";
         const code = item.cod_assessor || "";
@@ -343,7 +346,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
       },
       opportunitiesData: opportunities
     };
-  }, [allViewData, activeAssessorsData, selectedMonthKey, previousMonthKey, searchTerm, advisorSortConfig, selectedTeam, selectedAssessorId]);
+  }, [allViewData, activeAssessorsData, selectedMonthKey, previousMonthKey, searchTerm, advisorSortConfig, selectedTeam, selectedAssessorId, isMobile]);
 
   // Opportunities filtered and paginated
   const { filteredOpportunities, paginatedOpportunities, totalPages } = useMemo(() => {
@@ -651,54 +654,54 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
            <div className="absolute inset-0 bg-gradient-to-b from-euro-gold/5 to-transparent pointer-events-none opacity-20" />
            
            <div className="overflow-auto custom-scrollbar relative max-h-[650px]">
-            <table className="w-full text-left border-collapse min-w-[1000px]">
+            <table className="w-full text-left border-collapse min-w-full sm:min-w-[1000px]">
               <thead className="sticky top-0 z-30">
                 <tr className="bg-euro-gold text-euro-navy text-[10.5px] font-data uppercase tracking-widest border-b border-euro-navy/20">
                   <th 
                     onClick={() => handleAdvisorSort('time')}
-                    className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] text-center cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] text-center cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell"
                   >
                     <div className="flex items-center gap-2">Time <SortIcon column="time" config={advisorSortConfig} /></div>
                   </th>
                   <th 
                     onClick={() => handleAdvisorSort('nome_assessor')}
-                    className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-[80px] bg-euro-gold z-40 min-w-[250px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 sm:left-[80px] bg-euro-gold z-40 min-w-[200px] sm:min-w-[250px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
                   >
                     <div className="flex items-center gap-2">Assessor <SortIcon column="nome_assessor" config={advisorSortConfig} /></div>
                   </th>
                   <th 
                     onClick={() => handleAdvisorSort('nivel')}
-                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell"
                   >
                     <div className="flex items-center gap-2 justify-center">Nível <SortIcon column="nivel" config={advisorSortConfig} /></div>
                   </th>
                   <th 
                     onClick={() => handleAdvisorSort('trigger')}
-                    className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell"
                   >
                     <div className="flex items-center gap-2 justify-end">Trigger <SortIcon column="trigger" config={advisorSortConfig} /></div>
                   </th>
                   <th 
                     onClick={() => handleAdvisorSort('oportunidades')}
-                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell"
                   >
                     <div className="flex items-center gap-2 justify-center">Oportunidades <SortIcon column="oportunidades" config={advisorSortConfig} /></div>
                   </th>
                   <th 
                     onClick={() => handleAdvisorSort('novasBoletas')}
-                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell"
                   >
                     <div className="flex items-center gap-2 justify-center">Novas Boletas <SortIcon column="novasBoletas" config={advisorSortConfig} /></div>
                   </th>
                   <th 
                     onClick={() => handleAdvisorSort('validosBonus')}
-                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold text-center border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell"
                   >
                     <div className="flex items-center gap-2 justify-center">Válidos p/ Bônus <SortIcon column="validosBonus" config={advisorSortConfig} /></div>
                   </th>
                   <th 
                     onClick={() => handleAdvisorSort('bonusBruto')}
-                    className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                    className="py-4 px-4 font-bold text-right border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell"
                   >
                     <div className="flex items-center gap-2 justify-end">Bônus Bruto <SortIcon column="bonusBruto" config={advisorSortConfig} /></div>
                   </th>
@@ -720,8 +723,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                       item.novasBoletas > 0 ? "cursor-pointer hover:bg-euro-gold/20" : "opacity-80"
                     )}
                   >
-                    {/* Time */}
-                    <td className="py-3 px-4 border-r border-white/10 sticky left-0 bg-euro-navy group-hover:bg-[#1e2538] z-10 w-[80px]">
+                    <td className="py-3 px-4 border-r border-white/10 sticky left-0 bg-euro-navy group-hover:bg-[#1e2538] z-10 w-[80px] hidden sm:table-cell">
                       <div className="flex items-center justify-center">
                         {item.advisorInfo?.time && teamPhotos?.has(item.advisorInfo.time.toUpperCase()) ? (
                           <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden shadow-lg group-hover:border-euro-gold transition-colors bg-black/40 p-1">
@@ -740,9 +742,9 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                     </td>
 
                     {/* Assessor */}
-                    <td className="py-3 px-4 border-r border-white/10 sticky left-[80px] bg-euro-navy group-hover:bg-[#1e2538] z-10">
+                    <td className="py-3 px-4 border-r border-white/10 sticky left-0 sm:left-[80px] bg-euro-navy group-hover:bg-[#1e2538] z-10">
                       <div className="flex items-center gap-3">
-                        <div className="relative flex-shrink-0">
+                        <div className="relative flex-shrink-0 hidden sm:block">
                           <div className={cn(
                             "w-10 h-10 rounded-full bg-euro-inset flex items-center justify-center text-[12.6px] font-bold text-euro-gold/40 border border-white/10 overflow-hidden group-hover:border-euro-gold transition-colors",
                             item.advisorInfo?.lider && "border-euro-gold shadow-[0_0_12px_rgba(250,192,23,0.3)]"
@@ -759,11 +761,11 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-white font-bold truncate group-hover:text-euro-gold transition-colors uppercase tracking-tight">
+                        <div className="flex flex-col min-w-0 py-1 sm:py-0">
+                          <span className="text-white font-bold truncate group-hover:text-euro-gold transition-colors uppercase tracking-tight text-xs sm:text-[12.6px]">
                             {item.nome_assessor}
                           </span>
-                          <div className="flex items-center gap-2 text-[12.6px] text-white/90 font-medium">
+                          <div className="flex items-center gap-2 text-[10px] sm:text-[12.6px] text-white/90 font-medium">
                             <span className="font-mono">{item.cod_assessor}</span>
                             {item.advisorInfo?.cluster && (
                               <>
@@ -776,23 +778,22 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
                       </div>
                     </td>
 
-                    {/* Metrics */}
-                    <td className="py-3 px-4 text-center text-white/80 border-r border-white/5">
+                    <td className="py-3 px-4 text-center text-white/80 border-r border-white/5 hidden sm:table-cell">
                       {item.nivel || "-"}
                     </td>
-                    <td className="py-3 px-4 text-right text-white/80 border-r border-white/5">
+                    <td className="py-3 px-4 text-right text-white/80 border-r border-white/5 hidden sm:table-cell">
                       {formatCurrency(item.trigger)}
                     </td>
-                    <td className="py-3 px-4 text-center text-white border-r border-white/5 font-bold">
+                    <td className="py-3 px-4 text-center text-white border-r border-white/5 font-bold hidden sm:table-cell">
                       {formatNumber(item.oportunidades)}
                     </td>
-                    <td className="py-3 px-4 text-center text-euro-gold border-r border-white/5 font-bold">
+                    <td className="py-3 px-4 text-center text-euro-gold border-r border-white/5 font-bold hidden sm:table-cell">
                       {item.novasBoletas === 0 ? "--" : formatNumber(item.novasBoletas)}
                     </td>
-                    <td className="py-3 px-4 text-center text-white border-r border-white/5">
+                    <td className="py-3 px-4 text-center text-white border-r border-white/5 hidden sm:table-cell">
                       {item.validosBonus === 0 ? "--" : formatNumber(item.validosBonus)}
                     </td>
-                    <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                    <td className="py-3 px-4 text-right text-white border-r border-white/5 hidden sm:table-cell">
                       {item.bonusBruto === 0 ? "--" : formatCurrency(item.bonusBruto)}
                     </td>
                     <td className={cn(
@@ -810,7 +811,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
       </div>
 
       {/* Opportunities Section */}
-      <div className="space-y-4 pt-8 border-t border-white/10">
+      <div className="hidden sm:block space-y-4 pt-8 border-t border-white/10">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-euro-gold/20 flex items-center justify-center border border-euro-gold/30">

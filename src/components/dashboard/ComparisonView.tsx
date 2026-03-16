@@ -692,7 +692,7 @@ export default function ComparisonView() {
           ) : (
             <>
               <Swords className="w-16 h-16 opacity-50" />
-              <p className="font-data uppercase tracking-widest text-sm">Selecione os competidores para iniciar a batalha</p>
+              <p className="font-data uppercase tracking-widest text-sm text-white">Selecione os competidores para iniciar a batalha</p>
             </>
           )}
         </div>

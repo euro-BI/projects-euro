@@ -26,6 +26,7 @@ import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import { PosicaoBlack } from "@/components/dashboard/PosicaoBlack";
+import RendaVariavelDash from "@/components/dashboard/RendaVariavelDash";
 
 export default function ProductsDashboard() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -114,11 +115,11 @@ export default function ProductsDashboard() {
     queryKey: ["dash-filters"],
     queryFn: async () => {
       const { data: activeTeamsData } = await supabase
-        .from("dados_times")
+        .from("dados_times" as any)
         .select("time")
         .eq("status", "ATIVO");
       
-      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
+      const activeTeamNames = new Set(activeTeamsData?.map((t: any) => t.time) || []);
 
       const { data, error } = await supabase
         .from("mv_resumo_assessor" as any)
@@ -160,7 +161,7 @@ export default function ProductsDashboard() {
     queryKey: ["team-photos"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("dados_times")
+        .from("dados_times" as any)
         .select("time, foto_url")
         .eq("status", "ATIVO");
 
@@ -199,49 +200,62 @@ export default function ProductsDashboard() {
 
   return (
     <PageLayout className={cn(
-      "bg-transparent text-[#E8E8E0] font-ui px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative transition-all duration-500",
-      isMaximized ? "pt-8" : "pt-24"
+      "bg-transparent text-[#E8E8E0] font-ui px-4 sm:px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative transition-all duration-500",
+      isMaximized ? "pt-4 sm:pt-8" : "pt-20 sm:pt-24"
     )}>
       <LoadingOverlay isLoading={isFiltersLoading} />
       <ImpactfulBackground opacity={0.3} />
 
-      <div className="max-w-[1600px] mx-auto space-y-12 relative z-10">
+      <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-12 relative z-10">
         {/* HEADER */}
-        <div className="relative flex items-center justify-center w-full mb-8">
-          <div className="absolute left-0">
+        <div className="relative flex items-center justify-center w-full mb-4 sm:mb-8 px-2 min-h-[32px]">
+          {/* Back Action */}
+          <div className="absolute left-2 sm:left-0 top-1 sm:top-0 z-50 sm:z-10">
+            {/* Desktop Button */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate("/dash")}
-              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group flex items-center gap-2"
+              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group hidden sm:flex items-center gap-2 h-8"
               title="Voltar ao Menu"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               <span className="text-[10px] font-data uppercase tracking-wider hidden sm:inline">Voltar</span>
             </Button>
+            
+            {/* Mobile icon button (smaller, discrete) */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => navigate("/dash")}
+              className="sm:hidden glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold rounded-full w-10 h-10 transition-all duration-300"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
           </div>
           
-          <h1 className="text-xl font-data text-euro-gold tracking-[0.4em] uppercase opacity-80">
-            Performance Produtos Eurostock
+          <h1 className="text-base sm:text-xl font-data text-euro-gold tracking-[0.2em] sm:tracking-[0.4em] uppercase opacity-80 text-center leading-tight sm:leading-normal">
+            <span className="hidden sm:inline">Performance Produtos Eurostock</span>
+            <span className="sm:hidden">Performance Produtos</span>
           </h1>
           
-          <div className="absolute right-0">
+          <div className="absolute right-2 sm:right-0 top-0 z-10">
             <Button
               variant="outline"
               size="sm"
               onClick={toggleMaximize}
-              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group"
+              className="glass border-white/20 hover:border-euro-gold/50 hover:bg-euro-gold/10 text-[#A0A090] hover:text-euro-gold transition-all duration-300 group h-8 hidden sm:flex"
               title={isMaximized ? "Sair da Tela Cheia (Esc)" : "Tela Cheia"}
             >
               {isMaximized ? (
                 <>
                   <Minimize2 className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-data uppercase tracking-wider">Sair</span>
+                  <span className="text-[10px] font-data uppercase tracking-wider hidden sm:inline">Sair</span>
                 </>
               ) : (
                 <>
                   <Maximize2 className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-data uppercase tracking-wider">Maximizar</span>
+                  <span className="text-[10px] font-data uppercase tracking-wider hidden sm:inline">Maximizar</span>
                 </>
               )}
             </Button>
@@ -250,22 +264,22 @@ export default function ProductsDashboard() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-12">
           {/* FILTERS & NAVIGATION HEADER */}
-          <div className="sticky top-4 z-50 mx-auto max-w-fit">
-            <div className="flex flex-row items-center gap-2 p-1.5 rounded-full bg-[#0F1218]/80 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20 hover:bg-[#0F1218]/90">
+          <div className="sticky top-4 z-50 mx-auto w-full sm:max-w-fit px-4 sm:px-0">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-2 p-2 sm:p-1.5 rounded-2xl sm:rounded-full bg-[#0F1218]/90 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20">
               
-              <TabsList className="bg-transparent border-none flex-shrink-0 h-9 p-0 gap-1 mx-2">
+              <TabsList className="bg-transparent border-none flex-shrink-0 h-9 p-0 gap-1 mx-2 w-full sm:w-auto flex justify-start sm:justify-center overflow-x-auto flex-nowrap scrollbar-hide">
                 {tabs.map((tab) => (
                   <TabsTrigger 
                     key={tab.id}
                     value={tab.id} 
-                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
+                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none whitespace-nowrap"
                   >
                     {tab.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
 
-              <div className="w-px h-4 bg-white/10 mx-1" />
+              <div className="w-px h-4 bg-white/10 mx-1 hidden sm:block" />
 
               <div className="flex items-center flex-shrink-0">
                 <DashboardFilters 
@@ -293,6 +307,14 @@ export default function ProductsDashboard() {
                   selectedMonth={selectedMonth}
                   selectedTeam={selectedTeam}
                   selectedAssessorId={selectedAssessorId}
+                  teamPhotos={teamPhotos}
+                />
+              ) : tab.id === "renda-variavel" ? (
+                <RendaVariavelDash
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={effectiveAssessorId}
                   teamPhotos={teamPhotos}
                 />
               ) : (
