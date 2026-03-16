@@ -148,8 +148,8 @@ function KpiCard({ title, value, subtitle, icon: Icon, color, trend, delay = 0, 
         "bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative overflow-hidden group hover:border-euro-gold/40 transition-all duration-300 h-full",
         infoMessage ? "flex flex-col" : ""
       )}>
-        <div className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: color }} />
-        <CardContent className="p-5 flex flex-col flex-1">
+        <div className="absolute top-0 left-0 w-1 h-full opacity-50 hidden md:block" style={{ background: color }} />
+        <CardContent className="p-5 flex flex-col flex-1 pl-6">
           {/* Header */}
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1 min-w-0 pr-2">
@@ -455,6 +455,12 @@ export default function RendaVariavelDash({
     const receitaEstruturas = currentMonthMv.reduce(
       (acc: number, d: any) => acc + (d.receitas_estruturadas || 0), 0
     );
+    const custodiaTotal = currentMonthMv.reduce(
+      (acc: number, d: any) => acc + (d.custodia_net || 0), 0
+    );
+    const receitaTarget = (custodiaTotal * 0.0035) / 12; // ROA alvo de estruturadas = 0.35%
+    const receitaAchievement = receitaTarget > 0 ? (receitaEstruturas / receitaTarget) * 100 : 0;
+    const roaAtual = custodiaTotal > 0 ? ((receitaEstruturas * 12) / custodiaTotal) * 100 : 0;
 
     // Previous month receita for trend
     const prevMonthKey = selectedMonthKey
@@ -570,6 +576,9 @@ export default function RendaVariavelDash({
 
     return {
       receitaEstruturas,
+      receitaTarget,
+      receitaAchievement,
+      roaAtual,
       receitaTrend: receitaEstruturas - receitaPrevMonth,
       engagedAssessors,
       totalAssessors,
@@ -821,16 +830,49 @@ export default function RendaVariavelDash({
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" style={{ gridAutoRows: '1fr' }}>
-        {/* 1. Receitas Estruturadas */}
-        <KpiCard
-          title="Receitas Estruturadas"
-          value={formatCurrency(kpis.receitaEstruturas)}
-          subtitle={selectedMonthKey ? format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR }) : ""}
-          icon={TrendingUp}
-          color="#3B82F6"
-          trend={{ value: kpis.receitaTrend, label: "vs mês anterior" }}
-          delay={0}
-        />
+        {/* 1. Receitas Estruturadas com Meta */}
+        <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative overflow-hidden group hover:border-euro-gold/40 transition-all duration-300 h-full">
+          <div className="absolute top-0 left-0 w-1 h-full bg-[#3B82F6] opacity-50 hidden md:block" />
+          <CardHeader className="pb-1 pt-4 pl-6 flex flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[10px] font-data text-white/50 uppercase tracking-widest">
+                Receitas Estruturadas
+              </CardTitle>
+            </div>
+            <div className="w-8 h-8 rounded-xl bg-[#3B82F6]15 flex items-center justify-center -mt-2">
+              <TrendingUp className="w-4 h-4 text-[#3B82F6]" />
+            </div>
+          </CardHeader>
+          <CardContent className="pb-4 pt-0 pl-6">
+            <div className="flex flex-col items-center justify-center py-2 border-b border-[#3B82F6]/20 mb-3">
+              <span className="text-2xl font-display text-white text-center leading-tight truncate px-1">
+                {formatCurrency(kpis.receitaEstruturas)}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <span className="text-[10px] font-data text-white/50 uppercase font-bold tracking-widest">
+                  META: R$ {kpis.receitaTarget >= 1000000 ? (kpis.receitaTarget / 1000000).toFixed(2).replace('.', ',') + 'M' : (kpis.receitaTarget / 1000).toFixed(2).replace('.', ',') + 'K'}
+                </span>
+                <span className={cn(
+                  "text-[10px] font-data font-bold tracking-widest",
+                  kpis.receitaAchievement >= 100 ? "text-green-500" : kpis.receitaAchievement >= 70 ? "text-euro-gold" : "text-red-500"
+                )}>
+                  {kpis.receitaAchievement.toFixed(0)}%
+                </span>
+              </div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div 
+                  className={cn(
+                    "h-full rounded-full transition-all duration-1000",
+                    kpis.receitaAchievement >= 100 ? "bg-green-500" : kpis.receitaAchievement >= 70 ? "bg-euro-gold" : "bg-red-500"
+                  )}
+                  style={{ width: `${Math.min(kpis.receitaAchievement, 100)}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 2. Total de Boletas */}
         <KpiCard
@@ -862,8 +904,8 @@ export default function RendaVariavelDash({
           className="h-full"
         >
           <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative overflow-hidden group hover:border-euro-gold/40 transition-all duration-300 h-full">
-            <div className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-[#8B5CF6] to-[#EC4899]" />
-            <CardContent className="p-4 flex flex-col h-full justify-between">
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#8B5CF6] to-[#EC4899] opacity-50 hidden md:block" />
+            <CardContent className="p-4 pl-6 flex flex-col h-full justify-between">
               <span className="text-[10px] font-data uppercase tracking-widest text-white block mb-2">
                 Boletas — Vencimento
               </span>
