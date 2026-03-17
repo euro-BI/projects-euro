@@ -264,7 +264,7 @@ export default function PerformanceDash() {
   const { data: filtersData, isLoading: isFiltersLoading } = useQuery({
     queryKey: ["dash-filters"],
     queryFn: async () => {
-      // Fetch active teams first
+      // 1. Fetch active teams
       const { data: activeTeamsData } = await supabase
         .from("dados_times")
         .select("time")
@@ -272,25 +272,40 @@ export default function PerformanceDash() {
       
       const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
 
-      const { data, error } = await supabase
+      // 2. Get latest date to fetch current assessors/teams (HEAVY OPTIMIZATION)
+      const { data: latestEntry } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, time, cod_assessor, nome_assessor")
-        .order("data_posicao", { ascending: false });
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const latestDate = latestEntry?.data_posicao;
+
+      // 3. Fetch ONLY labels for filters from the latest month (much faster than fetching all history)
+      const { data: latestData, error } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("time, cod_assessor, nome_assessor")
+        .eq("data_posicao", latestDate);
       
       if (error) throw error;
+
+      // 4. Fetch unique months/years (very light query)
+      const { data: monthData } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false });
       
-      const allMonths = Array.from(new Set(data.map((d: any) => d.data_posicao)));
+      const allMonths = Array.from(new Set(monthData?.map((d: any) => d.data_posicao) || []));
       const years = Array.from(new Set(allMonths.map(m => parseISO(m).getFullYear().toString()))).sort((a, b) => b.localeCompare(a));
       
       // Filter teams to only include active ones
-      const teams = Array.from(new Set(data.map((d: any) => d.time)))
+      const teams = Array.from(new Set(latestData.map((d: any) => d.time)))
         .filter(teamName => teamName && activeTeamNames.has(teamName));
       
-      // Map of unique assessors: cod_assessor -> { name, teams }
+      // Map of unique assessors from latest month
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
-      const latestDate = data?.[0]?.data_posicao;
-      const latestRows = latestDate ? data.filter((d: any) => d.data_posicao === latestDate) : [];
-      latestRows.forEach((d: any) => {
+      latestData.forEach((d: any) => {
         if (d.cod_assessor && d.nome_assessor) {
           if (!assessorMap.has(d.cod_assessor)) {
             assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });
@@ -331,14 +346,6 @@ export default function PerformanceDash() {
     queryKey: ["dash-data", selectedMonth, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedMonth,
     queryFn: async () => {
-      // Fetch active teams first
-      const { data: activeTeamsData } = await supabase
-        .from("dados_times")
-        .select("time")
-        .eq("status", "ATIVO");
-      
-      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
-
       let query = supabase
         .from("mv_resumo_assessor" as any)
         .select("*")
@@ -346,9 +353,6 @@ export default function PerformanceDash() {
       
       if (effectiveTeam !== "all") {
         query = query.eq("time", effectiveTeam);
-      } else {
-        // Filter by active teams if "all" is selected
-        query = query.in("time", Array.from(activeTeamNames));
       }
 
       if (effectiveAssessorId !== "all") {
@@ -358,18 +362,10 @@ export default function PerformanceDash() {
       const { data, error } = await query.order("pontos_totais_acumulado", { ascending: false });
       if (error) throw error;
 
-      // Fetch teams data for photos (already has active teams in context)
+      // Fetch teams data for photos
       const { data: teamsData } = await supabase
         .from("dados_times")
-        .select("time, foto_url")
-        .eq("status", "ATIVO");
-
-      const teamPhotoMap = new Map<string, string>();
-      teamsData?.forEach((t: any) => {
-        if (t.time && t.foto_url) {
-          teamPhotoMap.set(t.time.toUpperCase(), t.foto_url);
-        }
-      });
+        .select("time, foto_url");
 
       // Fetch previous month for deltas
       const prevMonth = format(subMonths(parseISO(selectedMonth), 1), "yyyy-MM-01");
@@ -380,8 +376,6 @@ export default function PerformanceDash() {
       
       if (effectiveTeam !== "all") {
         prevQuery = prevQuery.eq("time", effectiveTeam);
-      } else {
-        prevQuery = prevQuery.in("time", Array.from(activeTeamNames));
       }
 
       if (effectiveAssessorId !== "all") {
@@ -389,6 +383,13 @@ export default function PerformanceDash() {
       }
       
       const { data: prevData } = await prevQuery;
+
+      const teamPhotoMap = new Map<string, string>();
+      teamsData?.forEach((t: any) => {
+        if (t.time && t.foto_url) {
+          teamPhotoMap.set(t.time.toUpperCase(), t.foto_url);
+        }
+      });
 
       return {
         current: data as AssessorResumo[],
@@ -403,14 +404,6 @@ export default function PerformanceDash() {
     queryKey: ["dash-yearly-data", selectedYear, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedYear,
     queryFn: async () => {
-      // Fetch active teams first
-      const { data: activeTeamsData } = await supabase
-        .from("dados_times")
-        .select("time")
-        .eq("status", "ATIVO");
-      
-      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
-
       const startDate = `${selectedYear}-01-01`;
       const endDate = `${selectedYear}-12-31`;
       
@@ -422,8 +415,6 @@ export default function PerformanceDash() {
       
       if (effectiveTeam !== "all") {
         query = query.eq("time", effectiveTeam);
-      } else {
-        query = query.in("time", Array.from(activeTeamNames));
       }
 
       if (effectiveAssessorId !== "all") {
@@ -441,41 +432,6 @@ export default function PerformanceDash() {
     queryKey: ["dash-ranking-data", rankingYear, effectiveTeam, effectiveAssessorId],
     enabled: !!rankingYear,
     queryFn: async () => {
-      // Fetch active teams first
-      const { data: activeTeamsData } = await supabase
-        .from("dados_times")
-        .select("time")
-        .eq("status", "ATIVO");
-      
-      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
-
-      // Fetch active assessors (profiles) to filter out inactive ones based on current status
-      // We will assume that assessors present in the latest data_posicao (across the whole system) are the currently active ones.
-      
-      // 1. Get latest data_posicao from the system
-      const { data: latestDateData } = await supabase
-        .from("mv_resumo_assessor" as any)
-        .select("data_posicao")
-        .order("data_posicao", { ascending: false })
-        .limit(1)
-        .single();
-      
-      const latestDate = latestDateData?.data_posicao;
-      
-      // 2. Get list of assessors present in that latest date
-      let activeAssessorCodes = new Set<string>();
-
-      if (latestDate) {
-         const { data: currentAssessors } = await supabase
-            .from("mv_resumo_assessor" as any)
-            .select("cod_assessor")
-            .eq("data_posicao", latestDate);
-         
-         currentAssessors?.forEach((a: any) => {
-            if (a.cod_assessor) activeAssessorCodes.add(a.cod_assessor);
-         });
-      }
-
       const startDate = `${rankingYear}-01-01`;
       const endDate = `${rankingYear}-12-31`;
       
@@ -487,8 +443,6 @@ export default function PerformanceDash() {
       
       if (effectiveTeam !== "all") {
         query = query.eq("time", effectiveTeam);
-      } else {
-        query = query.in("time", Array.from(activeTeamNames));
       }
 
       if (effectiveAssessorId !== "all") {
@@ -498,13 +452,7 @@ export default function PerformanceDash() {
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
 
-      // Filter data to only include currently active assessors (present in latest data_posicao)
-      // We filter in memory to ensure historical data for currently inactive assessors is removed
-      const filteredData = (data as AssessorResumo[]).filter(d => 
-        d.cod_assessor && activeAssessorCodes.has(d.cod_assessor)
-      );
-
-      return filteredData;
+      return data as AssessorResumo[];
     }
   });
 
@@ -513,14 +461,6 @@ export default function PerformanceDash() {
     queryKey: ["dash-prev-yearly-data", selectedYear, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedYear,
     queryFn: async () => {
-      // Fetch active teams first
-      const { data: activeTeamsData } = await supabase
-        .from("dados_times")
-        .select("time")
-        .eq("status", "ATIVO");
-      
-      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
-
       const prevYear = (parseInt(selectedYear) - 1).toString();
       const startDate = `${prevYear}-01-01`;
       const endDate = `${prevYear}-12-31`;
@@ -533,8 +473,6 @@ export default function PerformanceDash() {
       
       if (effectiveTeam !== "all") {
         query = query.eq("time", effectiveTeam);
-      } else {
-        query = query.in("time", Array.from(activeTeamNames));
       }
 
       if (effectiveAssessorId !== "all") {
@@ -565,13 +503,6 @@ export default function PerformanceDash() {
       // Start date for 12 months trend (current month included, so go back 11 months)
       const startDate = format(subMonths(parseISO(latestDate), 11), "yyyy-MM-01");
 
-      // Active teams logic
-      const { data: activeTeamsData } = await supabase
-        .from("dados_times")
-        .select("time")
-        .eq("status", "ATIVO");
-      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
-
       // 2. Fetch Current Month Data (for KPIs/Tables)
       let currentQuery = supabase
         .from("mv_resumo_assessor" as any)
@@ -580,8 +511,6 @@ export default function PerformanceDash() {
 
       if (effectiveTeam !== "all") {
         currentQuery = currentQuery.eq("time", effectiveTeam);
-      } else {
-        currentQuery = currentQuery.in("time", Array.from(activeTeamNames));
       }
 
       if (effectiveAssessorId !== "all") {
@@ -601,8 +530,6 @@ export default function PerformanceDash() {
 
       if (effectiveTeam !== "all") {
         trendQuery = trendQuery.eq("time", effectiveTeam);
-      } else {
-        trendQuery = trendQuery.in("time", Array.from(activeTeamNames));
       }
 
       if (effectiveAssessorId !== "all") {
@@ -615,8 +542,7 @@ export default function PerformanceDash() {
       // 4. Fetch Team Photos
       const { data: teamsData } = await supabase
         .from("dados_times")
-        .select("time, foto_url")
-        .eq("status", "ATIVO");
+        .select("time, foto_url");
 
       const teamPhotoMap = new Map<string, string>();
       teamsData?.forEach((t: any) => {
