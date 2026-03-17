@@ -224,24 +224,41 @@ const Consorcios = () => {
   useEffect(() => {
     loadRegistros();
     (async () => {
-      const { data, error } = await supabase
-        .from("dados_colaboradores")
-        .select("cod_assessor, nome_completo");
-      if (!error && data) {
-        const rows = data as { cod_assessor: string | null; nome_completo: string | null }[];
-        const map = new Map<string, string>();
-        rows.forEach((r) => {
+      // Obter assessores ativos da mv_resumo_assessor (mesma lógica dos dashboards)
+      const { data: mvData, error: mvError } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao, cod_assessor, nome_assessor")
+        .order("data_posicao", { ascending: false });
+
+      const map = new Map<string, string>();
+
+      if (!mvError && mvData && mvData.length > 0) {
+        const latestDate = mvData[0].data_posicao;
+        const latestRows = mvData.filter((d: any) => d.data_posicao === latestDate);
+        latestRows.forEach((r: any) => {
           if (r.cod_assessor) {
-            const current = map.get(r.cod_assessor);
-            if (!current) {
-              map.set(r.cod_assessor, r.nome_completo || r.cod_assessor);
-            }
+            map.set(r.cod_assessor, r.nome_assessor || r.cod_assessor);
           }
         });
-        const opts = Array.from(map.entries()).map(([code, name]) => ({ code, name }));
-        opts.sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
-        setAssessorOptions(opts);
       }
+
+      // Fallback para dados_colaboradores caso algum não esteja na MV
+      const { data: colabData, error: colabError } = await supabase
+        .from("dados_colaboradores")
+        .select("cod_assessor, nome_completo");
+
+      if (!colabError && colabData) {
+        const rows = colabData as { cod_assessor: string | null; nome_completo: string | null }[];
+        rows.forEach((r) => {
+          if (r.cod_assessor && !map.has(r.cod_assessor)) {
+            map.set(r.cod_assessor, r.nome_completo || r.cod_assessor);
+          }
+        });
+      }
+
+      const opts = Array.from(map.entries()).map(([code, name]) => ({ code, name }));
+      opts.sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+      setAssessorOptions(opts);
     })();
     (async () => {
       const defaults = [
