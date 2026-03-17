@@ -68,6 +68,23 @@ export interface AssessorResumo {
   elegibilidade?: boolean;
 }
 
+export interface FacebookAdsData {
+  id: number;
+  account_name: string;
+  campaign_name: string;
+  adset_name: string;
+  ad_name: string;
+  impressions: number;
+  reach: number;
+  inline_link_clicks: number;
+  spend: number;
+  cost_per_result: number;
+  results: number;
+  date_start: string;
+  date_stop: string;
+  created_at: string;
+}
+
 export type TimeResumo = {
   time: string;
   receita_total: number;

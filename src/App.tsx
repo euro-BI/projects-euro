@@ -29,6 +29,8 @@ import PerformanceDash from "./pages/PerformanceDash";
 import DashboardHome from "./pages/DashboardHome";
 import ProductsDashboard from "./pages/ProductsDashboard";
 import ManagementDash from "./pages/ManagementDash";
+import MarketingDash from "./pages/MarketingDash";
+
 
 const queryClient = new QueryClient();
 
@@ -53,7 +55,7 @@ const App = () => (
             <Route
               path="/"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing"]}>
                   <Welcome />
                 </ProtectedRoute>
               }
@@ -157,7 +159,7 @@ const App = () => (
             <Route
               path="/dash"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing"]}>
                   <DashboardHome />
                 </ProtectedRoute>
               }
@@ -179,7 +181,16 @@ const App = () => (
               }
             />
             <Route
+              path="/dash/marketing"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing"]}>
+                  <MarketingDash />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/dash/gerencial"
+
               element={
                 <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
                   <ManagementDash />

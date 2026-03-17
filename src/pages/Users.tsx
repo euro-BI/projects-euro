@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, User as UserIcon, ArrowLeft, Upload, X, FileSpreadsheet, Search } from "lucide-react";
+import { Shield, User as UserIcon, ArrowLeft, Upload, X, FileSpreadsheet, Search, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { PageLayout } from "@/components/PageLayout";
@@ -255,7 +255,7 @@ export default function Users() {
         .from("projects_user_roles")
         .insert({
           user_id: newUserId,
-          role: formData.role as "admin_master" | "admin" | "user" | "consorcio",
+          role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing",
         });
 
       if (roleError) throw roleError;
@@ -303,7 +303,7 @@ export default function Users() {
         // Se já existe um role, atualizar
         const { error } = await supabase
           .from("projects_user_roles")
-          .update({ role: formData.role as "admin_master" | "admin" | "user" | "consorcio" })
+          .update({ role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" })
           .eq("user_id", selectedUserId);
         roleError = error;
       } else {
@@ -312,7 +312,7 @@ export default function Users() {
           .from("projects_user_roles")
             .insert({
               user_id: selectedUserId,
-              role: formData.role as "admin_master" | "admin" | "user" | "consorcio",
+              role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing",
             });
         roleError = error;
       }
@@ -351,6 +351,14 @@ export default function Users() {
       return (
         <Badge className="bg-primary/20 text-primary border-primary/30">
           Consórcio
+        </Badge>
+      );
+    }
+    if (role === "marketing") {
+      return (
+        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+          <BarChart3 className="w-3 h-3 mr-1" />
+          Marketing
         </Badge>
       );
     }
@@ -456,6 +464,8 @@ export default function Users() {
                               profileImageUrl: userItem.profile_image_url || "",
                               is_active: userItem.is_active ?? true,
                               codigo: userItem.codigo || "",
+                              email: "",
+                              password: "",
                             });
                             setPreviewImage(userItem.profile_image_url);
                             setOpen(true);
@@ -505,6 +515,8 @@ export default function Users() {
                         profileImageUrl: userItem.profile_image_url || "",
                         is_active: userItem.is_active ?? true,
                         codigo: userItem.codigo || "",
+                        email: "",
+                        password: "",
                       });
                       setPreviewImage(userItem.profile_image_url);
                       setOpen(true);
@@ -632,6 +644,7 @@ export default function Users() {
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="consorcio">Consórcio</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>

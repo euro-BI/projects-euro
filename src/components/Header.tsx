@@ -43,6 +43,7 @@ export const Header = () => {
   const isAdmin = userRole === "admin";
   const isConsorcio = userRole === "consorcio";
   const isRegularUser = userRole === "user";
+  const isMarketing = userRole === "marketing";
 
   // Combine roles for easier checks
   const canAccessAdminFeatures = isAdminMaster || isAdmin;
@@ -129,6 +130,14 @@ export const Header = () => {
         <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 h-4">
           <FileSpreadsheet className="w-2 h-2 mr-1" />
           Consórcio
+        </Badge>
+      );
+    }
+    if (userRole === "marketing") {
+      return (
+        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] py-0 h-4">
+          <BarChart3 className="w-2 h-2 mr-1" />
+          Marketing
         </Badge>
       );
     }
@@ -240,7 +249,7 @@ export const Header = () => {
                   <Home className="w-4 h-4 mr-2" />
                   Início
                 </DropdownMenuItem>
-                {(isAdminMaster || isAdmin) && (
+                {(isAdminMaster || isAdmin || isMarketing) && (
                   <DropdownMenuItem onClick={() => navigate('/dash')}>
                     <BrainCircuit className="w-4 h-4 mr-2" />
                     Euro Intelligence
