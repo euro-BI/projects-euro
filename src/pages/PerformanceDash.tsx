@@ -304,20 +304,19 @@ export default function PerformanceDash() {
       const teams = Array.from(new Set(latestData.map((d: any) => d.time)))
         .filter(teamName => teamName && activeTeamNames.has(teamName));
       
-      // Map of unique assessors from latest month
+      // Map of unique assessors from latest month who belong to active teams
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
       latestData.forEach((d: any) => {
-        if (d.cod_assessor && d.nome_assessor) {
+        if (d.cod_assessor && d.nome_assessor && d.time && activeTeamNames.has(d.time)) {
           if (!assessorMap.has(d.cod_assessor)) {
             assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });
           }
-          if (d.time && activeTeamNames.has(d.time)) {
-            assessorMap.get(d.cod_assessor)?.teams.add(d.time);
-          }
+          assessorMap.get(d.cod_assessor)?.teams.add(d.time);
         }
       });
+      
       const assessors = Array.from(assessorMap.entries())
-        .map(([id, info]) => ({ id, name: info.name, teams: Array.from(info.teams) }))
+        .map(([id, info]) => ({ id, name: info.name, teams: Array.from(info.teams) }));
       const activeAssessorIds = new Set(assessors.map(a => a.id));
       
       return { allMonths, years, teams, assessors, activeAssessorIds };
@@ -391,14 +390,8 @@ export default function PerformanceDash() {
         }
       });
 
-      const activeIds = filtersData?.activeAssessorIds;
-      const filteredCurrent = activeIds 
-        ? (data as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor))
-        : (data as AssessorResumo[]);
-
-      const filteredPrevious = activeIds
-        ? ((prevData || []) as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor))
-        : ((prevData || []) as AssessorResumo[]);
+      const filteredCurrent = data as AssessorResumo[];
+      const filteredPrevious = (prevData || []) as AssessorResumo[];
 
       return {
         current: filteredCurrent,
@@ -433,11 +426,6 @@ export default function PerformanceDash() {
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
       
-      const activeIds = filtersData?.activeAssessorIds;
-      if (activeIds) {
-        return (data as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor));
-      }
-      
       return data as AssessorResumo[];
     }
   });
@@ -445,7 +433,7 @@ export default function PerformanceDash() {
   // Fetch Yearly Data for Ranking Tab (Independent of global selectedYear)
   const { data: rankingData, isLoading: isRankingLoading } = useQuery({
     queryKey: ["dash-ranking-data", rankingYear, effectiveTeam, effectiveAssessorId],
-    enabled: !!rankingYear,
+    enabled: !!rankingYear && !!filtersData,
     queryFn: async () => {
       const startDate = `${rankingYear}-01-01`;
       const endDate = `${rankingYear}-12-31`;
@@ -501,11 +489,6 @@ export default function PerformanceDash() {
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
-      
-      const activeIds = filtersData?.activeAssessorIds;
-      if (activeIds) {
-        return (data as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor));
-      }
       
       return data as AssessorResumo[];
     }
