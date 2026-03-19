@@ -98,6 +98,7 @@ import RankingTable from "@/components/dashboard/RankingTable";
 import ForecastAnalysis from "@/components/dashboard/ForecastAnalysis";
 import ComparisonView from "@/components/dashboard/ComparisonView";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
+import { ActivationDetailsDialog } from "@/components/dashboard/ActivationDetailsDialog";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 
 const REVENUE_METRICS: Record<string, MetricConfig> = {
@@ -317,10 +318,9 @@ export default function PerformanceDash() {
       });
       const assessors = Array.from(assessorMap.entries())
         .map(([id, info]) => ({ id, name: info.name, teams: Array.from(info.teams) }))
-        .filter(a => a.teams.length > 0) // Only include assessors in at least one active team
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const activeAssessorIds = new Set(assessors.map(a => a.id));
       
-      return { allMonths, years, teams, assessors };
+      return { allMonths, years, teams, assessors, activeAssessorIds };
     }
   });
 
@@ -391,9 +391,18 @@ export default function PerformanceDash() {
         }
       });
 
+      const activeIds = filtersData?.activeAssessorIds;
+      const filteredCurrent = activeIds 
+        ? (data as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor))
+        : (data as AssessorResumo[]);
+
+      const filteredPrevious = activeIds
+        ? ((prevData || []) as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor))
+        : ((prevData || []) as AssessorResumo[]);
+
       return {
-        current: data as AssessorResumo[],
-        previous: (prevData || []) as AssessorResumo[],
+        current: filteredCurrent,
+        previous: filteredPrevious,
         teamPhotos: teamPhotoMap
       };
     }
@@ -423,6 +432,12 @@ export default function PerformanceDash() {
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
+      
+      const activeIds = filtersData?.activeAssessorIds;
+      if (activeIds) {
+        return (data as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor));
+      }
+      
       return data as AssessorResumo[];
     }
   });
@@ -451,6 +466,11 @@ export default function PerformanceDash() {
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
+
+      const activeIds = filtersData?.activeAssessorIds;
+      if (activeIds) {
+        return (data as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor));
+      }
 
       return data as AssessorResumo[];
     }
@@ -481,6 +501,12 @@ export default function PerformanceDash() {
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
+      
+      const activeIds = filtersData?.activeAssessorIds;
+      if (activeIds) {
+        return (data as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor));
+      }
+      
       return data as AssessorResumo[];
     }
   });
@@ -539,6 +565,15 @@ export default function PerformanceDash() {
       const { data: trendData, error: trendError } = await trendQuery;
       if (trendError) throw trendError;
 
+      const activeIds = filtersData?.activeAssessorIds;
+      const filteredCurrent = activeIds 
+        ? (currentData as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor))
+        : (currentData as AssessorResumo[]);
+      
+      const filteredTrend = activeIds
+        ? (trendData as AssessorResumo[]).filter(a => a.cod_assessor && activeIds.has(a.cod_assessor))
+        : (trendData as AssessorResumo[]);
+
       // 4. Fetch Team Photos
       const { data: teamsData } = await supabase
         .from("dados_times")
@@ -553,8 +588,8 @@ export default function PerformanceDash() {
 
       return {
         latestDate,
-        current: currentData as AssessorResumo[],
-        trend: trendData as AssessorResumo[],
+        current: filteredCurrent,
+        trend: filteredTrend,
         teamPhotos: teamPhotoMap
       };
     }
@@ -829,7 +864,7 @@ export default function PerformanceDash() {
                     </CardTitle>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <button className="text-[#5C5C50] hover:text-euro-gold transition-colors">
+                        <button className="text-white hover:text-euro-gold transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </DialogTrigger>
@@ -990,7 +1025,7 @@ export default function PerformanceDash() {
                     </CardTitle>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <button className="text-[#5C5C50] hover:text-euro-gold transition-colors">
+                        <button className="text-white hover:text-euro-gold transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </DialogTrigger>
@@ -1081,9 +1116,20 @@ export default function PerformanceDash() {
               <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
                 <CardHeader className="pb-1 pt-4 flex flex-row items-center justify-between space-y-0">
-                  <CardTitle className="text-xs font-data text-white uppercase tracking-wider">
-                    Ativações 300k+
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-xs font-data text-white uppercase tracking-wider">
+                      Ativações 300k+
+                    </CardTitle>
+                    <ActivationDetailsDialog 
+                      selectedMonth={selectedMonth}
+                      assessorId={effectiveAssessorId}
+                      team={effectiveTeam}
+                    >
+                      <button className="text-white hover:text-euro-gold transition-colors">
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </ActivationDetailsDialog>
+                  </div>
                   <div className="w-6 h-6 rounded-full bg-euro-gold/10 flex items-center justify-center">
                     <Target className="w-3.5 h-3.5 text-euro-gold" />
                   </div>

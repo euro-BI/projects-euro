@@ -49,6 +49,16 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
       
       const activeTeamNames = new Set(activeTeamsData?.map(t => t.time).filter(t => !BLOCKED_TEAMS.includes(t)) || []);
 
+      // 2. Get latest date to fetch current assessors (consistent with dash)
+      const { data: latestEntry } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const latestDate = latestEntry?.data_posicao;
+
       const { data, error } = await supabase
         .from("mv_resumo_assessor" as any)
         .select("cod_assessor, nome_assessor, foto_url, pontos_totais_acumulado, data_posicao, time, elegibilidade")
@@ -56,15 +66,23 @@ export default function RankingRace({ selectedYear }: RankingRaceProps) {
         .not("cod_assessor", "in", `(${BLOCKED_ASSESSORS.map(a => `"${a}"`).join(',')})`);
       
       if (error) throw error;
+
+      // 3. Get active assessors at latestDate
+      const activeAtLatest = new Set(
+        (data as any[])
+          .filter(d => d.data_posicao === latestDate)
+          .map(d => d.cod_assessor)
+      );
       
-      // Filter by active teams and ensure name exists and is valid
+      // Filter by active teams and ENSURE they were active at latestDate
       return (data as any[]).filter(d => 
         d.nome_assessor && 
         d.nome_assessor.trim().length > 0 &&
         d.nome_assessor.toLowerCase() !== "null" &&
         d.nome_assessor.toLowerCase() !== "undefined" &&
         d.time && 
-        activeTeamNames.has(d.time)
+        activeTeamNames.has(d.time) &&
+        activeAtLatest.has(d.cod_assessor)
       ) as Pick<AssessorResumo, "cod_assessor" | "nome_assessor" | "foto_url" | "pontos_totais_acumulado" | "data_posicao" | "time" | "elegibilidade">[];
     }
   });
