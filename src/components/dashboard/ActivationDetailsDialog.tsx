@@ -77,6 +77,7 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest">
+                    <th className="py-3 px-4 font-bold border-r border-euro-navy/10">Assessor</th>
                     <th className="py-3 px-4 font-bold border-r border-euro-navy/10">Cliente</th>
                     <th className="py-3 px-4 font-bold text-right border-r border-euro-navy/10">Net Original</th>
                     <th className="py-3 px-4 font-bold text-right">Vlr Ativação</th>
@@ -89,6 +90,9 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
                         key={idx}
                         className="group even:bg-white/[0.02] hover:bg-white/[0.05] transition-all text-[12.6px] font-data"
                       >
+                        <td className="py-3 px-4 border-r border-white/5 text-white">
+                          {item.cod_assessor || "N/A"}
+                        </td>
                         <td className="py-3 px-4 border-r border-white/5">
                           <span className="font-bold uppercase tracking-tight text-white">
                             {item.cliente || "N/A"}
@@ -104,7 +108,7 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={3} className="py-20 text-center opacity-20">
+                      <td colSpan={4} className="py-20 text-center opacity-20">
                         <div className="flex flex-col items-center gap-4">
                           <Search className="w-10 h-10" />
                           <p className="text-sm font-data uppercase tracking-widest">Nenhuma ativação encontrada</p>
