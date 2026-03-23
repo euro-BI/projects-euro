@@ -606,7 +606,7 @@ export default function PerformanceDash() {
     const metaFP300k = current.reduce((acc, curr) => acc + (curr.meta_fp300k || 0), 0);
     const fp300kAchievement = (totalFP300k / (metaFP300k || 1)) * 100;
 
-    const totalActivations300k = current.reduce((acc, curr) => acc + (curr.ativacao_300k || 0), 0);
+    const totalActivations300k = current.reduce((acc, curr) => acc + (curr.ativacao_300k || 0) + (curr.ativacao_1kk || 0), 0);
     const metaActivations300k = current.reduce((acc, curr) => acc + (curr.meta_ativacao_300k || 0), 0);
     const activationsAchievement = (totalActivations300k / (metaActivations300k || 1)) * 100;
 
