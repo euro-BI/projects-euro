@@ -226,6 +226,8 @@ export function DataUploadManagement() {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/fundos';
     } else if (selectedUploadName === 'dados_posicao_black') {
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads/posicao-black';
+    } else if (selectedUploadName === 'dados_diversificador') {
+      webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/diversificador';
     } else {
       // Para outros tipos, usar o webhook padrão
       webhookUrl = 'https://n8n-n8n.ffder9.easypanel.host/webhook/uploads';
@@ -375,6 +377,7 @@ export function DataUploadManagement() {
                   <SelectItem value="dados_offshore_operacoes">Dados Offshore Operações</SelectItem>
                   <SelectItem value="dados_posicao_black">Dados Posição Black</SelectItem>
                   <SelectItem value="dados_fundos_novo">Dados Fundos</SelectItem>
+                  <SelectItem value="dados_diversificador">Dados Diversificador</SelectItem>
                 </SelectContent>
               </Select>
             </div>
