@@ -40,7 +40,21 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
       if (assessorId !== "all") {
         query = query.eq("cod_assessor", assessorId.startsWith("A") ? assessorId : `A${assessorId}`);
       } else if (team !== "all") {
-        query = query.eq("time", team);
+        // detalhamento_ativacoes doesn't have a "time" column,
+        // so we need to look up which assessors belong to the selected team
+        const { data: teamAssessors } = await supabase
+          .from("mv_resumo_assessor" as any)
+          .select("cod_assessor")
+          .eq("data_posicao", selectedMonth)
+          .eq("time", team);
+
+        const assessorCodes = [...new Set((teamAssessors || []).map((a: any) => a.cod_assessor).filter(Boolean))];
+
+        if (assessorCodes.length === 0) {
+          return [];
+        }
+
+        query = query.in("cod_assessor", assessorCodes);
       }
 
       const { data, error } = await query;
