@@ -27,6 +27,7 @@ import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground"
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import { PosicaoBlack } from "@/components/dashboard/PosicaoBlack";
 import RendaVariavelDash from "@/components/dashboard/RendaVariavelDash";
+import RendaFixaDash from "@/components/dashboard/RendaFixaDash";
 
 export default function ProductsDashboard() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -311,6 +312,14 @@ export default function ProductsDashboard() {
                 />
               ) : tab.id === "renda-variavel" ? (
                 <RendaVariavelDash
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={effectiveAssessorId}
+                  teamPhotos={teamPhotos}
+                />
+              ) : tab.id === "renda-fixa" ? (
+                <RendaFixaDash
                   selectedMonth={selectedMonth}
                   selectedYear={selectedYear}
                   selectedTeam={selectedTeam}
