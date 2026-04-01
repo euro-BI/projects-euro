@@ -136,7 +136,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
       acc[key].pontos_roa_invest += curr.pontos_roa_invest || 0;
       acc[key].pontos_roa_cs += curr.pontos_roa_cs || 0;
       acc[key].pontos_ativacoes += curr.pontos_ativacoes || 0;
-      acc[key].pontos_lider += curr.pontos_lider || 0;
+      acc[key].pontos_lider += (curr.pontos_lider || 0) + (curr.pontos_lider_roa || 0) + (curr.pontos_lider_cap || 0);
       acc[key].pontos_total += curr.pontos_total || 0;
 
       // Update eligibility info if current record is newer

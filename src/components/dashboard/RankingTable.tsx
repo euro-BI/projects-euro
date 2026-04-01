@@ -85,7 +85,7 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
       acc[key].pontos_roa_invest += curr.pontos_roa_invest || 0;
       acc[key].pontos_roa_cs += curr.pontos_roa_cs || 0;
       acc[key].pontos_ativacoes += curr.pontos_ativacoes || 0;
-      acc[key].pontos_lider += curr.pontos_lider || 0;
+      acc[key].pontos_lider += (curr.pontos_lider || 0) + (curr.pontos_lider_roa || 0) + (curr.pontos_lider_cap || 0);
       acc[key].pontos_total += curr.pontos_total || 0;
       acc[key].captacao_liquida_total += curr.captacao_liquida_total || 0;
       acc[key].ativacao_300k += curr.ativacao_300k || 0;

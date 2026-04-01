@@ -56,6 +56,8 @@ export interface AssessorResumo {
   ativacao_1kk: number;
   pontos_ativacoes: number;
   pontos_lider: number;
+  pontos_lider_roa: number;
+  pontos_lider_cap: number;
   pontos_total: number;
   pontos_totais_acumulado: number;
   meta_ativacao_300k: number;
