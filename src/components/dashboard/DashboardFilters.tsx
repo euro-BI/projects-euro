@@ -221,7 +221,7 @@ export function DashboardFilters({
                 <SelectItem value="all" className="text-xs focus:bg-white/5 focus:text-euro-gold cursor-pointer">
                   Todos os Times
                 </SelectItem>
-                {filtersData?.teams.map((t) => (
+                {[...(filtersData?.teams || [])].sort((a, b) => a.localeCompare(b)).map((t) => (
                   <SelectItem key={t} value={t} className="text-xs focus:bg-white/5 focus:text-euro-gold cursor-pointer">
                     {t}
                   </SelectItem>
@@ -284,6 +284,7 @@ export function DashboardFilters({
                           if (selectedTeam === "all") return true;
                           return a.teams.includes(selectedTeam);
                         })
+                        .sort((a, b) => a.name.localeCompare(b.name))
                         .map((assessor) => (
                           <CommandItem
                             key={assessor.id}
