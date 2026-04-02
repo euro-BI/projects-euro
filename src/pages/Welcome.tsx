@@ -41,7 +41,7 @@ export default function Welcome() {
       description: "Visualize o status e progresso de todos os projetos ativos.",
       icon: LayoutDashboard,
       path: "/dashboard",
-      roles: ["admin_master", "admin"],
+      roles: ["admin_master"],
       color: "text-blue-400",
       bgColor: "bg-blue-400/10",
       borderColor: "border-blue-400/20"
@@ -51,7 +51,7 @@ export default function Welcome() {
       description: "Gerencie tarefas, atividades e cronogramas detalhados.",
       icon: FolderKanban,
       path: "/projects",
-      roles: ["admin_master", "admin"],
+      roles: ["admin_master"],
       color: "text-cyan-400",
       bgColor: "bg-cyan-400/10",
       borderColor: "border-cyan-400/20"
@@ -61,7 +61,7 @@ export default function Welcome() {
       description: "Acesse relatórios e dashboards analíticos do Power BI.",
       icon: BarChart3,
       path: "/powerbi",
-      roles: ["admin_master", "admin", "user", "consorcio"],
+      roles: ["admin_master"],
       color: "text-primary",
       bgColor: "bg-primary/10",
       borderColor: "border-primary/20"
@@ -111,7 +111,7 @@ export default function Welcome() {
       description: "Acesse apresentações de dashboards prontas para exibição.",
       icon: Tv,
       path: "/tv-published",
-      roles: ["admin_master", "admin"],
+      roles: ["admin_master"],
       color: "text-emerald-400",
       bgColor: "bg-emerald-400/10",
       borderColor: "border-emerald-400/20"

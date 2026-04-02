@@ -255,13 +255,13 @@ export const Header = () => {
                     Euro Intelligence
                   </DropdownMenuItem>
                 )}
-                {(isAdminMaster || isAdmin) && (
+                {isAdminMaster && (
                   <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                     <LayoutDashboard className="w-4 h-4 mr-2" />
                     Dashboard
                   </DropdownMenuItem>
                 )}
-                {(isAdminMaster || isAdmin) && (
+                {isAdminMaster && (
                   <DropdownMenuItem onClick={() => navigate('/projects')}>
                     <FolderKanban className="w-4 h-4 mr-2" />
                     Projetos
@@ -279,7 +279,7 @@ export const Header = () => {
                     Consórcios
                   </DropdownMenuItem>
                 )}
-                {canAccessPowerBIAndIA && (
+                {isAdminMaster && (
                   <DropdownMenuItem onClick={() => navigate('/powerbi')}>
                     <BarChart3 className="w-4 h-4 mr-2" />
                     Power BI
@@ -291,7 +291,7 @@ export const Header = () => {
                     IA Chat
                   </DropdownMenuItem>
                 )}
-                {(isAdminMaster || isAdmin) && (
+                {isAdminMaster && (
                   <DropdownMenuItem onClick={() => navigate('/tv-published')}>
                     <Tv className="w-4 h-4 mr-2" />
                     TV Dashboards
