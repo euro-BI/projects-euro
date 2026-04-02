@@ -28,6 +28,7 @@ import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import { PosicaoBlack } from "@/components/dashboard/PosicaoBlack";
 import RendaVariavelDash from "@/components/dashboard/RendaVariavelDash";
 import RendaFixaDash from "@/components/dashboard/RendaFixaDash";
+import ConsorciosDash from "@/components/dashboard/ConsorciosDash";
 
 export default function ProductsDashboard() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -136,8 +137,8 @@ export default function ProductsDashboard() {
         .filter(teamName => teamName && activeTeamNames.has(teamName));
       
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
-      const latestDate = data?.[0]?.data_posicao;
-      const latestRows = latestDate ? data.filter((d: any) => d.data_posicao === latestDate) : [];
+      const latestDate = (data as any[])?.[0]?.data_posicao;
+      const latestRows = latestDate ? (data as any[]).filter((d: any) => d.data_posicao === latestDate) : [];
       latestRows.forEach((d: any) => {
         if (d.cod_assessor && d.nome_assessor) {
           if (!assessorMap.has(d.cod_assessor)) {
@@ -320,6 +321,14 @@ export default function ProductsDashboard() {
                 />
               ) : tab.id === "renda-fixa" ? (
                 <RendaFixaDash
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={effectiveAssessorId}
+                  teamPhotos={teamPhotos}
+                />
+              ) : tab.id === "consorcios" ? (
+                <ConsorciosDash
                   selectedMonth={selectedMonth}
                   selectedYear={selectedYear}
                   selectedTeam={selectedTeam}
