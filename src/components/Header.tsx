@@ -249,7 +249,7 @@ export const Header = () => {
                   <Home className="w-4 h-4 mr-2" />
                   Início
                 </DropdownMenuItem>
-                {(isAdminMaster || isAdmin || isMarketing) && (
+                {(isAdminMaster || isAdmin || isMarketing || isRegularUser) && (
                   <DropdownMenuItem onClick={() => navigate('/dash')}>
                     <BrainCircuit className="w-4 h-4 mr-2" />
                     Euro Intelligence

@@ -61,7 +61,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Gerencial */}
-          {(!isMarketing) && (
+          {(!isMarketing && !isRegularUser) && (
             <div 
               onClick={() => navigate("/dash/gerencial")}
               className="group cursor-pointer"
@@ -121,10 +121,11 @@ export default function DashboardHome() {
           )}
 
           {/* Card Marketing */}
-          <div 
-            onClick={() => navigate("/dash/marketing")}
-            className="group cursor-pointer"
-          >
+          {(!isRegularUser) && (
+            <div 
+              onClick={() => navigate("/dash/marketing")}
+              className="group cursor-pointer"
+            >
             <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-[#A855F7]/50 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] group-hover:bg-white/[0.12]">
               <CardContent className="h-full flex flex-col items-center p-8 pt-10 relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-[#A855F7]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -147,6 +148,7 @@ export default function DashboardHome() {
               </CardContent>
             </Card>
           </div>
+          )}
         </div>
       </div>
     </PageLayout>
