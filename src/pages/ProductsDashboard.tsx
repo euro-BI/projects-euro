@@ -41,11 +41,18 @@ export default function ProductsDashboard() {
   const { userRole, userCode } = useAuth();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<string>(userRole === "consorcio" ? "consorcios" : "geral");
-
+  const [activeTab, setActiveTab] = useState<string>(
+    userRole === "consorcio" ? "consorcios" : 
+    userRole === "seguros" ? "seguros" : 
+    "geral"
+  );
+  
   React.useEffect(() => {
     if (userRole === "consorcio" && activeTab !== "consorcios") {
       setActiveTab("consorcios");
+    }
+    if (userRole === "seguros" && activeTab !== "seguros") {
+      setActiveTab("seguros");
     }
   }, [userRole, activeTab]);
 
@@ -208,9 +215,11 @@ export default function ProductsDashboard() {
     { id: "posicao-black", label: "Posição Black" },
   ];
 
-  const tabs = userRole === "consorcio"
-    ? allTabs.filter(t => t.id === "consorcios")
-    : allTabs;
+  const tabs = useMemo(() => {
+    if (userRole === "consorcio") return allTabs.filter(t => t.id === "consorcios");
+    if (userRole === "seguros") return allTabs.filter(t => t.id === "seguros");
+    return allTabs;
+  }, [userRole, allTabs]);
 
   return (
     <PageLayout className={cn(

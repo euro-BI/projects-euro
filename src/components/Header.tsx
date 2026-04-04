@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard, Tv, Settings, BrainCircuit } from "lucide-react";
+import { LogOut, User, Users, Menu, Home, Lock, FolderKanban, BarChart3, ChevronDown, FileSpreadsheet, MessageSquare, Shield, RefreshCw, LayoutDashboard, Tv, Settings, BrainCircuit, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -44,10 +44,14 @@ export const Header = () => {
   const isConsorcio = userRole === "consorcio";
   const isRegularUser = userRole === "user";
   const isMarketing = userRole === "marketing";
+  const isSeguros = userRole === "seguros";
+  const isProdutos = userRole === "produtos";
 
   // Combine roles for easier checks
   const canAccessAdminFeatures = isAdminMaster || isAdmin;
-  const canAccessPowerBIAndIA = isAdminMaster || isAdmin || isRegularUser || isConsorcio;
+  const canAccessPowerBI = isAdminMaster;
+  const canAccessIAChat = isAdminMaster || isAdmin || isRegularUser;
+  const canAccessEuroIntelligence = isAdminMaster || isAdmin || isMarketing || isRegularUser || isConsorcio || isSeguros || isProdutos;
 
   // Função para obter o nome da página atual
   const getCurrentPageName = () => {
@@ -93,7 +97,7 @@ export const Header = () => {
         .single();
 
       if (error) throw error;
-      setUserProfile(data);
+      setUserProfile(data as any);
     } catch (error) {
       console.error("Error loading user profile:", error);
     }
@@ -141,6 +145,22 @@ export const Header = () => {
         </Badge>
       );
     }
+    if (userRole === "produtos") {
+      return (
+        <Badge className="bg-[#4ADE80]/20 text-[#4ADE80] border-[#4ADE80]/30 text-[10px] py-0 h-4">
+          <ShoppingBag className="w-2 h-2 mr-1" />
+          Produtos
+        </Badge>
+      );
+    }
+    if (userRole === "seguros") {
+      return (
+        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px] py-0 h-4">
+          <Shield className="w-2 h-2 mr-1" />
+          Seguros
+        </Badge>
+      );
+    }
     return (
       <Badge variant="outline" className="text-[10px] py-0 h-4">
         <User className="w-2 h-2 mr-1" />
@@ -178,8 +198,8 @@ export const Header = () => {
 
       const nextHidden =
         y < 100 ? false :
-        delta > 10 ? true :
-        hiddenRef.current;
+          delta > 10 ? true :
+            hiddenRef.current;
 
       if (nextHidden !== hiddenRef.current) {
         hiddenRef.current = nextHidden;
@@ -211,7 +231,7 @@ export const Header = () => {
         ].join(" ")}
       >
         <div className="container mx-auto h-full flex items-center justify-between px-4">
-          <button 
+          <button
             onClick={() => navigate("/")}
             className="flex items-center gap-3 text-lg md:text-xl font-bold text-gradient-cyan hover:opacity-80 transition-opacity"
           >
@@ -224,7 +244,7 @@ export const Header = () => {
               Hub - Eurostock
             </span>
           </button>
-          
+
           {/* Desktop actions */}
           <div className="hidden md:flex items-center gap-4">
             {/* Dropdown de Navegação */}
@@ -249,7 +269,7 @@ export const Header = () => {
                   <Home className="w-4 h-4 mr-2" />
                   Início
                 </DropdownMenuItem>
-                {(isAdminMaster || isAdmin || isMarketing || isRegularUser) && (
+                {canAccessEuroIntelligence && (
                   <DropdownMenuItem onClick={() => navigate('/dash')}>
                     <BrainCircuit className="w-4 h-4 mr-2" />
                     Euro Intelligence
@@ -279,13 +299,13 @@ export const Header = () => {
                     Consórcios
                   </DropdownMenuItem>
                 )}
-                {isAdminMaster && (
+                {canAccessPowerBI && (
                   <DropdownMenuItem onClick={() => navigate('/powerbi')}>
                     <BarChart3 className="w-4 h-4 mr-2" />
                     Power BI
                   </DropdownMenuItem>
                 )}
-                {canAccessPowerBIAndIA && (
+                {canAccessIAChat && (
                   <DropdownMenuItem onClick={() => navigate('/chat')}>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     IA Chat
@@ -347,7 +367,7 @@ export const Header = () => {
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
                   </div>
                 </div>
-                
+
                 <div className="p-1">
                   <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
                     Ações
@@ -402,7 +422,7 @@ export const Header = () => {
                 <SheetHeader>
                   <SheetTitle>Perfil do Usuário</SheetTitle>
                 </SheetHeader>
-                
+
                 {/* User welcome section */}
                 <div className="mt-6 mb-6 text-center">
                   <div className="flex justify-center mb-3">
@@ -425,7 +445,7 @@ export const Header = () => {
                     <div className="text-xs text-muted-foreground mt-1">{user?.email}</div>
                   </div>
                 </div>
-                
+
                 <div className="border-t border-white/5 pt-4 grid gap-2">
                   <DropdownMenuLabel className="text-xs text-muted-foreground px-2 mb-2">
                     Ações de Conta

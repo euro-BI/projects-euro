@@ -4,7 +4,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Briefcase, ShoppingBag, ArrowRight, Settings, BarChart3 } from "lucide-react";
+import { Briefcase, ShoppingBag, ArrowRight, Settings, BarChart3, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function DashboardHome() {
@@ -14,7 +14,7 @@ export default function DashboardHome() {
   const isMarketing = userRole === "marketing";
   const isProdutosOnly = userRole === "produtos";
   const isAdminOrMaster = userRole === "admin" || userRole === "admin_master";
-  const isRegularUser = userRole === "user" || userRole === "consorcio";
+  const isRegularUser = userRole === "user" || userRole === "consorcio" || userRole === "seguros";
 
   return (
     <PageLayout className="bg-transparent text-[#E8E8E0] font-ui px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative min-h-screen flex flex-col items-center justify-center">
@@ -32,7 +32,7 @@ export default function DashboardHome() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
           {/* Card Comercial */}
-          {(!isMarketing && !isProdutosOnly && userRole !== "consorcio") && (
+          {(!isMarketing && !isProdutosOnly && userRole !== "consorcio" && userRole !== "seguros") && (
             <div 
               onClick={() => navigate("/dash/comercial")}
               className="group cursor-pointer"
@@ -55,6 +55,36 @@ export default function DashboardHome() {
                   
                   <div className="flex items-center gap-2 text-euro-gold font-data text-xs uppercase tracking-widest opacity-0 transform translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 mt-4">
                     Acessar Dashboard <ArrowRight className="w-4 h-4" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Card Meu Cockpit */}
+          {(!isMarketing && !isProdutosOnly && userRole !== "consorcio" && userRole !== "seguros") && (
+            <div 
+              onClick={() => navigate("/dash/meu-cockpit")}
+              className="group cursor-pointer"
+            >
+              <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] group-hover:bg-white/[0.12]">
+                <CardContent className="h-full flex flex-col items-center p-8 pt-10 relative">
+                  <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mb-6 shadow-lg transform transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110 shrink-0">
+                    <User className="w-10 h-10 text-white" />
+                  </div>
+                  
+                  <h2 className="text-3xl font-display text-white mb-3 tracking-wide group-hover:text-blue-400 transition-colors">
+                    Meu Cockpit
+                  </h2>
+                  
+                  <p className="text-[#A0A090] text-center font-light mb-auto max-w-xs group-hover:text-white/80 transition-colors line-clamp-3 min-h-[4.5rem]">
+                    Sua performance individual, receitas, gap e posição no Super Ranking.
+                  </p>
+                  
+                  <div className="flex items-center gap-2 text-blue-400 font-data text-xs uppercase tracking-widest opacity-0 transform translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 mt-4">
+                    Acessar Meu Cockpit <ArrowRight className="w-4 h-4" />
                   </div>
                 </CardContent>
               </Card>
@@ -122,7 +152,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Marketing */}
-          {(!isRegularUser && !isProdutosOnly) && (
+          {(!isRegularUser && !isProdutosOnly && userRole !== "seguros") && (
             <div 
               onClick={() => navigate("/dash/marketing")}
               className="group cursor-pointer"

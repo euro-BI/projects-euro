@@ -167,7 +167,7 @@ export default function Users() {
 
       if (rolesError) throw rolesError;
 
-      const usersWithData: UserProfile[] = (profiles ?? []).map((profile) => {
+      const usersWithData: UserProfile[] = ((profiles || []) as any[]).map((profile) => {
         const userRole = roles?.find((r) => r.user_id === profile.id);
         return {
           id: profile.id,
@@ -252,10 +252,10 @@ export default function Users() {
 
       // 3. Inserir role em projects_user_roles
       const { error: roleError } = await supabase
-        .from("projects_user_roles")
+        .from("projects_user_roles" as any)
         .insert({
           user_id: newUserId,
-          role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" | "produtos",
+          role: formData.role as any,
         });
 
       if (roleError) throw roleError;
@@ -302,17 +302,17 @@ export default function Users() {
       if (existingRole) {
         // Se já existe um role, atualizar
         const { error } = await supabase
-          .from("projects_user_roles")
-          .update({ role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" | "produtos" })
+          .from("projects_user_roles" as any)
+          .update({ role: formData.role as any })
           .eq("user_id", selectedUserId);
         roleError = error;
       } else {
         // Se não existe, inserir novo
         const { error } = await supabase
-          .from("projects_user_roles")
+          .from("projects_user_roles" as any)
             .insert({
               user_id: selectedUserId,
-              role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" | "produtos",
+              role: formData.role as any,
             });
         roleError = error;
       }
@@ -367,6 +367,14 @@ export default function Users() {
         <Badge className="bg-[#4ADE80]/20 text-[#4ADE80] border-[#4ADE80]/30">
           <ShoppingBag className="w-3 h-3 mr-1" />
           Produtos
+        </Badge>
+      );
+    }
+    if (role === "seguros") {
+      return (
+        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+          <Shield className="w-3 h-3 mr-1" />
+          Seguros
         </Badge>
       );
     }
@@ -654,6 +662,7 @@ export default function Users() {
                     <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
                     <SelectItem value="produtos">Produtos</SelectItem>
+                    <SelectItem value="seguros">Seguros</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>
@@ -774,6 +783,7 @@ export default function Users() {
                     <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
                     <SelectItem value="produtos">Produtos</SelectItem>
+                    <SelectItem value="seguros">Seguros</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>

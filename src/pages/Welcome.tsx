@@ -2,12 +2,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { PageLayout } from "@/components/PageLayout";
-import { 
-  FolderKanban, 
-  BarChart3, 
-  FileSpreadsheet, 
-  MessageSquare, 
-  Users, 
+import {
+  FolderKanban,
+  BarChart3,
+  FileSpreadsheet,
+  MessageSquare,
+  Users,
   RefreshCw,
   LayoutDashboard,
   ShieldCheck,
@@ -31,7 +31,7 @@ export default function Welcome() {
       description: "Acesse dashboards exclusivos de inteligência comercial e produtos.",
       icon: BrainCircuit,
       path: "/dash",
-      roles: ["admin_master", "admin", "marketing", "user", "consorcio", "produtos"],
+      roles: ["admin_master", "admin", "marketing", "user", "consorcio", "produtos", "seguros"],
       color: "text-amber-400",
       bgColor: "bg-amber-400/10",
       borderColor: "border-amber-400/20"
@@ -71,7 +71,7 @@ export default function Welcome() {
       description: "Interaja com nossa inteligência artificial para insights.",
       icon: MessageSquare,
       path: "/chat",
-      roles: ["admin_master", "admin", "user", "consorcio"],
+      roles: ["admin_master", "admin", "user"],
       color: "text-purple-400",
       bgColor: "bg-purple-400/10",
       borderColor: "border-purple-400/20"
@@ -118,7 +118,7 @@ export default function Welcome() {
     }
   ];
 
-  const filteredItems = menuItems.filter(item => 
+  const filteredItems = menuItems.filter(item =>
     item.roles?.includes(userRole || "")
   );
 
@@ -137,7 +137,7 @@ export default function Welcome() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((item, index) => (
-            <Card 
+            <Card
               key={item.path}
               className={cn(
                 "glass-card p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg group animate-slide-up",
@@ -177,19 +177,19 @@ export default function Welcome() {
               Você tem acesso total a todas as configurações do sistema, incluindo gestão de usuários e atualizações críticas.
             </p>
             <div className="flex flex-wrap gap-4">
-              <button 
+              <button
                 onClick={() => navigate("/dashboard-management")}
                 className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all text-sm font-medium"
               >
                 Configurações de Dashboards
               </button>
-              <button 
+              <button
                 onClick={() => navigate("/users")}
                 className="px-4 py-2 rounded-lg bg-indigo-400/10 border border-indigo-400/20 text-indigo-400 hover:bg-indigo-400/20 transition-all text-sm font-medium"
               >
                 Gerenciar Usuários
               </button>
-              <button 
+              <button
                 onClick={() => navigate("/tv-presentations")}
                 className="px-4 py-2 rounded-lg bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 hover:bg-emerald-400/20 transition-all text-sm font-medium"
               >

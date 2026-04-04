@@ -30,7 +30,7 @@ import DashboardHome from "./pages/DashboardHome";
 import ProductsDashboard from "./pages/ProductsDashboard";
 import ManagementDash from "./pages/ManagementDash";
 import MarketingDash from "./pages/MarketingDash";
-
+import AssessorCockpit from "./pages/AssessorCockpit";
 
 const queryClient = new QueryClient();
 
@@ -55,7 +55,7 @@ const App = () => (
             <Route
               path="/"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing", "produtos"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing", "produtos", "seguros"]}>
                   <Welcome />
                 </ProtectedRoute>
               }
@@ -119,7 +119,7 @@ const App = () => (
             <Route
               path="/chat"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
                   <Chat />
                 </ProtectedRoute>
               }
@@ -127,7 +127,7 @@ const App = () => (
             <Route
               path="/powerbi"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master"]}>
                   <PowerBIEmbedPage />
                 </ProtectedRoute>
               }
@@ -159,7 +159,7 @@ const App = () => (
             <Route
               path="/dash"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing", "produtos"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing", "produtos", "seguros"]}>
                   <DashboardHome />
                 </ProtectedRoute>
               }
@@ -167,7 +167,7 @@ const App = () => (
             <Route
               path="/dash/comercial"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
                   <PerformanceDash />
                 </ProtectedRoute>
               }
@@ -175,7 +175,7 @@ const App = () => (
             <Route
               path="/dash/produtos"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "produtos"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "produtos", "seguros"]}>
                   <ProductsDashboard />
                 </ProtectedRoute>
               }
@@ -183,17 +183,24 @@ const App = () => (
             <Route
               path="/dash/marketing"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "marketing"]}>
                   <MarketingDash />
                 </ProtectedRoute>
               }
             />
             <Route
               path="/dash/gerencial"
-
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <ManagementDash />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dash/meu-cockpit"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "produtos"]}>
+                  <AssessorCockpit />
                 </ProtectedRoute>
               }
             />
