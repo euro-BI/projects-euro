@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, User as UserIcon, ArrowLeft, Upload, X, FileSpreadsheet, Search, BarChart3 } from "lucide-react";
+import { Shield, User as UserIcon, ArrowLeft, Upload, X, FileSpreadsheet, Search, BarChart3, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { PageLayout } from "@/components/PageLayout";
@@ -255,7 +255,7 @@ export default function Users() {
         .from("projects_user_roles")
         .insert({
           user_id: newUserId,
-          role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing",
+          role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" | "produtos",
         });
 
       if (roleError) throw roleError;
@@ -303,7 +303,7 @@ export default function Users() {
         // Se já existe um role, atualizar
         const { error } = await supabase
           .from("projects_user_roles")
-          .update({ role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" })
+          .update({ role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" | "produtos" })
           .eq("user_id", selectedUserId);
         roleError = error;
       } else {
@@ -312,7 +312,7 @@ export default function Users() {
           .from("projects_user_roles")
             .insert({
               user_id: selectedUserId,
-              role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing",
+              role: formData.role as "admin_master" | "admin" | "user" | "consorcio" | "marketing" | "produtos",
             });
         roleError = error;
       }
@@ -359,6 +359,14 @@ export default function Users() {
         <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
           <BarChart3 className="w-3 h-3 mr-1" />
           Marketing
+        </Badge>
+      );
+    }
+    if (role === "produtos") {
+      return (
+        <Badge className="bg-[#4ADE80]/20 text-[#4ADE80] border-[#4ADE80]/30">
+          <ShoppingBag className="w-3 h-3 mr-1" />
+          Produtos
         </Badge>
       );
     }
@@ -645,6 +653,7 @@ export default function Users() {
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="produtos">Produtos</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>
@@ -763,6 +772,8 @@ export default function Users() {
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="consorcio">Consórcio</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="produtos">Produtos</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>

@@ -12,6 +12,7 @@ export default function DashboardHome() {
   const { userRole } = useAuth();
   
   const isMarketing = userRole === "marketing";
+  const isProdutosOnly = userRole === "produtos";
   const isAdminOrMaster = userRole === "admin" || userRole === "admin_master";
   const isRegularUser = userRole === "user" || userRole === "consorcio";
 
@@ -31,7 +32,7 @@ export default function DashboardHome() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
           {/* Card Comercial */}
-          {(!isMarketing) && (
+          {(!isMarketing && !isProdutosOnly && userRole !== "consorcio") && (
             <div 
               onClick={() => navigate("/dash/comercial")}
               className="group cursor-pointer"
@@ -61,7 +62,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Gerencial */}
-          {(!isMarketing && !isRegularUser) && (
+          {(!isMarketing && !isRegularUser && !isProdutosOnly) && (
             <div 
               onClick={() => navigate("/dash/gerencial")}
               className="group cursor-pointer"
@@ -121,7 +122,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Marketing */}
-          {(!isRegularUser) && (
+          {(!isRegularUser && !isProdutosOnly) && (
             <div 
               onClick={() => navigate("/dash/marketing")}
               className="group cursor-pointer"

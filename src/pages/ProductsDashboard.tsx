@@ -36,10 +36,16 @@ export default function ProductsDashboard() {
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedAssessorId, setSelectedAssessorId] = useState<string>("all");
   const [isMaximized, setIsMaximized] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("geral");
-
-  const navigate = useNavigate();
   const { userRole, userCode } = useAuth();
+  const navigate = useNavigate();
+  
+  const [activeTab, setActiveTab] = useState<string>(userRole === "consorcio" ? "consorcios" : "geral");
+
+  React.useEffect(() => {
+    if (userRole === "consorcio" && activeTab !== "consorcios") {
+      setActiveTab("consorcios");
+    }
+  }, [userRole, activeTab]);
 
   // Determine effective assessor ID based on role and active tab
   const effectiveAssessorId = useMemo(() => {
@@ -191,7 +197,7 @@ export default function ProductsDashboard() {
     }
   }, [filteredMonths, selectedYear, selectedMonth]);
 
-  const tabs = [
+  const allTabs = [
     { id: "geral", label: "Geral" },
     { id: "renda-fixa", label: "Renda Fixa" },
     { id: "renda-variavel", label: "Renda Variável" },
@@ -199,6 +205,10 @@ export default function ProductsDashboard() {
     { id: "seguros", label: "Seguros" },
     { id: "posicao-black", label: "Posição Black" },
   ];
+
+  const tabs = userRole === "consorcio"
+    ? allTabs.filter(t => t.id === "consorcios")
+    : allTabs;
 
   return (
     <PageLayout className={cn(
