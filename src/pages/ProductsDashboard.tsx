@@ -29,6 +29,8 @@ import { PosicaoBlack } from "@/components/dashboard/PosicaoBlack";
 import RendaVariavelDash from "@/components/dashboard/RendaVariavelDash";
 import RendaFixaDash from "@/components/dashboard/RendaFixaDash";
 import ConsorciosDash from "@/components/dashboard/ConsorciosDash";
+import ProductsGeralDash from "@/components/dashboard/ProductsGeralDash";
+import SegurosDash from "@/components/dashboard/SegurosDash";
 
 export default function ProductsDashboard() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
@@ -314,7 +316,15 @@ export default function ProductsDashboard() {
           {/* TABS CONTENT */}
           {tabs.map((tab) => (
             <TabsContent key={tab.id} value={tab.id} className="mt-0 border-none p-0 outline-none">
-              {tab.id === "posicao-black" ? (
+              {tab.id === "geral" ? (
+                <ProductsGeralDash
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={effectiveAssessorId}
+                  teamPhotos={teamPhotos}
+                />
+              ) : tab.id === "posicao-black" ? (
                 <PosicaoBlack
                   selectedMonth={selectedMonth}
                   selectedTeam={selectedTeam}
@@ -339,6 +349,14 @@ export default function ProductsDashboard() {
                 />
               ) : tab.id === "consorcios" ? (
                 <ConsorciosDash
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={effectiveAssessorId}
+                  teamPhotos={teamPhotos}
+                />
+              ) : tab.id === "seguros" ? (
+                <SegurosDash
                   selectedMonth={selectedMonth}
                   selectedYear={selectedYear}
                   selectedTeam={selectedTeam}
