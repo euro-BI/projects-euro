@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
 import {
   BarChart3,
   TrendingUp,
@@ -21,6 +22,7 @@ import {
   ChevronRight,
   Briefcase,
   Info,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1492,6 +1494,29 @@ export default function RendaVariavelDash({
                   <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse"/> Sem Receita ({kpis.totalAssessors - kpis.engagedAssessors})</span>
                 </div>
               </div>
+              <Button
+                onClick={() => {
+                  const rows = kpis.assessorEngagementList
+                    .sort((a, b) => {
+                      if (a.engaged === b.engaged) return a.nome.localeCompare(b.nome);
+                      return a.engaged ? 1 : -1;
+                    })
+                    .map((assessor) => ({
+                      "Cód. Assessor": assessor.cod_assessor,
+                      "Nome Assessor": assessor.nome,
+                      "Time": assessor.time,
+                      "Receita": assessor.receitas,
+                    }));
+                  const worksheet = XLSX.utils.json_to_sheet(rows);
+                  const workbook = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(workbook, worksheet, "Engajamento");
+                  XLSX.writeFile(workbook, `engajamento_assessores_${selectedMonthKey}.xlsx`);
+                }}
+                className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 hover:border-green-400 font-bold h-10 gap-2 px-4 shadow-lg transition-all"
+              >
+                <Download className="w-4 h-4" />
+                XLSX
+              </Button>
             </div>
           </DialogHeader>
 

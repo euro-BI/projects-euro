@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
 import {
   TrendingUp,
   Landmark,
@@ -19,6 +20,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -3171,18 +3173,45 @@ function RFOpportunitiesTable({
           ))}
         </div>
 
-        <div className="relative w-full md:w-80 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
-          <Input
-            type="text"
-            placeholder="Buscar por cliente ou assessor..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative w-full md:w-80 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
+            <Input
+              type="text"
+              placeholder="Buscar por cliente ou assessor..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
+            />
+          </div>
+          <Button
+            onClick={() => {
+              const rows = filteredData.map((r) => ({
+                "Time": r.time || "",
+                "Cód. Assessor": r.cod_assessor || "",
+                "Assessor": r.assessor_nome || "",
+                "Cód. Cliente": r.cod_cliente || "",
+                "Nome Cliente": r.nome_cliente || "",
+                "Net (M)": r.net_em_m_num || 0,
+                "Últ. Posição": r.data_ultima_posicao || "",
+                "Últ. Operação": r.data_ultima_operacao || "",
+                "Status Geral": r.status_geral || "",
+                "Status Título": r.status_titulo || "",
+                "Status Crédito": r.status_credito || "",
+              }));
+              const worksheet = XLSX.utils.json_to_sheet(rows);
+              const workbook = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(workbook, worksheet, "Oportunidades RF");
+              XLSX.writeFile(workbook, `oportunidades_renda_fixa.xlsx`);
             }}
-            className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
-          />
+            className="bg-euro-gold hover:bg-euro-gold/80 text-euro-navy font-bold h-10 gap-2 px-4 shadow-lg shadow-euro-gold/10"
+          >
+            <Download className="w-4 h-4" />
+            XLSX
+          </Button>
         </div>
       </div>
 
