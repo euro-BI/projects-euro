@@ -46,7 +46,7 @@ import {
   ComposedChart,
   Line,
 } from "recharts";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 // ==========================================================================
@@ -317,6 +317,9 @@ export default function RendaFixaDash({
     ? selectedMonth.substring(0, 7)
     : `${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
+  // Compute proper end-of-month date (e.g. 2026-04-30 instead of invalid 2026-04-31)
+  const selectedMonthEndDate = format(endOfMonth(parseISO(`${selectedMonthKey}-01`)), "yyyy-MM-dd");
+
   // ────────────────────────────────────────────────────────────────────────
   // Query — dados_rf_fluxo (detalhamento renda fixa)
   // ────────────────────────────────────────────────────────────────────────
@@ -335,7 +338,7 @@ export default function RendaFixaDash({
         .from("mv_resumo_assessor" as any)
         .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster")
         .gte("data_posicao", `${selectedMonthKey}-01`)
-        .lte("data_posicao", `${selectedMonthKey}-31`);
+        .lte("data_posicao", selectedMonthEndDate);
 
       if (selectedTeam !== "all") {
         mvQuery = mvQuery.eq("time", selectedTeam);
@@ -356,7 +359,7 @@ export default function RendaFixaDash({
 
       // Fetch rf fluxo data for the selected month
       const startDate = `${selectedMonthKey}-01`;
-      const endDate = `${selectedMonthKey}-31`;
+      const endDate = selectedMonthEndDate;
 
       let rfQuery = supabase
         .from("dados_rf_fluxo" as any)
@@ -418,7 +421,7 @@ export default function RendaFixaDash({
         .from("mv_resumo_assessor" as any)
         .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster")
         .gte("data_posicao", `${selectedMonthKey}-01`)
-        .lte("data_posicao", `${selectedMonthKey}-31`);
+        .lte("data_posicao", selectedMonthEndDate);
 
       if (selectedTeam !== "all") {
         mvQuery = mvQuery.eq("time", selectedTeam);
@@ -527,7 +530,7 @@ export default function RendaFixaDash({
         .from("mv_resumo_assessor" as any)
         .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster")
         .gte("data_posicao", `${selectedMonthKey}-01`)
-        .lte("data_posicao", `${selectedMonthKey}-31`);
+        .lte("data_posicao", selectedMonthEndDate);
 
       if (selectedTeam !== "all") {
         mvQuery = mvQuery.eq("time", selectedTeam);
@@ -638,7 +641,7 @@ export default function RendaFixaDash({
         .from("mv_resumo_assessor" as any)
         .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster")
         .gte("data_posicao", `${selectedMonthKey}-01`)
-        .lte("data_posicao", `${selectedMonthKey}-31`);
+        .lte("data_posicao", selectedMonthEndDate);
 
       if (selectedTeam !== "all") {
         mvQuery = mvQuery.eq("time", selectedTeam);
@@ -658,7 +661,7 @@ export default function RendaFixaDash({
       });
 
       const fetchStart = `${selectedMonthKey}-01`;
-      const fetchEnd = `${selectedMonthKey}-31`;
+      const fetchEnd = selectedMonthEndDate;
 
       let cetipadosQuery = supabase
         .from("dados_cetipados" as any)
@@ -722,7 +725,7 @@ export default function RendaFixaDash({
         .from("mv_resumo_assessor" as any)
         .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster")
         .gte("data_posicao", `${selectedMonthKey}-01`)
-        .lte("data_posicao", `${selectedMonthKey}-31`);
+        .lte("data_posicao", selectedMonthEndDate);
 
       if (selectedTeam !== "all") {
         mvQuery = mvQuery.eq("time", selectedTeam);
@@ -742,7 +745,7 @@ export default function RendaFixaDash({
       });
 
       const fetchStart = `${selectedMonthKey}-01`;
-      const fetchEnd = `${selectedMonthKey}-31`;
+      const fetchEnd = selectedMonthEndDate;
 
       // 1. Fetch operações
       let opQuery = supabase
