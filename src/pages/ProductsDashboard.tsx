@@ -70,17 +70,7 @@ export default function ProductsDashboard() {
 
   const effectiveTeam = selectedTeam;
 
-  // Apply user filter if role is user
-  React.useEffect(() => {
-    if (userRole === "user" && userCode) {
-       if (activeTab !== "ranking") {
-          setSelectedAssessorId(userCode);
-       } else {
-          setSelectedAssessorId("all");
-          setSelectedTeam("all");
-       }
-    }
-  }, [userRole, userCode, activeTab]);
+
 
   // Toggle maximization and handle ESC key
   const toggleMaximize = async () => {
@@ -172,6 +162,31 @@ export default function ProductsDashboard() {
       return { allMonths, years, teams, assessors };
     }
   });
+
+  // Apply user filter if role is user or lider
+  React.useEffect(() => {
+    const role = userRole?.toLowerCase();
+    if (role === "user" && userCode) {
+       if (activeTab !== "ranking") {
+          setSelectedAssessorId(userCode);
+       } else {
+          setSelectedAssessorId("all");
+          setSelectedTeam("all");
+       }
+    } else if (role === "lider" && userCode && filtersData) {
+       const userProfile = filtersData.assessors.find(a => a.id.toLowerCase() === userCode.toLowerCase());
+       const userTeam = userProfile?.teams && userProfile.teams.length > 0 ? userProfile.teams[0] : "all";
+       if (activeTab !== "ranking") {
+          if (selectedTeam !== userTeam) {
+             setSelectedTeam(userTeam);
+          }
+       } else {
+          if (selectedTeam !== "all") {
+             setSelectedTeam("all");
+          }
+       }
+    }
+  }, [userRole, userCode, activeTab, filtersData]);
 
   // Fetch Team Photos
   const { data: teamPhotos } = useQuery({

@@ -74,6 +74,8 @@ export function DashboardFilters({
   const [isOpen, setIsOpen] = React.useState(false);
   const [isAssessorOpen, setIsAssessorOpen] = React.useState(false);
 
+
+
   // Helpers para display
   const getMonthName = (dateStr: string) => {
     if (!dateStr) return "";
@@ -148,8 +150,11 @@ export function DashboardFilters({
                className="h-6 px-2 text-[10px] text-white/40 hover:text-white hover:bg-white/5"
                onClick={(e) => {
                  e.stopPropagation();
-                 setSelectedTeam("all");
-                 if (userRole !== 'user') {
+                 const role = userRole?.toLowerCase();
+                 if (role !== 'user' && role !== 'lider') {
+                   setSelectedTeam("all");
+                 }
+                 if (role !== 'user') {
                     setSelectedAssessorId("all");
                  }
                }}
@@ -205,11 +210,12 @@ export function DashboardFilters({
               value={selectedTeam} 
               onValueChange={(val) => {
                 setSelectedTeam(val);
-                if (userRole !== 'user') {
+                const role = userRole?.toLowerCase();
+                if (role !== 'user' && role !== 'lider') {
                    setSelectedAssessorId("all");
                 }
               }}
-              disabled={userRole === 'user'}
+              disabled={userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
             >
               <SelectTrigger className={cn(
                 "bg-white/5 border-white/10 text-white text-xs h-9 focus:ring-euro-gold/20 disabled:opacity-50 disabled:cursor-not-allowed",
@@ -282,7 +288,7 @@ export function DashboardFilters({
                       {filtersData?.assessors
                         .filter((a) => {
                           if (selectedTeam === "all") return true;
-                          return a.teams.includes(selectedTeam);
+                          return a.teams.some(team => team.toUpperCase() === selectedTeam.toUpperCase());
                         })
                         .sort((a, b) => a.name.localeCompare(b.name))
                         .map((assessor) => (

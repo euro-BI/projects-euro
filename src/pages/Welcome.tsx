@@ -15,7 +15,6 @@ import {
   BrainCircuit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BackgroundVideo } from "@/components/BackgroundVideo";
 
 export default function Welcome() {
   const { userRole } = useAuth();
@@ -31,7 +30,7 @@ export default function Welcome() {
       description: "Acesse dashboards exclusivos de inteligência comercial e produtos.",
       icon: BrainCircuit,
       path: "/dash",
-      roles: ["admin_master", "admin", "marketing", "user", "consorcio", "produtos", "seguros"],
+      roles: ["admin_master", "admin", "marketing", "user", "lider", "consorcio", "produtos", "seguros"],
       color: "text-amber-400",
       bgColor: "bg-amber-400/10",
       borderColor: "border-amber-400/20"
@@ -71,7 +70,7 @@ export default function Welcome() {
       description: "Interaja com nossa inteligência artificial para insights.",
       icon: MessageSquare,
       path: "/chat",
-      roles: ["admin_master", "admin", "user"],
+      roles: ["admin_master", "admin", "user", "lider"],
       color: "text-purple-400",
       bgColor: "bg-purple-400/10",
       borderColor: "border-purple-400/20"
@@ -124,7 +123,6 @@ export default function Welcome() {
 
   return (
     <PageLayout className="relative overflow-hidden bg-transparent">
-      <BackgroundVideo />
       <div className="container mx-auto px-4 py-12 max-w-6xl relative z-10">
         <div className="text-center mb-12 animate-fade-in">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gradient-cyan">

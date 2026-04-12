@@ -115,18 +115,36 @@ export default function AssessorCockpit() {
   const navigate = useNavigate();
   const { userCode, userRole } = useAuth();
   
-  const [selectedAssessorCode, setSelectedAssessorCode] = useState<string>("");
+  const [selectedAssessorCode, setSelectedAssessorCode] = useState<string>("all");
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
 
+  // Initial initialization of assessor code logic (similar to PerformanceDash)
   useEffect(() => {
-    if (userCode && !selectedAssessorCode) {
-      setSelectedAssessorCode(userCode);
+    if (userRole === "user" && userCode) {
+      if (selectedAssessorCode !== userCode) {
+        setSelectedAssessorCode(userCode);
+      }
     }
-  }, [userCode]);
+  }, [userRole, userCode]);
 
-  const effectiveAssessorId = selectedAssessorCode || userCode || "A0000"; 
-  
+  const effectiveAssessorId = selectedAssessorCode;  
   const isAdmin = userRole === "admin" || userRole === "admin_master";
+
+  // Dedicated query to find leader's team, ensuring robustness
+  const { data: leaderTeamData } = useQuery({
+    queryKey: ["leader-team", userCode],
+    enabled: userRole === "lider" && !!userCode,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("time")
+        .eq("cod_assessor", userCode)
+        .order("data_posicao", { ascending: false })
+        .limit(1);
+      
+      return (data && data.length > 0) ? data[0].time : "all";
+    }
+  });
 
   const toggleMaximize = async () => {
     try {
@@ -151,61 +169,65 @@ export default function AssessorCockpit() {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Fetch Available Dates, Teams & Assessors for Filter
+  // Fetch Available Dates, Teams & Assessors for Filter (EXACTLY MATCHING PerformanceDash पैटर्न)
   const { data: filtersData, isLoading: isDatesLoading } = useQuery({
     queryKey: ["dash-cockpit-filters-data"],
     queryFn: async () => {
-      // 1. Fetch dates
-      const { data: datesData } = await supabase
+      // 1. Fetch active teams
+      const { data: activeTeamsData } = await supabase
+        .from("dados_times")
+        .select("time, foto_url")
+        .eq("status", "ATIVO");
+      
+      const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
+      const teamLogoMap = new Map(activeTeamsData?.map(t => [t.time, t.foto_url]) || []);
+
+      // 2. Get latest date to fetch current assessors/teams
+      const { data: latestEntry } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const latestDate = latestEntry?.data_posicao;
+
+      // 3. Fetch labels for filters from the latest month (optimized)
+      const { data: latestData, error } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("time, cod_assessor, nome_assessor")
+        .eq("data_posicao", latestDate);
+      
+      if (error) throw error;
+
+      // 4. Fetch unique months/years
+      const { data: monthData } = await supabase
         .from("mv_resumo_assessor" as any)
         .select("data_posicao")
         .order("data_posicao", { ascending: false });
       
-      const rawMonths = Array.from(new Set(datesData?.map((d: any) => d.data_posicao) || [])) as string[];
-      const allMonths = rawMonths.filter(m => {
-        if (!m) return false;
-        try { return !isNaN(parseISO(m).getTime()); } catch { return false; }
-      });
+      const allMonths = Array.from(new Set(monthData?.map((d: any) => d.data_posicao) || []));
       const years = Array.from(new Set(allMonths.map(m => parseISO(m).getFullYear().toString()))).sort((a, b) => b.localeCompare(a));
-
-      // 2. Fetch Active Profiles and Teams
-      const { data: activeProfiles } = await supabase
-        .from("projects_profiles" as any)
-        .select("codigo")
-        .eq("is_active", true);
-      const activeCodes = ((activeProfiles || []) as any[]).map(p => p.codigo).filter(Boolean);
-
-      const { data: activeTeamsData } = await supabase
-        .from("dados_times" as any)
-        .select("time, foto_url")
-        .eq("status", "ATIVO");
-      const activeTeamNames = new Set((activeTeamsData as any[])?.map(t => t.time) || []);
-      const teamLogoMap = new Map((activeTeamsData as any[])?.map(t => [t.time, t.foto_url]) || []);
-
-      // 3. Fetch Teams & Assessors
-      const { data: profileData } = await supabase
-        .from("mv_resumo_assessor" as any)
-        .select("cod_assessor, nome_assessor, time")
-        .order("nome_assessor", { ascending: true });
-
-      const teams = Array.from(new Set(profileData?.map((p: any) => p.time) || []))
-        .filter(t => t && t !== 'null' && activeTeamNames.has(t) && !BLOCKED_TEAMS.includes(t)) as string[];
       
-      const assessorsMap = new Map();
-      profileData?.forEach((p: any) => {
-        if (!p.cod_assessor || BLOCKED_ASSESSORS.includes(p.cod_assessor) || !activeCodes.includes(p.cod_assessor)) return;
-        if (!p.time || !activeTeamNames.has(p.time)) return; // Exclude assessors from inactive teams
-        
-        if (!assessorsMap.has(p.cod_assessor)) {
-          assessorsMap.set(p.cod_assessor, { id: p.cod_assessor, name: p.nome_assessor, teams: [] });
-        }
-        if (p.time && !assessorsMap.get(p.cod_assessor).teams.includes(p.time)) {
-          assessorsMap.get(p.cod_assessor).teams.push(p.time);
+      const teams = Array.from(new Set(latestData.map((d: any) => d.time)))
+        .filter(teamName => teamName && activeTeamNames.has(teamName) && !BLOCKED_TEAMS.includes(teamName)) as string[];
+      
+      const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
+      latestData.forEach((d: any) => {
+        if (d.cod_assessor && d.nome_assessor && d.time && activeTeamNames.has(d.time)) {
+          if (!assessorMap.has(d.cod_assessor)) {
+            assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });
+          }
+          // Store team name exactly as we'll use it in selectedTeam (prioritizing uppercase for consistency)
+          assessorMap.get(d.cod_assessor)?.teams.add(d.time.toUpperCase());
         }
       });
-      const assessorsList = Array.from(assessorsMap.values()).filter(a => a.name && a.name !== 'null');
+      
+      const assessors = Array.from(assessorMap.entries())
+        .map(([id, info]) => ({ id, name: info.name, teams: Array.from(info.teams) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      // 4. Fetch Reference Date
+      // 5. Fetch Reference Date
       let referenceDateISO = null;
       try {
         const { data: refData } = await (supabase
@@ -215,21 +237,28 @@ export default function AssessorCockpit() {
           .limit(1);
         referenceDateISO = refData?.[0]?.ultima_atualizacao || null;
       } catch (err) {
-        console.warn("Failed to fetch wv_tabelas_atualizacao, using default date.");
+        console.warn("Failed to fetch wv_tabelas_atualizacao");
       }
 
-      return {
-        allMonths,
-        years,
-        teams,
-        assessors: assessorsList,
-        teamLogoMap,
-        referenceDateISO
-      };
+      return { allMonths, years, teams, assessors, teamLogoMap, referenceDateISO };
     }
   });
 
   const globalDates = filtersData;
+
+  // Lider role logic: Sync with leaderTeamData or filtersData
+  useEffect(() => {
+    const role = userRole?.toLowerCase();
+    if (role === "lider" && userCode) {
+      // Look for the team name and ensure it's uppercase to match the standard we just set
+      const foundTeam = leaderTeamData || filtersData?.assessors.find(a => a.id.toLowerCase() === userCode.toLowerCase())?.teams?.[0];
+      const userTeam = foundTeam?.trim().toUpperCase() || "all";
+      
+      if (userTeam !== "ALL" && selectedTeam.toUpperCase() !== userTeam) {
+        setSelectedTeam(userTeam);
+      }
+    }
+  }, [userRole, userCode, filtersData, leaderTeamData, selectedTeam]);
 
   useEffect(() => {
     if (globalDates?.referenceDateISO) {
@@ -650,19 +679,19 @@ export default function AssessorCockpit() {
           
           {/* RIGHT: FILTERS & TOOLS */}
           <div className="flex items-center gap-3 md:flex-1 md:justify-end">
-             <DashboardFilters 
-                selectedYear={selectedYear}
-                setSelectedYear={setSelectedYear}
-                selectedMonth={selectedMonth}
-                setSelectedMonth={setSelectedMonth}
-                selectedTeam={selectedTeam}
-                setSelectedTeam={setSelectedTeam}
-                selectedAssessorId={effectiveAssessorId}
-                setSelectedAssessorId={setSelectedAssessorCode}
-                filtersData={filtersData}
-                filteredMonths={filteredMonths}
-                userRole={userRole}
-             />
+              <DashboardFilters 
+                 selectedYear={selectedYear}
+                 setSelectedYear={setSelectedYear}
+                 selectedMonth={selectedMonth}
+                 setSelectedMonth={setSelectedMonth}
+                 selectedTeam={selectedTeam}
+                 setSelectedTeam={setSelectedTeam}
+                 selectedAssessorId={selectedAssessorCode}
+                 setSelectedAssessorId={setSelectedAssessorCode}
+                 filtersData={filtersData}
+                 filteredMonths={filteredMonths}
+                 userRole={userRole}
+              />
 
             <Button
               variant="outline"

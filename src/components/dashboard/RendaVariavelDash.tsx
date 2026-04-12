@@ -23,11 +23,14 @@ import {
   Briefcase,
   Info,
   Download,
+  Shield,
+  Search,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import {
@@ -272,6 +275,10 @@ export default function RendaVariavelDash({
   // ── Table state ──
   const [rvSortConfig, setRvSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'data_inclusao', direction: 'desc' });
   const [rvPage, setRvPage] = useState(1);
+
+  // ── RV Assessor Summary Table state ──
+  const [rvAssessorSearch, setRvAssessorSearch] = useState("");
+  const [rvAssessorSortConfig, setRvAssessorSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'receita_total_rv', direction: 'desc' });
   const rvItemsPerPage = 10;
 
   const handleRvSort = (key: string) => {
@@ -1152,20 +1159,332 @@ export default function RendaVariavelDash({
         </Card>
       </div>
 
+      {/* ── Tabela: Receita RV por Assessor ── */}
+      {(() => {
+        const formatCurrencyAssessor = (value: number) =>
+          new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value);
+
+        const formattedMonthLabel = selectedMonthKey
+          ? (() => { try { return format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR }); } catch { return ""; } })()
+          : "";
+
+        const handleRvAssessorSort = (key: string) => {
+          setRvAssessorSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+          }));
+        };
+
+        const RvAssessorSortIcon = ({ column }: { column: string }) => {
+          if (rvAssessorSortConfig.key !== column) return <ArrowUpDown className="w-3 h-3 opacity-20 ml-auto" />;
+          return rvAssessorSortConfig.direction === 'asc'
+            ? <ArrowUp className="w-3 h-3 text-euro-navy ml-auto" />
+            : <ArrowDown className="w-3 h-3 text-euro-navy ml-auto" />;
+        };
+
+        // Aggregate by assessor
+        const currentMonthMvLocal = (mvData || []).filter(
+          (d: any) => d.data_posicao && d.data_posicao.substring(0, 7) === selectedMonthKey
+        );
+
+        const assessorMapLocal = new Map<string, any>();
+        currentMonthMvLocal.forEach((d: any) => {
+          if (!d.cod_assessor) return;
+          const existing = assessorMapLocal.get(d.cod_assessor);
+          if (existing) {
+            existing.receita_total_rv += d.receitas_estruturadas || 0;
+            existing.custodia_net += d.custodia_net || 0;
+          } else {
+            assessorMapLocal.set(d.cod_assessor, {
+              cod_assessor: d.cod_assessor,
+              nome_assessor: d.nome_assessor || d.cod_assessor,
+              time: d.time || "",
+              foto_url: d.foto_url || null,
+              lider: d.lider || false,
+              receita_total_rv: d.receitas_estruturadas || 0,
+              custodia_net: d.custodia_net || 0,
+            });
+          }
+        });
+
+        // Count engaged clients per assessor from rvData
+        const engagementByAssessor = new Map<string, number>();
+        (rvData || []).forEach((b: any) => {
+          if (!b.data_inclusao || !b.assessor_do_cliente) return;
+          if (b.data_inclusao.substring(0, 7) !== selectedMonthKey) return;
+          const cod = b.assessor_do_cliente;
+          engagementByAssessor.set(cod, (engagementByAssessor.get(cod) || 0) + 1);
+        });
+
+        const ROA_RV = 0.0035;
+
+        const rvAssessorTableData = Array.from(assessorMapLocal.values())
+          .map((a: any) => {
+            const meta_rv = (a.custodia_net * ROA_RV) / 12;
+            const pct_meta = meta_rv > 0 ? (a.receita_total_rv / meta_rv) * 100 : 0;
+            const clientes_engajados = engagementByAssessor.get(a.cod_assessor) || 0;
+            return { ...a, meta_rv, pct_meta, clientes_engajados };
+          })
+          .filter((a: any) => {
+            if (!rvAssessorSearch) return true;
+            const term = rvAssessorSearch.toLowerCase();
+            return (a.nome_assessor || "").toLowerCase().includes(term) ||
+                   (a.cod_assessor || "").toLowerCase().includes(term);
+          })
+          .sort((a: any, b: any) => {
+            const { key, direction } = rvAssessorSortConfig;
+            let aVal: any = a[key as keyof typeof a];
+            let bVal: any = b[key as keyof typeof b];
+            if (aVal == null) aVal = "";
+            if (bVal == null) bVal = "";
+            if (typeof aVal === 'string') {
+              return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            }
+            return direction === 'asc' ? (aVal > bVal ? 1 : -1) : (bVal > aVal ? 1 : -1);
+          });
+
+        const rvAssessorTotals = rvAssessorTableData.reduce((acc: any, curr: any) => ({
+          receita_total_rv: acc.receita_total_rv + curr.receita_total_rv,
+          meta_rv: acc.meta_rv + curr.meta_rv,
+          clientes_engajados: acc.clientes_engajados + curr.clientes_engajados,
+        }), { receita_total_rv: 0, meta_rv: 0, clientes_engajados: 0 });
+        const rvAssessorPctMetaTotal = rvAssessorTotals.meta_rv > 0 ? (rvAssessorTotals.receita_total_rv / rvAssessorTotals.meta_rv) * 100 : 0;
+
+        const rvAssessorColumns = [
+          { key: "receita_total_rv", label: "Receita Total RV" },
+          { key: "meta_rv", label: "Meta R$" },
+          { key: "pct_meta", label: "% Meta" },
+          { key: "clientes_engajados", label: "Clientes Engajados" },
+        ];
+
+        return (
+          <div className="space-y-6 hidden lg:block">
+            {/* Header + Search + XLSX */}
+            <div className="flex flex-col xl:flex-row items-center justify-between gap-6">
+              <h3 className="text-lg font-data text-euro-gold tracking-widest uppercase flex-shrink-0">
+                Receita Renda Variável por Assessor {formattedMonthLabel ? `(${formattedMonthLabel})` : ""}
+              </h3>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <div className="relative w-full md:w-80 group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar assessor por nome ou código..."
+                    value={rvAssessorSearch}
+                    onChange={(e) => setRvAssessorSearch(e.target.value)}
+                    className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
+                  />
+                </div>
+                <Button
+                  onClick={() => {
+                    const rows = rvAssessorTableData.map((r: any) => ({
+                      "Time": r.time || "",
+                      "Cód. Assessor": r.cod_assessor || "",
+                      "Assessor": r.nome_assessor || "",
+                      "Receita Total RV": r.receita_total_rv || 0,
+                      "Meta R$": r.meta_rv || 0,
+                      "% Meta": r.pct_meta ? `${r.pct_meta.toFixed(0)}%` : "0%",
+                      "Clientes Engajados": r.clientes_engajados || 0,
+                    }));
+                    const worksheet = XLSX.utils.json_to_sheet(rows);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Receita RV Assessor");
+                    XLSX.writeFile(workbook, `receita_rv_assessor_${selectedMonthKey}.xlsx`);
+                  }}
+                  className="bg-euro-gold hover:bg-euro-gold/80 text-euro-navy font-bold h-10 gap-2 px-4 shadow-lg shadow-euro-gold/10"
+                >
+                  <Download className="w-4 h-4" />
+                  XLSX
+                </Button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-b from-euro-gold/5 to-transparent pointer-events-none opacity-20" />
+
+              <div className="overflow-auto custom-scrollbar relative max-h-[650px]">
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 z-30">
+                    <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest border-b border-euro-navy/20">
+                      {/* Time */}
+                      <th
+                        onClick={() => handleRvAssessorSort('time')}
+                        className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] min-w-[80px] max-w-[80px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">Time <RvAssessorSortIcon column="time" /></div>
+                      </th>
+                      {/* Assessor */}
+                      <th
+                        onClick={() => handleRvAssessorSort('nome_assessor')}
+                        className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-[80px] bg-euro-gold z-40 min-w-[220px] cursor-pointer hover:bg-euro-gold/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">Assessor <RvAssessorSortIcon column="nome_assessor" /></div>
+                      </th>
+                      {/* Data Columns */}
+                      {rvAssessorColumns.map((col, i) => (
+                        <th
+                          key={col.key}
+                          onClick={() => handleRvAssessorSort(col.key)}
+                          className={cn(
+                            "py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80 transition-colors",
+                            i < rvAssessorColumns.length - 1 && "border-r border-euro-navy/5"
+                          )}
+                        >
+                          <div className="flex items-center justify-end gap-2">{col.label} <RvAssessorSortIcon column={col.key} /></div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-white/[0.05]">
+                    {rvAssessorTableData.map((item: any) => (
+                      <tr
+                        key={item.cod_assessor}
+                        className="group even:bg-white/[0.02] hover:bg-euro-gold/10 transition-all text-xs font-data"
+                      >
+                        {/* Time */}
+                        <td className="py-3 px-4 border-r border-white/10 sticky left-0 bg-euro-navy group-hover:bg-[#1e2538] z-10 w-[80px] min-w-[80px] max-w-[80px]">
+                          <div className="flex items-center justify-center">
+                            {teamPhotos?.has(item.time.toUpperCase()) ? (
+                              <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden shadow-lg group-hover:border-euro-gold transition-colors bg-black/40 p-1">
+                                <img src={teamPhotos.get(item.time.toUpperCase())} alt={item.time} className="w-full h-full object-contain" />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-euro-elevated flex items-center justify-center text-[10px] text-euro-gold/40 border border-white/5 group-hover:border-euro-gold">
+                                {item.time.substring(0, 3).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        {/* Assessor */}
+                        <td className="py-3 px-4 border-r border-white/10 sticky left-[80px] bg-euro-navy group-hover:bg-[#1e2538] z-10">
+                          <div className="flex items-center gap-3">
+                            <div className="relative flex-shrink-0">
+                              <div className={cn(
+                                "w-10 h-10 rounded-full bg-euro-inset flex items-center justify-center text-xs font-bold text-euro-gold/40 border border-white/10 overflow-hidden group-hover:border-euro-gold transition-colors",
+                                item.lider && "border-euro-gold shadow-[0_0_12px_rgba(250,192,23,0.3)]"
+                              )}>
+                                {item.foto_url ? (
+                                  <img src={item.foto_url} alt={item.nome_assessor} className="w-full h-full object-cover" />
+                                ) : (
+                                  <User className="w-5 h-5 opacity-20" />
+                                )}
+                              </div>
+                              {item.lider && (
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-euro-gold rounded-full flex items-center justify-center shadow-lg">
+                                  <Shield className="w-2 h-2 text-euro-navy" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-white font-bold truncate group-hover:text-euro-gold transition-colors uppercase tracking-tight">
+                                {item.nome_assessor}
+                              </span>
+                              <span className="text-xs text-white/90 font-medium font-mono">{item.cod_assessor}</span>
+                            </div>
+                          </div>
+                        </td>
+                        {/* Receita Total RV */}
+                        <td className="py-3 px-4 text-right border-r border-white/5">
+                          <span className="font-bold text-white">{formatCurrencyAssessor(item.receita_total_rv)}</span>
+                        </td>
+                        {/* Meta */}
+                        <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                          {formatCurrencyAssessor(item.meta_rv)}
+                        </td>
+                        {/* % Meta */}
+                        <td className="py-3 px-4 text-right border-r border-white/5">
+                          <span className={cn(
+                            "font-bold",
+                            item.pct_meta >= 100 ? "text-green-500" : item.pct_meta >= 70 ? "text-euro-gold" : "text-red-500"
+                          )}>
+                            {item.pct_meta.toFixed(0)}%
+                          </span>
+                        </td>
+                        {/* Clientes Engajados */}
+                        <td className="py-3 px-4 text-right text-white">
+                          <span className="font-bold">{item.clientes_engajados}</span>
+                        </td>
+                      </tr>
+                    ))}
+                    {rvAssessorTableData.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-20 text-center opacity-20">
+                          <div className="flex flex-col items-center gap-4">
+                            <Search className="w-10 h-10" />
+                            <p className="text-sm font-data uppercase tracking-widest">Nenhum assessor encontrado</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+
+                  <tfoot className="sticky bottom-0 z-30">
+                    <tr className="bg-black/80 backdrop-blur-md text-xs font-bold font-data border-t-2 border-euro-gold">
+                      <td className="py-4 px-4 text-euro-gold uppercase tracking-widest sticky left-0 bg-black/90 z-40 border-r border-white/10 w-[80px] min-w-[80px] max-w-[80px]">Total</td>
+                      <td className="sticky left-[80px] bg-black/90 z-40 border-r border-white/10"></td>
+                      <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatCurrencyAssessor(rvAssessorTotals.receita_total_rv)}</td>
+                      <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrencyAssessor(rvAssessorTotals.meta_rv)}</td>
+                      <td className="py-4 px-4 text-right bg-black/80 border-r border-white/5">
+                        <span className={cn(
+                          "font-bold",
+                          rvAssessorPctMetaTotal >= 100 ? "text-green-500" : rvAssessorPctMetaTotal >= 70 ? "text-euro-gold" : "text-red-500"
+                        )}>
+                          {rvAssessorPctMetaTotal.toFixed(0)}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right text-white bg-black/80">{rvAssessorTotals.clientes_engajados}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Receitas Estruturadas — Atualizações Recentes ── */}
       <div className="hidden lg:block space-y-4 pt-2">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-euro-gold/20 flex items-center justify-center border border-euro-gold/30">
-            <FileText className="w-5 h-5 text-euro-gold" />
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-euro-gold/20 flex items-center justify-center border border-euro-gold/30">
+              <FileText className="w-5 h-5 text-euro-gold" />
+            </div>
+            <div>
+              <h3 className="text-lg font-data text-euro-gold tracking-widest uppercase">
+                Receitas Estruturadas - Atualizações Recentes
+              </h3>
+              <p className="text-[10px] text-white/30 font-data uppercase tracking-widest">
+                {selectedMonthKey ? format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR }) : ""} • {rvTableRows.length} registros
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-data text-euro-gold tracking-widest uppercase">
-              Receitas Estruturadas - Atualizações Recentes
-            </h3>
-            <p className="text-[10px] text-white/30 font-data uppercase tracking-widest">
-              {selectedMonthKey ? format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR }) : ""} • {rvTableRows.length} registros
-            </p>
-          </div>
+          <Button
+            onClick={() => {
+              const rows = rvTableRows.map((r: any) => ({
+                "Time": r.time || "",
+                "Cód. Assessor": r.assessor_do_cliente || "",
+                "Assessor": r.nome_assessor || "",
+                "Cód. Cliente": r.codigo_cliente || "",
+                "Nome Cliente": r.nome_cliente || "",
+                "Data Inclusão": r.data_inclusao || "",
+                "Vencimento": r.fixing || "",
+                "Ativo": r.ativo || "",
+                "Operação": r.operacao || "",
+                "Estrutura": r.estrutura || "",
+                "Comissão": r.comissao_num || 0,
+              }));
+              const worksheet = XLSX.utils.json_to_sheet(rows);
+              const workbook = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(workbook, worksheet, "Receitas Estruturadas");
+              XLSX.writeFile(workbook, `receitas_estruturadas_${selectedMonthKey}.xlsx`);
+            }}
+            className="bg-euro-gold hover:bg-euro-gold/80 text-euro-navy font-bold h-10 gap-2 px-4 shadow-lg shadow-euro-gold/10"
+          >
+            <Download className="w-4 h-4" />
+            XLSX
+          </Button>
         </div>
 
         <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden relative">

@@ -14,7 +14,7 @@ export default function DashboardHome() {
   const isMarketing = userRole === "marketing";
   const isProdutosOnly = userRole === "produtos";
   const isAdminOrMaster = userRole === "admin" || userRole === "admin_master";
-  const isRegularUser = userRole === "user" || userRole === "consorcio" || userRole === "seguros";
+  const isRegularUser = userRole === "user" || userRole === "lider" || userRole === "consorcio" || userRole === "seguros";
 
   return (
     <PageLayout className="bg-transparent text-[#E8E8E0] font-ui px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative min-h-screen flex flex-col items-center justify-center">

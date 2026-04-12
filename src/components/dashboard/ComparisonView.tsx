@@ -366,7 +366,7 @@ export default function ComparisonView() {
             custodia: totalCustodia / divisor, // Custody is also snapshot-ish, but usually we treat as avg volume maintained? Or just snapshot avg.
             captacao: totalCaptacao / divisor,
             clientes: totalClientesSum / divisor, // This might be slightly off for teams (summing clients across months then dividing), but acceptable proxy for "Average Active Clients"
-            roa: totalCustodia > 0 ? (totalReceita / totalCustodia) * 100 : 0, // Recalculated ROA
+            roa: totalCustodia > 0 ? (totalReceita / totalCustodia) * 12 * 100 : 0, // Recalculated ROA (Annualized)
             pontos: totalPontos / divisor
           },
           products: [

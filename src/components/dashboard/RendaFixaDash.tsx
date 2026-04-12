@@ -1244,6 +1244,87 @@ export default function RendaFixaDash({
               </button>
             ))}
           </div>
+          <Button
+            onClick={() => {
+              const workbook = XLSX.utils.book_new();
+
+              // 1. Renda Fixa sheet
+              const rfRows = (rfFluxoData || []).map((r: any) => ({
+                "Time": r.time || "",
+                "Cód. Assessor": r.cod_assessor || "",
+                "Assessor": r.nome_assessor || "",
+                "Data": r.data || "",
+                "Cód. Conta": r.cod_conta || "",
+                "Indexador": r.indexador || "",
+                "Tipo Operação": r.tipo_operacao || "",
+                "Receita": r.receita || 0,
+              }));
+              XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rfRows.length ? rfRows : [{}]), "Renda Fixa");
+
+              // 2. Ofertas RF sheet
+              const ofertasRfExportRows = (ofertasRfData || []).map((r: any) => ({
+                "Time": r.time || "",
+                "Cód. Assessor": r.cod_assessor || "",
+                "Assessor": r.nome_assessor || "",
+                "Oferta": r.oferta || "",
+                "Série": r.serie != null ? String(r.serie) : "",
+                "Cliente": r.cliente || "",
+                "Data Liq. Prevista": r.data_liquidacao_prevista || "",
+                "Mês Referência": r.data_referencia || "",
+                "Fee (%)": r.fee_num || 0,
+                "Valor Solicitado": r.valor_solicitado_num || 0,
+                "Receita": r.receita || 0,
+              }));
+              XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ofertasRfExportRows.length ? ofertasRfExportRows : [{}]), "Ofertas RF");
+
+              // 3. Ofertas Fundos sheet
+              const ofertasFundosExportRows = (ofertasFundosData || []).map((r: any) => ({
+                "Time": r.time || "",
+                "Cód. Assessor": r.cod_assessor || "",
+                "Assessor": r.nome_assessor || "",
+                "Ativo": r.ativo || "",
+                "Oferta": r.nome_oferta || "",
+                "Cliente": r.cliente || "",
+                "Data Liq.": r.data_liquidacao || "",
+                "Mês Referência": r.data_referencia || "",
+                "Status": r.status_reserva || "",
+                "Fee (%)": r.fee_num || 0,
+                "Valor Reserva": r.valor_qtde_reserva_num || 0,
+                "Receita": r.receita || 0,
+              }));
+              XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ofertasFundosExportRows.length ? ofertasFundosExportRows : [{}]), "Ofertas Fundos");
+
+              // 4. Cetipados sheet
+              const cetipadosExportRows = (cetipadosData || []).map((r: any) => ({
+                "Time": r.time || "",
+                "Cód. Assessor": r.cod_assessor || "",
+                "Assessor": r.nome_assessor || "",
+                "Data": r.data || "",
+                "Fundo": r.fundo || "",
+                "Cliente": r.cliente || "",
+                "Valor": r.valor_num || 0,
+                "Receita": r.receita || 0,
+              }));
+              XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(cetipadosExportRows.length ? cetipadosExportRows : [{}]), "Cetipados");
+
+              // 5. Offshore sheet
+              const offshoreExportRows = (offshoreData || []).map((r: any) => ({
+                "Time": r.time || "",
+                "Cód. Assessor": r.cod_assessor || "",
+                "Assessor": r.nome_assessor || "",
+                "Data": r.data || "",
+                "Tipo Offshore": r.tipo_offshore || "",
+                "Receita": r.receita || 0,
+              }));
+              XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(offshoreExportRows.length ? offshoreExportRows : [{}]), "Offshore");
+
+              XLSX.writeFile(workbook, `detalhamento_renda_fixa_${selectedMonthKey}.xlsx`);
+            }}
+            className="bg-euro-gold hover:bg-euro-gold/80 text-euro-navy font-bold h-10 gap-2 px-4 shadow-lg shadow-euro-gold/10"
+          >
+            <Download className="w-4 h-4" />
+            XLSX
+          </Button>
         </div>
 
         {/* Conditional Detail Tables */}

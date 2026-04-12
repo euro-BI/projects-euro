@@ -195,23 +195,7 @@ export default function PerformanceDash() {
      return selectedTeam;
   }, [selectedTeam]);
 
-  // Apply user filter if role is user
-  React.useEffect(() => {
-    if (userRole === "user" && userCode) {
-      // For Ranking tab, we don't want to filter by assessor ID
-      if (activeTab !== "ranking") {
-        setSelectedAssessorId(userCode);
-      } else {
-        // When entering Ranking, default to showing ALL
-        if (selectedAssessorId === userCode) {
-             setSelectedAssessorId("all");
-        }
-        if (selectedTeam !== "all") {
-             setSelectedTeam("all");
-        }
-      }
-    }
-  }, [userRole, userCode, activeTab]);
+
 
   // Toggle maximization and handle ESC key
   const toggleMaximize = async () => {
@@ -322,6 +306,36 @@ export default function PerformanceDash() {
       return { allMonths, years, teams, assessors, activeAssessorIds };
     }
   });
+
+  React.useEffect(() => {
+    const role = userRole?.toLowerCase();
+    if (role === "user" && userCode) {
+      // For Ranking tab, we don't want to filter by assessor ID
+      if (activeTab !== "ranking") {
+        setSelectedAssessorId(userCode);
+      } else {
+        // When entering Ranking, default to showing ALL
+        if (selectedAssessorId === userCode) {
+             setSelectedAssessorId("all");
+        }
+        if (selectedTeam !== "all") {
+             setSelectedTeam("all");
+        }
+      }
+    } else if (role === "lider" && userCode && filtersData) {
+      const userProfile = filtersData.assessors.find(a => a.id.toLowerCase() === userCode.toLowerCase());
+      const userTeam = userProfile?.teams && userProfile.teams.length > 0 ? userProfile.teams[0] : "all";
+      if (activeTab !== "ranking") {
+        if (selectedTeam !== userTeam) {
+             setSelectedTeam(userTeam);
+        }
+      } else {
+        if (selectedTeam !== "all") {
+             setSelectedTeam("all");
+        }
+      }
+    }
+  }, [userRole, userCode, activeTab, filtersData]);
 
   // Filter months based on selected year
   const filteredMonths = useMemo(() => {

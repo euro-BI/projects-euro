@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
 import { 
   DollarSign, 
   FileText, 
@@ -20,7 +21,8 @@ import {
   Search, 
   ArrowUpDown, 
   ArrowUp, 
-  ArrowDown
+  ArrowDown,
+  Download
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1176,15 +1178,43 @@ export default function ConsorciosDash({
               <FileStack className="w-5 h-5" />
               Detalhamento de Consórcios ({format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR })})
             </h3>
-            <div className="relative w-full md:w-80 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
-              <Input
-                type="text"
-                placeholder="Buscar por assessor, cliente, grupo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
-              />
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="relative w-full md:w-80 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por assessor, cliente, grupo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  const rows = detailTableData.map((r: any) => ({
+                    "Time": r.time || "",
+                    "Cód. Assessor": r.cod_assessor || "",
+                    "Assessor": r.nome_assessor || "",
+                    "Administradora": r.administradora || "",
+                    "Data Venda": r.data_venda || "",
+                    "Cliente": r.cliente || "",
+                    "Contrato": r.contrato || "",
+                    "Grupo/Cota": r.grupo ? `${r.grupo} / ${r.cota || "-"}` : "",
+                    "Produto": r.produto || "",
+                    "Valor Carta": r.valor_carta_num || 0,
+                    "%": r.percentual ? r.percentual.toFixed(2) + "%" : "0%",
+                    "Comissão R$": r.comissao_total_num || 0,
+                  }));
+                  const worksheet = XLSX.utils.json_to_sheet(rows);
+                  const workbook = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(workbook, worksheet, "Consórcios");
+                  XLSX.writeFile(workbook, `detalhamento_consorcios_${selectedMonthKey}.xlsx`);
+                }}
+                className="bg-euro-gold hover:bg-euro-gold/80 text-euro-navy font-bold h-10 gap-2 px-4 shadow-lg shadow-euro-gold/10"
+              >
+                <Download className="w-4 h-4" />
+                XLSX
+              </Button>
             </div>
           </div>
 

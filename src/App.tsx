@@ -55,7 +55,7 @@ const App = () => (
             <Route
               path="/"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing", "produtos", "seguros"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]}>
                   <Welcome />
                 </ProtectedRoute>
               }
@@ -119,7 +119,7 @@ const App = () => (
             <Route
               path="/chat"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider"]}>
                   <Chat />
                 </ProtectedRoute>
               }
@@ -151,7 +151,7 @@ const App = () => (
             <Route
               path="/tv-viewer/:id"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio"]}>
                   <TVPresentationViewer />
                 </ProtectedRoute>
               }
@@ -159,7 +159,7 @@ const App = () => (
             <Route
               path="/dash"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "marketing", "produtos", "seguros"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]}>
                   <DashboardHome />
                 </ProtectedRoute>
               }
@@ -167,7 +167,7 @@ const App = () => (
             <Route
               path="/dash/comercial"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider"]}>
                   <PerformanceDash />
                 </ProtectedRoute>
               }
@@ -175,7 +175,7 @@ const App = () => (
             <Route
               path="/dash/produtos"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio", "produtos", "seguros"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "produtos", "seguros"]}>
                   <ProductsDashboard />
                 </ProtectedRoute>
               }
@@ -199,7 +199,7 @@ const App = () => (
             <Route
               path="/dash/meu-cockpit"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "produtos"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "produtos"]}>
                   <AssessorCockpit />
                 </ProtectedRoute>
               }

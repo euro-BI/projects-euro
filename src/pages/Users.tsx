@@ -378,6 +378,14 @@ export default function Users() {
         </Badge>
       );
     }
+    if (role === "lider") {
+      return (
+        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+          <Shield className="w-3 h-3 mr-1" />
+          Líder
+        </Badge>
+      );
+    }
     return (
       <Badge variant="outline">
         <UserIcon className="w-3 h-3 mr-1" />
@@ -659,6 +667,7 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="lider">Líder</SelectItem>
                     <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
                     <SelectItem value="produtos">Produtos</SelectItem>
@@ -780,6 +789,7 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="lider">Líder</SelectItem>
                     <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
                     <SelectItem value="produtos">Produtos</SelectItem>
