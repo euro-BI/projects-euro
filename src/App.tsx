@@ -31,6 +31,7 @@ import ProductsDashboard from "./pages/ProductsDashboard";
 import ManagementDash from "./pages/ManagementDash";
 import MarketingDash from "./pages/MarketingDash";
 import AssessorCockpit from "./pages/AssessorCockpit";
+import UpdatePassword from "./pages/UpdatePassword";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
           <ReportBugButton />
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route
               path="/"
               element={

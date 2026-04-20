@@ -8,6 +8,7 @@ import { LogIn, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
+import { supabase } from "@/integrations/supabase/client";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -21,6 +22,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // Get the intended destination from location state
   const from = location.state?.from || "/";
@@ -69,6 +71,33 @@ export default function Auth() {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Informe seu email para recuperar a senha");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`,
+      });
+      if (error) {
+        console.error("Supabase error na recuperação:", error);
+        toast.error("Erro ao enviar email de recuperação: " + error.message);
+      } else {
+        toast.success("Email de recuperação enviado! Verifique sua caixa de entrada.");
+        setIsResettingPassword(false);
+      }
+    } catch (error: any) {
+      console.error("Exceção na recuperação:", error);
+      toast.error("Erro inesperado: " + (error?.message || String(error)));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background/20 flex items-center justify-center p-4 relative overflow-hidden">
       <BackgroundVideo />
@@ -89,57 +118,105 @@ export default function Auth() {
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white z-10" />
-              <Input
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="glass pl-10"
-                required
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-2 block">Senha</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white z-10" />
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="glass pl-10"
-                required
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-cyan-sm hover:glow-cyan transition-all"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
-                Entrando...
+        {isResettingPassword ? (
+          <form onSubmit={handleResetPassword} className="space-y-6">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Email para recuperação</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white z-10" />
+                <Input
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="glass pl-10"
+                  required
+                  disabled={isLoading}
+                />
               </div>
-            ) : (
-              <>
-                <LogIn className="w-4 h-4 mr-2" />
-                Entrar
-              </>
-            )}
-          </Button>
-        </form>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-cyan-sm hover:glow-cyan transition-all"
+              disabled={isLoading}
+            >
+              {isLoading ? "Enviando..." : "Enviar Email de Recuperação"}
+            </Button>
+            
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => setIsResettingPassword(false)}
+              disabled={isLoading}
+            >
+              Voltar para o Login
+            </Button>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white z-10" />
+                <Input
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="glass pl-10"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white z-10" />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="glass pl-10"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-cyan-sm hover:glow-cyan transition-all"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin"></div>
+                  Entrando...
+                </div>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Entrar
+                </>
+              )}
+            </Button>
+            
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setIsResettingPassword(true)}
+                className="text-sm text-primary hover:underline"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="mt-6 p-4 rounded-lg bg-muted/20 border border-border">
           <p className="text-xs text-muted-foreground text-center">
