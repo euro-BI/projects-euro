@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { MultiSelect } from "@/components/MultiSelect";
 import {
   Popover,
   PopoverContent,
@@ -49,13 +50,14 @@ interface DashboardFiltersProps {
   setSelectedYear: (year: string) => void;
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
-  selectedTeam: string;
-  setSelectedTeam: (team: string) => void;
-  selectedAssessorId: string;
-  setSelectedAssessorId: (id: string) => void;
+  selectedTeam: any;
+  setSelectedTeam: (team: any) => void;
+  selectedAssessorId: any;
+  setSelectedAssessorId: (id: any) => void;
   filtersData: FilterData | undefined;
   filteredMonths: string[];
   userRole?: string | null;
+  isMultiSelect?: boolean;
 }
 
 export function DashboardFilters({
@@ -70,6 +72,7 @@ export function DashboardFilters({
   filtersData,
   filteredMonths,
   userRole,
+  isMultiSelect,
 }: DashboardFiltersProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isAssessorOpen, setIsAssessorOpen] = React.useState(false);
@@ -92,10 +95,9 @@ export function DashboardFilters({
   };
 
   // Contagem de filtros ativos (diferentes do padrão)
-  const activeFiltersCount = [
-    selectedTeam !== "all",
-    selectedAssessorId !== "all",
-  ].filter(Boolean).length;
+  const activeFiltersCount = isMultiSelect
+    ? [(selectedTeam as string[])?.length > 0, (selectedAssessorId as string[])?.length > 0].filter(Boolean).length
+    : [selectedTeam !== "all", selectedAssessorId !== "all"].filter(Boolean).length;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -119,7 +121,7 @@ export function DashboardFilters({
             <span>•</span>
             <span className="text-white capitalize">{selectedMonth ? format(parseISO(selectedMonth), "MMM", { locale: ptBR }) : "..."}</span>
             
-            {(selectedTeam !== "all" || selectedAssessorId !== "all") && (
+            {(isMultiSelect ? (selectedTeam?.length > 0 || selectedAssessorId?.length > 0) : (selectedTeam !== "all" || selectedAssessorId !== "all")) && (
                <>
                  <span>•</span>
                  <Badge 
@@ -143,7 +145,7 @@ export function DashboardFilters({
              Configuração de Visualização
            </h4>
            
-           {(selectedTeam !== "all" || selectedAssessorId !== "all") && (
+           {(isMultiSelect ? (selectedTeam?.length > 0 || selectedAssessorId?.length > 0) : (selectedTeam !== "all" || selectedAssessorId !== "all")) && (
              <Button 
                variant="ghost" 
                size="sm" 
@@ -152,10 +154,10 @@ export function DashboardFilters({
                  e.stopPropagation();
                  const role = userRole?.toLowerCase();
                  if (role !== 'user' && role !== 'lider') {
-                   setSelectedTeam("all");
+                   setSelectedTeam(isMultiSelect ? [] : "all");
                  }
                  if (role !== 'user') {
-                    setSelectedAssessorId("all");
+                    setSelectedAssessorId(isMultiSelect ? [] : "all");
                  }
                }}
              >
@@ -206,34 +208,55 @@ export function DashboardFilters({
             <label className="text-[10px] font-data text-white/40 uppercase tracking-wider flex items-center gap-1">
               <Users className="w-3 h-3" /> Equipe
             </label>
-            <Select 
-              value={selectedTeam} 
-              onValueChange={(val) => {
-                setSelectedTeam(val);
-                const role = userRole?.toLowerCase();
-                if (role !== 'user' && role !== 'lider') {
-                   setSelectedAssessorId("all");
-                }
-              }}
-              disabled={userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
-            >
-              <SelectTrigger className={cn(
-                "bg-white/5 border-white/10 text-white text-xs h-9 focus:ring-euro-gold/20 disabled:opacity-50 disabled:cursor-not-allowed",
-                selectedTeam !== "all" && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
-              )}>
-                <SelectValue placeholder="Selecione o time" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1A1D24] border-white/10 text-white">
-                <SelectItem value="all" className="text-xs focus:bg-white/5 focus:text-euro-gold cursor-pointer">
-                  Todos os Times
-                </SelectItem>
-                {[...(filtersData?.teams || [])].sort((a, b) => a.localeCompare(b)).map((t) => (
-                  <SelectItem key={t} value={t} className="text-xs focus:bg-white/5 focus:text-euro-gold cursor-pointer">
-                    {t}
+            {isMultiSelect ? (
+              <MultiSelect
+                options={[...(filtersData?.teams || [])].sort((a, b) => a.localeCompare(b)).map(t => ({ label: t, value: t }))}
+                selected={selectedTeam || []}
+                onChange={(val) => {
+                  setSelectedTeam(val);
+                  const role = userRole?.toLowerCase();
+                  if (role !== 'user' && role !== 'lider') {
+                     setSelectedAssessorId([]);
+                  }
+                }}
+                disabled={userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
+                placeholder="Todos os Times"
+                selectAllText="Todos os Times"
+                className={cn(
+                  "bg-white/5 border-white/10 text-white text-xs hover:bg-white/10 font-normal disabled:opacity-50 disabled:cursor-not-allowed",
+                  selectedTeam?.length > 0 && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
+                )}
+              />
+            ) : (
+              <Select 
+                value={selectedTeam} 
+                onValueChange={(val) => {
+                  setSelectedTeam(val);
+                  const role = userRole?.toLowerCase();
+                  if (role !== 'user' && role !== 'lider') {
+                     setSelectedAssessorId("all");
+                  }
+                }}
+                disabled={userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
+              >
+                <SelectTrigger className={cn(
+                  "bg-white/5 border-white/10 text-white text-xs h-9 focus:ring-euro-gold/20 disabled:opacity-50 disabled:cursor-not-allowed",
+                  selectedTeam !== "all" && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
+                )}>
+                  <SelectValue placeholder="Selecione o time" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1A1D24] border-white/10 text-white">
+                  <SelectItem value="all" className="text-xs focus:bg-white/5 focus:text-euro-gold cursor-pointer">
+                    Todos os Times
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  {[...(filtersData?.teams || [])].sort((a, b) => a.localeCompare(b)).map((t) => (
+                    <SelectItem key={t} value={t} className="text-xs focus:bg-white/5 focus:text-euro-gold cursor-pointer">
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* GRUPO DE ASSESSOR */}
@@ -241,80 +264,104 @@ export function DashboardFilters({
             <label className="text-[10px] font-data text-white/40 uppercase tracking-wider flex items-center gap-1">
               <User className="w-3 h-3" /> Assessor Específico
             </label>
-            <Popover open={isAssessorOpen} onOpenChange={setIsAssessorOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={isAssessorOpen}
-                  disabled={userRole === 'user'}
-                  className={cn(
-                    "w-full justify-between bg-white/5 border-white/10 text-white text-xs h-9 hover:bg-white/10 font-normal disabled:opacity-50 disabled:cursor-not-allowed",
-                    selectedAssessorId !== "all" && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
-                  )}
-                >
-                  <span className="truncate">
-                    {selectedAssessorId === "all"
-                      ? "Todos os Assessores"
-                      : filtersData?.assessors.find((a) => a.id === selectedAssessorId)?.name}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[calc(100vw-64px)] sm:w-[300px] p-0 bg-[#1A1D24] border-white/10" align="center" side="bottom">
-                <Command className="bg-transparent text-white">
-                  <CommandInput placeholder="Buscar assessor..." className="h-9 text-xs font-data" />
-                  <CommandList className="custom-scrollbar">
-                    <CommandEmpty className="py-2 text-center text-xs text-white/40">
-                      Nenhum assessor encontrado.
-                    </CommandEmpty>
-                    <CommandGroup className="max-h-[200px] overflow-y-auto">
-                      <CommandItem
-                        value="all"
-                        onSelect={() => {
-                          setSelectedAssessorId("all");
-                          setIsAssessorOpen(false);
-                        }}
-                        className="text-xs aria-selected:bg-white/5 aria-selected:text-euro-gold cursor-pointer"
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-3 w-3",
-                            selectedAssessorId === "all" ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        Todos os Assessores
-                      </CommandItem>
-                      {filtersData?.assessors
-                        .filter((a) => {
-                          if (selectedTeam === "all") return true;
-                          return a.teams.some(team => team.toUpperCase() === selectedTeam.toUpperCase());
-                        })
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((assessor) => (
-                          <CommandItem
-                            key={assessor.id}
-                            value={assessor.name}
-                            onSelect={() => {
-                              setSelectedAssessorId(assessor.id);
-                              setIsAssessorOpen(false);
-                            }}
-                            className="text-xs aria-selected:bg-white/5 aria-selected:text-euro-gold cursor-pointer"
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-3 w-3",
-                                selectedAssessorId === assessor.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {assessor.name}
-                          </CommandItem>
-                        ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            {isMultiSelect ? (
+              <MultiSelect
+                options={filtersData?.assessors
+                  .filter((a) => {
+                    if (!selectedTeam || selectedTeam.length === 0) return true;
+                    const uppercaseSelectedTeams = selectedTeam.map((t: string) => t.toUpperCase());
+                    return a.teams.some(team => uppercaseSelectedTeams.includes(team.toUpperCase()));
+                  })
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(a => ({ label: a.name, value: a.id })) || []}
+                selected={selectedAssessorId || []}
+                onChange={(val) => {
+                  setSelectedAssessorId(val);
+                }}
+                disabled={userRole === 'user'}
+                placeholder="Todos os Assessores"
+                selectAllText="Todos os Assessores"
+                className={cn(
+                  "bg-white/5 border-white/10 text-white text-xs hover:bg-white/10 font-normal disabled:opacity-50 disabled:cursor-not-allowed",
+                  selectedAssessorId?.length > 0 && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
+                )}
+              />
+            ) : (
+              <Popover open={isAssessorOpen} onOpenChange={setIsAssessorOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={isAssessorOpen}
+                    disabled={userRole === 'user'}
+                    className={cn(
+                      "w-full justify-between bg-white/5 border-white/10 text-white text-xs h-9 hover:bg-white/10 font-normal disabled:opacity-50 disabled:cursor-not-allowed",
+                      selectedAssessorId !== "all" && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"
+                    )}
+                  >
+                    <span className="truncate">
+                      {selectedAssessorId === "all"
+                        ? "Todos os Assessores"
+                        : filtersData?.assessors.find((a) => a.id === selectedAssessorId)?.name}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[calc(100vw-64px)] sm:w-[300px] p-0 bg-[#1A1D24] border-white/10" align="center" side="bottom">
+                  <Command className="bg-transparent text-white">
+                    <CommandInput placeholder="Buscar assessor..." className="h-9 text-xs font-data" />
+                    <CommandList className="custom-scrollbar">
+                      <CommandEmpty className="py-2 text-center text-xs text-white/40">
+                        Nenhum assessor encontrado.
+                      </CommandEmpty>
+                      <CommandGroup className="max-h-[200px] overflow-y-auto">
+                        <CommandItem
+                          value="all"
+                          onSelect={() => {
+                            setSelectedAssessorId("all");
+                            setIsAssessorOpen(false);
+                          }}
+                          className="text-xs aria-selected:bg-white/5 aria-selected:text-euro-gold cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-3 w-3",
+                              selectedAssessorId === "all" ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          Todos os Assessores
+                        </CommandItem>
+                        {filtersData?.assessors
+                          .filter((a) => {
+                            if (selectedTeam === "all") return true;
+                            return a.teams.some(team => team.toUpperCase() === selectedTeam.toUpperCase());
+                          })
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((assessor) => (
+                            <CommandItem
+                              key={assessor.id}
+                              value={assessor.name}
+                              onSelect={() => {
+                                setSelectedAssessorId(assessor.id);
+                                setIsAssessorOpen(false);
+                              }}
+                              className="text-xs aria-selected:bg-white/5 aria-selected:text-euro-gold cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-3 w-3",
+                                  selectedAssessorId === assessor.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {assessor.name}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         </div>
         

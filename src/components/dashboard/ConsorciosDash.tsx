@@ -55,8 +55,8 @@ import { ChevronDown } from "lucide-react";
 interface ConsorciosDashProps {
   selectedMonth: string;
   selectedYear: string;
-  selectedTeam: string;
-  selectedAssessorId: string;
+  selectedTeam: string[];
+  selectedAssessorId: string[];
   teamPhotos?: Map<string, string>;
 }
 
@@ -431,7 +431,7 @@ export default function ConsorciosDash({
       const assessor = activeAssessorsData.get(cod);
 
       if (selectedTeam !== "all" && assessor?.time !== selectedTeam) return false;
-      if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return false;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
       
       // Filter out cancelled ones
       if (c.data_cancelamento) return false;
@@ -445,7 +445,7 @@ export default function ConsorciosDash({
       const assessor = activeAssessorsData.get(cod);
 
       if (selectedTeam !== "all" && assessor?.time !== selectedTeam) return false;
-      if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return false;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
       
       // Calculate active custody to use for meta
       if (assessor && assessor.custodia_net && c.data_cancelamento === null) {
@@ -459,7 +459,7 @@ export default function ConsorciosDash({
     // that match the current filters
     activeAssessorsData.forEach((assessor, cod) => {
       if (selectedTeam !== "all" && assessor.time !== selectedTeam) return;
-      if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
       
       if (assessor && assessor.custodia_net) {
         totalCustody += Number(assessor.custodia_net);
@@ -530,7 +530,7 @@ export default function ConsorciosDash({
     mvDataAno.forEach((mv: any) => {
       const cod = (mv.cod_assessor || "").trim().toUpperCase();
       if (selectedTeam !== "all" && mv.time !== selectedTeam) return;
-      if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
 
       const mKey = mv.data_posicao?.substring(0, 7);
       if (mKey && mv.custodia_net && mKey.startsWith(selectedYear)) {
@@ -549,7 +549,7 @@ export default function ConsorciosDash({
       const ptInfo = activeAssessorsData?.get(cod);
       
       if (selectedTeam !== "all" && ptInfo?.time !== selectedTeam) return;
-      if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
 
       const mKey = curr.data_vencimento?.substring(0, 7);
       if (mKey && grouped[mKey]) {
@@ -565,7 +565,7 @@ export default function ConsorciosDash({
         const ptInfo = activeAssessorsData?.get(cod);
         
         if (selectedTeam !== "all" && ptInfo?.time !== selectedTeam) return;
-        if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
   
         const mKey = curr.data_venda?.substring(0, 7);
         if (mKey && grouped[mKey]) {
@@ -630,7 +630,7 @@ export default function ConsorciosDash({
        const cod = (curr.cod_assessor || "").trim().toUpperCase();
        const ptInfo = activeAssessorsData?.get(cod);
        if (selectedTeam !== "all" && ptInfo?.time !== selectedTeam) return acc;
-       if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return acc;
+       if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return acc;
        
        const adm = curr.administradora || "NÃO INFORMADA";
        if (!acc[adm]) acc[adm] = new Set();
@@ -703,7 +703,7 @@ export default function ConsorciosDash({
       
       // 2. Filter by Team and Assessor
       if (selectedTeam !== "all" && assessor?.time !== selectedTeam) return false;
-      if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return false;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
       
       return true;
     }).map((item: any) => {

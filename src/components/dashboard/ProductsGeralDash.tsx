@@ -41,8 +41,8 @@ import {
 interface ProductsGeralDashProps {
   selectedMonth: string;
   selectedYear: string;
-  selectedTeam: string;
-  selectedAssessorId: string;
+  selectedTeam: string[];
+  selectedAssessorId: string[];
   teamPhotos?: Map<string, string>;
 }
 
@@ -488,13 +488,13 @@ export default function ProductsGeralDash({
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
 
-      if (selectedTeam !== "all") {
-        q = q.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        q = q.in("time", selectedTeam);
       } else {
         q = q.in("time", Array.from(activeTeamNames));
       }
-      if (selectedAssessorId !== "all") {
-        q = q.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        q = q.in("cod_assessor", selectedAssessorId);
       }
 
       const { data, error } = await q.order("data_posicao", { ascending: true });
@@ -523,8 +523,8 @@ export default function ProductsGeralDash({
         .select("cod_assessor, time, custodia_net")
         .eq("data_posicao", latestDate);
 
-      if (selectedTeam !== "all") q2 = q2.eq("time", selectedTeam);
-      if (selectedAssessorId !== "all") q2 = q2.eq("cod_assessor", selectedAssessorId);
+      if (selectedTeam.length > 0) q2 = q2.in("time", selectedTeam);
+      if (selectedAssessorId.length > 0) q2 = q2.in("cod_assessor", selectedAssessorId);
 
       const { data: assessorRows } = await q2;
       const assessorMap = new Map<string, { time: string; custody: number }>();
@@ -548,8 +548,8 @@ export default function ProductsGeralDash({
         const cod = (r.cod_assessor || "").trim().toUpperCase();
         const info = assessorMap.get(cod);
         if (!info) return false;
-        if (selectedTeam !== "all" && info.time !== selectedTeam) return false;
-        if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return false;
+        if (selectedTeam.length > 0 && !selectedTeam.includes(info.time)) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
         return true;
       });
 
@@ -577,8 +577,8 @@ export default function ProductsGeralDash({
         .from("mv_resumo_assessor" as any)
         .select("cod_assessor, time")
         .eq("data_posicao", latestDate);
-      if (selectedTeam !== "all") q3 = q3.eq("time", selectedTeam);
-      if (selectedAssessorId !== "all") q3 = q3.eq("cod_assessor", selectedAssessorId);
+      if (selectedTeam.length > 0) q3 = q3.in("time", selectedTeam);
+      if (selectedAssessorId.length > 0) q3 = q3.in("cod_assessor", selectedAssessorId);
       const { data: aRows } = await q3;
 
       const aMap = new Map<string, string>();
@@ -601,8 +601,8 @@ export default function ProductsGeralDash({
         const cod = normalizeA(r.assessor || "");
         const time = aMap.get(cod);
         if (aMap.size > 0 && time === undefined) return false;
-        if (selectedTeam !== "all" && time !== selectedTeam) return false;
-        if (selectedAssessorId !== "all" && cod !== selectedAssessorId.toUpperCase()) return false;
+        if (selectedTeam.length > 0 && !selectedTeam.includes(time)) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
         return true;
       });
     },

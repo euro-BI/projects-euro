@@ -32,6 +32,7 @@ interface MultiSelectProps {
   placeholder?: string;
   disabled?: boolean;
   showCountOnly?: boolean;
+  selectAllText?: string;
 }
 
 export function MultiSelect({
@@ -42,6 +43,7 @@ export function MultiSelect({
   placeholder = "Selecione...",
   disabled = false,
   showCountOnly = false,
+  selectAllText = "Todos",
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState("");
@@ -79,7 +81,7 @@ export function MultiSelect({
             {selected.length > 0 ? (
               <span className="text-sm truncate">
                 {selected.length === options.length 
-                  ? "Todos os Meses" 
+                  ? selectAllText 
                   : selected.length === 1 
                     ? options.find(o => o.value === selected[0])?.label 
                     : `${selected.length} selecionados`}

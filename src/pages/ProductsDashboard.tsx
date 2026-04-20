@@ -35,8 +35,8 @@ import SegurosDash from "@/components/dashboard/SegurosDash";
 export default function ProductsDashboard() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedTeam, setSelectedTeam] = useState<string>("all");
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string>("all");
+  const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
+  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>([]);
   const [isMaximized, setIsMaximized] = useState(false);
   const { userRole, userCode } = useAuth();
   const navigate = useNavigate();
@@ -63,7 +63,7 @@ export default function ProductsDashboard() {
       if (activeTab === "ranking") {
         return selectedAssessorId;
       }
-      return userCode;
+      return [userCode];
     }
     return selectedAssessorId;
   }, [userRole, userCode, activeTab, selectedAssessorId]);
@@ -168,21 +168,21 @@ export default function ProductsDashboard() {
     const role = userRole?.toLowerCase();
     if (role === "user" && userCode) {
        if (activeTab !== "ranking") {
-          setSelectedAssessorId(userCode);
+          setSelectedAssessorId([userCode]);
        } else {
-          setSelectedAssessorId("all");
-          setSelectedTeam("all");
+          if (selectedAssessorId.length > 0 && selectedAssessorId[0] === userCode) setSelectedAssessorId([]);
+          if (selectedTeam.length > 0) setSelectedTeam([]);
        }
     } else if (role === "lider" && userCode && filtersData) {
        const userProfile = filtersData.assessors.find(a => a.id.toLowerCase() === userCode.toLowerCase());
-       const userTeam = userProfile?.teams && userProfile.teams.length > 0 ? userProfile.teams[0] : "all";
+       const userTeam = userProfile?.teams && userProfile.teams.length > 0 ? userProfile.teams[0] : null;
        if (activeTab !== "ranking") {
-          if (selectedTeam !== userTeam) {
-             setSelectedTeam(userTeam);
+          if (userTeam && !selectedTeam.includes(userTeam)) {
+             setSelectedTeam([userTeam]);
           }
        } else {
-          if (selectedTeam !== "all") {
-             setSelectedTeam("all");
+          if (selectedTeam.length > 0) {
+             setSelectedTeam([]);
           }
        }
     }
@@ -332,6 +332,7 @@ export default function ProductsDashboard() {
                   filtersData={filtersData}
                   filteredMonths={filteredMonths}
                   userRole={activeTab === "ranking" ? "admin" : userRole}
+                  isMultiSelect={true}
                 />
               </div>
             </div>

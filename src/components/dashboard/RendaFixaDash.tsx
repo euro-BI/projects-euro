@@ -56,8 +56,8 @@ import { ptBR } from "date-fns/locale";
 interface RendaFixaDashProps {
   selectedMonth: string;
   selectedYear: string;
-  selectedTeam: string;
-  selectedAssessorId: string;
+  selectedTeam: string[];
+  selectedAssessorId: string[];
   teamPhotos?: Map<string, string>;
 }
 
@@ -297,14 +297,14 @@ export default function RendaFixaDash({
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
 
-      if (selectedTeam !== "all") {
-        query = query.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        query = query.in("time", selectedTeam);
       } else {
         query = query.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        query = query.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        query = query.in("cod_assessor", selectedAssessorId);
       }
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
@@ -340,13 +340,13 @@ export default function RendaFixaDash({
         .gte("data_posicao", `${selectedMonthKey}-01`)
         .lte("data_posicao", selectedMonthEndDate);
 
-      if (selectedTeam !== "all") {
-        mvQuery = mvQuery.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        mvQuery = mvQuery.in("time", selectedTeam);
       } else {
         mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
-      if (selectedAssessorId !== "all") {
-        mvQuery = mvQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
       }
 
       const { data: mvRows } = await mvQuery;
@@ -367,8 +367,8 @@ export default function RendaFixaDash({
         .gte("data", startDate)
         .lte("data", endDate);
 
-      if (selectedAssessorId !== "all") {
-        rfQuery = rfQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        rfQuery = rfQuery.in("cod_assessor", selectedAssessorId);
       }
 
       const { data: rfRows, error } = await rfQuery;
@@ -423,13 +423,13 @@ export default function RendaFixaDash({
         .gte("data_posicao", `${selectedMonthKey}-01`)
         .lte("data_posicao", selectedMonthEndDate);
 
-      if (selectedTeam !== "all") {
-        mvQuery = mvQuery.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        mvQuery = mvQuery.in("time", selectedTeam);
       } else {
         mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
-      if (selectedAssessorId !== "all") {
-        mvQuery = mvQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
       }
 
       const { data: mvRows } = await mvQuery;
@@ -457,7 +457,7 @@ export default function RendaFixaDash({
         .gte("data_liquidacao_prevista", fetchStart)
         .lte("data_liquidacao_prevista", fetchEnd);
 
-      if (selectedAssessorId !== "all") {
+      if (selectedAssessorId.length > 0) {
         ofertasQuery = ofertasQuery.eq("codigo_aai", selectedAssessorId);
       }
 
@@ -532,13 +532,13 @@ export default function RendaFixaDash({
         .gte("data_posicao", `${selectedMonthKey}-01`)
         .lte("data_posicao", selectedMonthEndDate);
 
-      if (selectedTeam !== "all") {
-        mvQuery = mvQuery.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        mvQuery = mvQuery.in("time", selectedTeam);
       } else {
         mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
-      if (selectedAssessorId !== "all") {
-        mvQuery = mvQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
       }
 
       const { data: mvRows } = await mvQuery;
@@ -643,13 +643,13 @@ export default function RendaFixaDash({
         .gte("data_posicao", `${selectedMonthKey}-01`)
         .lte("data_posicao", selectedMonthEndDate);
 
-      if (selectedTeam !== "all") {
-        mvQuery = mvQuery.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        mvQuery = mvQuery.in("time", selectedTeam);
       } else {
         mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
-      if (selectedAssessorId !== "all") {
-        mvQuery = mvQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
       }
 
       const { data: mvRows } = await mvQuery;
@@ -727,13 +727,13 @@ export default function RendaFixaDash({
         .gte("data_posicao", `${selectedMonthKey}-01`)
         .lte("data_posicao", selectedMonthEndDate);
 
-      if (selectedTeam !== "all") {
-        mvQuery = mvQuery.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        mvQuery = mvQuery.in("time", selectedTeam);
       } else {
         mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
-      if (selectedAssessorId !== "all") {
-        mvQuery = mvQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
       }
 
       const { data: mvRows } = await mvQuery;
@@ -753,8 +753,8 @@ export default function RendaFixaDash({
         .select("date, cod_assessor, cod_conta_brasil, valor_receita_usd")
         .gte("date", fetchStart)
         .lte("date", fetchEnd);
-      if (selectedAssessorId !== "all") {
-        opQuery = opQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        opQuery = opQuery.in("cod_assessor", selectedAssessorId);
       }
       const { data: opRows } = await opQuery;
 
@@ -764,8 +764,8 @@ export default function RendaFixaDash({
         .select("date, cod_assessor, valor_ordem_remessa_rs, taxa_percentual_spread")
         .gte("date", fetchStart)
         .lte("date", fetchEnd);
-      if (selectedAssessorId !== "all") {
-        remQuery = remQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        remQuery = remQuery.in("cod_assessor", selectedAssessorId);
       }
       const { data: remRows } = await remQuery;
 
@@ -860,13 +860,13 @@ export default function RendaFixaDash({
         .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster");
       if (latestDate) mvQuery = mvQuery.eq("data_posicao", latestDate);
 
-      if (selectedTeam !== "all") {
-        mvQuery = mvQuery.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        mvQuery = mvQuery.in("time", selectedTeam);
       } else {
         mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
-      if (selectedAssessorId !== "all") {
-        mvQuery = mvQuery.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
       }
 
       const { data: mvRows } = await mvQuery;

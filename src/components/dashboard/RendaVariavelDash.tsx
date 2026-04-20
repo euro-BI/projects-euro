@@ -105,8 +105,8 @@ interface DadosRvExecutada {
 interface RendaVariavelDashProps {
   selectedMonth: string;
   selectedYear: string;
-  selectedTeam: string;
-  selectedAssessorId: string;
+  selectedTeam: string[];
+  selectedAssessorId: string[];
   teamPhotos?: Map<string, string>;
 }
 
@@ -337,7 +337,7 @@ export default function RendaVariavelDash({
         .gte("data_inclusao", startDate)
         .lte("data_inclusao", endDate);
 
-      if (selectedAssessorId !== "all") {
+      if (selectedAssessorId.length > 0) {
         query = query.eq("assessor_do_cliente", selectedAssessorId);
       }
 
@@ -369,14 +369,14 @@ export default function RendaVariavelDash({
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
 
-      if (selectedTeam !== "all") {
-        query = query.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) {
+        query = query.in("time", selectedTeam);
       } else {
         query = query.in("time", Array.from(activeTeamNames));
       }
 
-      if (selectedAssessorId !== "all") {
-        query = query.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) {
+        query = query.in("cod_assessor", selectedAssessorId);
       }
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
@@ -521,7 +521,7 @@ export default function RendaVariavelDash({
       const matchMonth = monthKey === selectedMonthKey;
       if (!matchMonth) return false;
       // Filter by team — we need to check the assessor's team
-      if (selectedTeam !== "all") {
+      if (selectedTeam.length > 0) {
         const assessorMv = currentMonthMv.find((m) => m.cod_assessor === d.assessor_do_cliente);
         if (!assessorMv || assessorMv.time !== selectedTeam) return false;
       }
@@ -541,7 +541,7 @@ export default function RendaVariavelDash({
     if (oppsData && activeAssessors) {
       const filteredOpps = oppsData.filter((op: any) => {
         if (!activeAssessors.has(op.cod_assessor)) return false;
-        if (selectedTeam !== "all") {
+        if (selectedTeam.length > 0) {
           const assessorMv = currentMonthMv.find((m) => m.cod_assessor === op.cod_assessor);
           if (!assessorMv || assessorMv.time !== selectedTeam) return false;
         }
@@ -559,7 +559,7 @@ export default function RendaVariavelDash({
         const inWeek = isWithinInterval(fixingDate, { start: currentWeekStart, end: currentWeekEnd });
         if (!inWeek) return false;
         if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return false;
-        if (selectedTeam !== "all") {
+        if (selectedTeam.length > 0) {
           const assessorMv = (mvData || []).find((m: any) => m.cod_assessor === d.assessor_do_cliente);
           if (!assessorMv || assessorMv.time !== selectedTeam) return false;
         }
@@ -575,7 +575,7 @@ export default function RendaVariavelDash({
         const inWeek = isWithinInterval(fixingDate, { start: previousWeekStart, end: previousWeekEnd });
         if (!inWeek) return false;
         if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return false;
-        if (selectedTeam !== "all") {
+        if (selectedTeam.length > 0) {
           const assessorMv = (mvData || []).find((m: any) => m.cod_assessor === d.assessor_do_cliente);
           if (!assessorMv || assessorMv.time !== selectedTeam) return false;
         }
@@ -649,7 +649,7 @@ export default function RendaVariavelDash({
 
     oppsData.forEach((op: any) => {
       if (!activeAssessors.has(op.cod_assessor)) return;
-      if (selectedTeam !== "all") {
+      if (selectedTeam.length > 0) {
         const assessorMv = currentMonthMv.find((m) => m.cod_assessor === op.cod_assessor);
         if (!assessorMv || assessorMv.time !== selectedTeam) return;
       }
@@ -705,7 +705,7 @@ export default function RendaVariavelDash({
     rvFixingData.forEach((d) => {
       if (!d.fixing) return;
       if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return;
-      if (selectedTeam !== "all") {
+      if (selectedTeam.length > 0) {
         const assessorMv = (mvData || []).find((m) => m.cod_assessor === d.assessor_do_cliente);
         if (!assessorMv || assessorMv.time !== selectedTeam) return;
       }
@@ -751,7 +751,7 @@ export default function RendaVariavelDash({
       if (!d.data_inclusao) return false;
       if (d.data_inclusao.substring(0, 7) !== selectedMonthKey) return false;
       if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return false;
-      if (selectedTeam !== "all") {
+      if (selectedTeam.length > 0) {
         const assessorMv = (mvData || []).find((m: any) => m.cod_assessor === d.assessor_do_cliente);
         if (!assessorMv || assessorMv.time !== selectedTeam) return false;
       }

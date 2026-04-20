@@ -32,8 +32,8 @@ import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 export default function ManagementDash() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedTeam, setSelectedTeam] = useState<string>("all");
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string>("all");
+  const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
+  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>([]);
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("cockpit");
   
@@ -139,10 +139,10 @@ export default function ManagementDash() {
         .select("*")
         .eq("data_posicao", selectedMonth);
       
-      if (selectedTeam !== "all") query = query.eq("time", selectedTeam);
+      if (selectedTeam.length > 0) query = query.in("time", selectedTeam);
       else query = query.in("time", Array.from(activeTeamNames));
 
-      if (selectedAssessorId !== "all") query = query.eq("cod_assessor", selectedAssessorId);
+      if (selectedAssessorId.length > 0) query = query.in("cod_assessor", selectedAssessorId);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -162,8 +162,8 @@ export default function ManagementDash() {
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
       
-      if (selectedTeam !== "all") query = query.eq("time", selectedTeam);
-      if (selectedAssessorId !== "all") query = query.eq("cod_assessor", selectedAssessorId);
+      if (selectedTeam.length > 0) query = query.in("time", selectedTeam);
+      if (selectedAssessorId.length > 0) query = query.in("cod_assessor", selectedAssessorId);
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
       if (error) throw error;
@@ -269,6 +269,7 @@ export default function ManagementDash() {
                   filtersData={filtersData}
                   filteredMonths={filteredMonths}
                   userRole={userRole}
+                  isMultiSelect={true}
                 />
               </div>
             </div>

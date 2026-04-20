@@ -141,8 +141,8 @@ const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 export default function PerformanceDash() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedTeam, setSelectedTeam] = useState<string>("all");
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string>("all");
+  const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
+  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>([]);
   const [isAssessorPopoverOpen, setIsAssessorPopoverOpen] = useState(false);
   const [selectedAssessor, setSelectedAssessor] = useState<AssessorResumo | null>(null);
   const [selectedAssessorRank, setSelectedAssessorRank] = useState<number | undefined>(undefined);
@@ -185,7 +185,7 @@ export default function PerformanceDash() {
         return selectedAssessorId;
       }
       // In other tabs, FORCE user code
-      return userCode;
+      return [userCode];
     }
     return selectedAssessorId;
   }, [userRole, userCode, activeTab, selectedAssessorId]);
@@ -312,26 +312,26 @@ export default function PerformanceDash() {
     if (role === "user" && userCode) {
       // For Ranking tab, we don't want to filter by assessor ID
       if (activeTab !== "ranking") {
-        setSelectedAssessorId(userCode);
+        setSelectedAssessorId([userCode]);
       } else {
         // When entering Ranking, default to showing ALL
-        if (selectedAssessorId === userCode) {
-             setSelectedAssessorId("all");
+        if (selectedAssessorId.length > 0 && selectedAssessorId[0] === userCode) {
+             setSelectedAssessorId([]);
         }
-        if (selectedTeam !== "all") {
-             setSelectedTeam("all");
+        if (selectedTeam.length > 0) {
+             setSelectedTeam([]);
         }
       }
     } else if (role === "lider" && userCode && filtersData) {
       const userProfile = filtersData.assessors.find(a => a.id.toLowerCase() === userCode.toLowerCase());
-      const userTeam = userProfile?.teams && userProfile.teams.length > 0 ? userProfile.teams[0] : "all";
+      const userTeam = userProfile?.teams && userProfile.teams.length > 0 ? userProfile.teams[0] : null;
       if (activeTab !== "ranking") {
-        if (selectedTeam !== userTeam) {
-             setSelectedTeam(userTeam);
+        if (userTeam && !selectedTeam.includes(userTeam)) {
+             setSelectedTeam([userTeam]);
         }
       } else {
-        if (selectedTeam !== "all") {
-             setSelectedTeam("all");
+        if (selectedTeam.length > 0) {
+             setSelectedTeam([]);
         }
       }
     }
@@ -364,12 +364,12 @@ export default function PerformanceDash() {
         .select("*")
         .eq("data_posicao", selectedMonth);
       
-      if (effectiveTeam !== "all") {
-        query = query.eq("time", effectiveTeam);
+      if (effectiveTeam.length > 0) {
+        query = query.in("time", effectiveTeam);
       }
 
-      if (effectiveAssessorId !== "all") {
-        query = query.eq("cod_assessor", effectiveAssessorId);
+      if (effectiveAssessorId.length > 0) {
+        query = query.in("cod_assessor", effectiveAssessorId);
       }
 
       const { data, error } = await query.order("pontos_totais_acumulado", { ascending: false });
@@ -387,12 +387,12 @@ export default function PerformanceDash() {
         .select("*")
         .eq("data_posicao", prevMonth);
       
-      if (effectiveTeam !== "all") {
-        prevQuery = prevQuery.eq("time", effectiveTeam);
+      if (effectiveTeam.length > 0) {
+        prevQuery = prevQuery.in("time", effectiveTeam);
       }
 
-      if (effectiveAssessorId !== "all") {
-        prevQuery = prevQuery.eq("cod_assessor", effectiveAssessorId);
+      if (effectiveAssessorId.length > 0) {
+        prevQuery = prevQuery.in("cod_assessor", effectiveAssessorId);
       }
       
       const { data: prevData } = await prevQuery;
@@ -429,12 +429,12 @@ export default function PerformanceDash() {
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
       
-      if (effectiveTeam !== "all") {
-        query = query.eq("time", effectiveTeam);
+      if (effectiveTeam.length > 0) {
+        query = query.in("time", effectiveTeam);
       }
 
-      if (effectiveAssessorId !== "all") {
-        query = query.eq("cod_assessor", effectiveAssessorId);
+      if (effectiveAssessorId.length > 0) {
+        query = query.in("cod_assessor", effectiveAssessorId);
       }
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
@@ -458,12 +458,12 @@ export default function PerformanceDash() {
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
       
-      if (effectiveTeam !== "all") {
-        query = query.eq("time", effectiveTeam);
+      if (effectiveTeam.length > 0) {
+        query = query.in("time", effectiveTeam);
       }
 
-      if (effectiveAssessorId !== "all") {
-        query = query.eq("cod_assessor", effectiveAssessorId);
+      if (effectiveAssessorId.length > 0) {
+        query = query.in("cod_assessor", effectiveAssessorId);
       }
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
@@ -493,12 +493,12 @@ export default function PerformanceDash() {
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
       
-      if (effectiveTeam !== "all") {
-        query = query.eq("time", effectiveTeam);
+      if (effectiveTeam.length > 0) {
+        query = query.in("time", effectiveTeam);
       }
 
-      if (effectiveAssessorId !== "all") {
-        query = query.eq("cod_assessor", effectiveAssessorId);
+      if (effectiveAssessorId.length > 0) {
+        query = query.in("cod_assessor", effectiveAssessorId);
       }
 
       const { data, error } = await query.order("data_posicao", { ascending: true });
@@ -532,12 +532,12 @@ export default function PerformanceDash() {
         .select("*")
         .eq("data_posicao", latestDate);
 
-      if (effectiveTeam !== "all") {
-        currentQuery = currentQuery.eq("time", effectiveTeam);
+      if (effectiveTeam.length > 0) {
+        currentQuery = currentQuery.in("time", effectiveTeam);
       }
 
-      if (effectiveAssessorId !== "all") {
-        currentQuery = currentQuery.eq("cod_assessor", effectiveAssessorId);
+      if (effectiveAssessorId.length > 0) {
+        currentQuery = currentQuery.in("cod_assessor", effectiveAssessorId);
       }
 
       const { data: currentData, error: currentError } = await currentQuery;
@@ -551,12 +551,12 @@ export default function PerformanceDash() {
         .lte("data_posicao", latestDate)
         .order("data_posicao", { ascending: true });
 
-      if (effectiveTeam !== "all") {
-        trendQuery = trendQuery.eq("time", effectiveTeam);
+      if (effectiveTeam.length > 0) {
+        trendQuery = trendQuery.in("time", effectiveTeam);
       }
 
-      if (effectiveAssessorId !== "all") {
-        trendQuery = trendQuery.eq("cod_assessor", effectiveAssessorId);
+      if (effectiveAssessorId.length > 0) {
+        trendQuery = trendQuery.in("cod_assessor", effectiveAssessorId);
       }
 
       const { data: trendData, error: trendError } = await trendQuery;
@@ -673,7 +673,7 @@ export default function PerformanceDash() {
         activeAssessors: current.length,
         avgROA: calculatedROA * 100,
         monthName: format(parseISO(selectedMonth), "MMMM yyyy", { locale: ptBR }),
-        teamName: effectiveTeam === "all" ? "Todos os Times" : effectiveTeam,
+        teamName: effectiveTeam.length === 0 ? "Todos os Times" : effectiveTeam.join(", "),
       }
     };
   }, [dashData, selectedMonth, effectiveTeam]);
@@ -816,6 +816,7 @@ export default function PerformanceDash() {
                   filtersData={filtersData}
                   filteredMonths={filteredMonths}
                   userRole={activeTab === "ranking" ? "admin" : userRole}
+                  isMultiSelect={true}
                 />
               </div>
             </div>
