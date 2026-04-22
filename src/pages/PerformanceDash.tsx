@@ -100,6 +100,7 @@ import ComparisonView from "@/components/dashboard/ComparisonView";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { ActivationDetailsDialog } from "@/components/dashboard/ActivationDetailsDialog";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
+import EsforcosDash from "@/components/dashboard/EsforcosDash";
 
 const REVENUE_METRICS: Record<string, MetricConfig> = {
   total: { label: "Receita Total", roa: 0.0108, field: "receita_total", icon: <Coins className="w-3.5 h-3.5" /> },
@@ -306,6 +307,17 @@ export default function PerformanceDash() {
       return { allMonths, years, teams, assessors, activeAssessorIds };
     }
   });
+
+  // Target assessors for components that only take assessor IDs (like EsforcosDash)
+  const targetAssessors = useMemo(() => {
+    if (effectiveAssessorId.length > 0) return effectiveAssessorId;
+    if (effectiveTeam.length > 0 && filtersData) {
+      return filtersData.assessors
+        .filter((a: any) => a.teams.some((t: string) => effectiveTeam.includes(t)))
+        .map((a: any) => a.id);
+    }
+    return [];
+  }, [effectiveAssessorId, effectiveTeam, filtersData]);
 
   React.useEffect(() => {
     const role = userRole?.toLowerCase();
@@ -785,6 +797,12 @@ export default function PerformanceDash() {
                   Ranking
                 </TabsTrigger>
                 <TabsTrigger 
+                  value="esforcos" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
+                >
+                  Esforços
+                </TabsTrigger>
+                <TabsTrigger 
                   value="forecast" 
                   className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
                 >
@@ -1166,6 +1184,12 @@ export default function PerformanceDash() {
             {/* ANÁLISES DE EVOLUÇÃO */}
             <div className="hidden sm:flex flex-col gap-8">
               <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[450px]">
+                <FundingEvolution 
+                  data={yearlyData || []} 
+                />
+              </Card>
+
+              <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[450px]">
                 <RevenueEvolution 
                   data={yearlyData || []} 
                   previousYearData={prevYearlyData || []} 
@@ -1181,12 +1205,6 @@ export default function PerformanceDash() {
                   title="Evolução"
                   mode="percent"
                   icon={<LayoutDashboard className="w-4 h-4" />}
-                />
-              </Card>
-
-              <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[450px]">
-                <FundingEvolution 
-                  data={yearlyData || []} 
                 />
               </Card>
             </div>
@@ -1209,6 +1227,14 @@ export default function PerformanceDash() {
               selectedYear={fpData?.latestDate ? parseISO(fpData.latestDate).getFullYear().toString() : selectedYear}
               selectedMonth={fpData?.latestDate || selectedMonth}
               teamPhotos={fpData?.teamPhotos}
+            />
+          </TabsContent>
+
+          <TabsContent value="esforcos" className="space-y-12 mt-0 border-none p-0 outline-none">
+            <EsforcosDash 
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              targetAssessors={targetAssessors}
             />
           </TabsContent>
 

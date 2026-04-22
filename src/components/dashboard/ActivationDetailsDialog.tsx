@@ -11,7 +11,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
-import { cn } from "@/lib/utils";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -24,8 +23,8 @@ const formatCurrency = (value: number) => {
 interface ActivationDetailsProps {
   children: React.ReactNode;
   selectedMonth: string;
-  assessorId: string;
-  team: string;
+  assessorId: string[];
+  team: string[];
 }
 
 export function ActivationDetailsDialog({ children, selectedMonth, assessorId, team }: ActivationDetailsProps) {
@@ -37,16 +36,18 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
         .select("*")
         .eq("data_posicao", selectedMonth);
 
-      if (assessorId !== "all") {
-        query = query.eq("cod_assessor", assessorId.startsWith("A") ? assessorId : `A${assessorId}`);
-      } else if (team !== "all") {
+      if (assessorId.length > 0) {
+        // Normalize codes to always have "A" prefix
+        const normalizedCodes = assessorId.map(id => id.startsWith("A") ? id : `A${id}`);
+        query = query.in("cod_assessor", normalizedCodes);
+      } else if (team.length > 0) {
         // detalhamento_ativacoes doesn't have a "time" column,
-        // so we need to look up which assessors belong to the selected team
+        // so look up which assessors belong to the selected team(s)
         const { data: teamAssessors } = await supabase
           .from("mv_resumo_assessor" as any)
           .select("cod_assessor")
           .eq("data_posicao", selectedMonth)
-          .eq("time", team);
+          .in("time", team);
 
         const assessorCodes = [...new Set((teamAssessors || []).map((a: any) => a.cod_assessor).filter(Boolean))];
 
