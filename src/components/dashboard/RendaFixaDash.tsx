@@ -299,8 +299,6 @@ export default function RendaFixaDash({
 
       if (selectedTeam.length > 0) {
         query = query.in("time", selectedTeam);
-      } else {
-        query = query.in("time", Array.from(activeTeamNames));
       }
 
       if (selectedAssessorId.length > 0) {
@@ -342,8 +340,6 @@ export default function RendaFixaDash({
 
       if (selectedTeam.length > 0) {
         mvQuery = mvQuery.in("time", selectedTeam);
-      } else {
-        mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
       if (selectedAssessorId.length > 0) {
         mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
@@ -379,7 +375,7 @@ export default function RendaFixaDash({
       return (rfRows as any[] || []).filter((r: any) => {
         const assessor = validAssessors.get(r.cod_assessor);
         if (!assessor) return false;
-        if (selectedTeam !== "all" && assessor.time !== selectedTeam) return false;
+        if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return false;
         return true;
       }).map((r: any) => {
         const assessor = validAssessors.get(r.cod_assessor) || {};
@@ -425,8 +421,6 @@ export default function RendaFixaDash({
 
       if (selectedTeam.length > 0) {
         mvQuery = mvQuery.in("time", selectedTeam);
-      } else {
-        mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
       if (selectedAssessorId.length > 0) {
         mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
@@ -458,7 +452,7 @@ export default function RendaFixaDash({
         .lte("data_liquidacao_prevista", fetchEnd);
 
       if (selectedAssessorId.length > 0) {
-        ofertasQuery = ofertasQuery.eq("codigo_aai", selectedAssessorId);
+        ofertasQuery = ofertasQuery.in("codigo_aai", selectedAssessorId);
       }
 
       const { data: ofertasRows, error } = await ofertasQuery;
@@ -467,7 +461,7 @@ export default function RendaFixaDash({
       return (ofertasRows as any[] || []).filter((r: any) => {
         const assessor = assessorMap.get(r.codigo_aai);
         if (!assessor) return false;
-        if (selectedTeam !== "all" && assessor.time !== selectedTeam) return false;
+        if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return false;
         return true;
       }).map((r: any) => {
         const assessor = assessorMap.get(r.codigo_aai) || {};
@@ -534,8 +528,6 @@ export default function RendaFixaDash({
 
       if (selectedTeam.length > 0) {
         mvQuery = mvQuery.in("time", selectedTeam);
-      } else {
-        mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
       if (selectedAssessorId.length > 0) {
         mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
@@ -571,7 +563,7 @@ export default function RendaFixaDash({
         
         const assessor = assessorMap.get(codAssessorStr);
         if (!assessor) return false;
-        if (selectedTeam !== "all" && assessor.time !== selectedTeam) return false;
+        if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return false;
 
         const status = (r.status_reserva || "").toUpperCase();
         if (status !== "EFETIVADO" && status !== "EM PROCESSAMENTO" && status !== "SOLICITADO") return false;
@@ -645,8 +637,6 @@ export default function RendaFixaDash({
 
       if (selectedTeam.length > 0) {
         mvQuery = mvQuery.in("time", selectedTeam);
-      } else {
-        mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
       if (selectedAssessorId.length > 0) {
         mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
@@ -678,7 +668,7 @@ export default function RendaFixaDash({
         
         const assessor = assessorMap.get(codAssessorStr);
         if (!assessor) return false;
-        if (selectedTeam !== "all" && assessor.time !== selectedTeam) return false;
+        if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return false;
 
         return true;
       }).map((r: any) => {
@@ -729,8 +719,6 @@ export default function RendaFixaDash({
 
       if (selectedTeam.length > 0) {
         mvQuery = mvQuery.in("time", selectedTeam);
-      } else {
-        mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
       if (selectedAssessorId.length > 0) {
         mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
@@ -815,7 +803,7 @@ export default function RendaFixaDash({
       return combined.filter((r: any) => {
         const assessor = assessorMap.get(r.cod_assessor);
         if (!assessor) return false;
-        if (selectedTeam !== "all" && assessor.time !== selectedTeam) return false;
+        if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return false;
         return true;
       }).map((r: any) => {
         const assessor = assessorMap.get(r.cod_assessor) || {};
@@ -862,8 +850,6 @@ export default function RendaFixaDash({
 
       if (selectedTeam.length > 0) {
         mvQuery = mvQuery.in("time", selectedTeam);
-      } else {
-        mvQuery = mvQuery.in("time", Array.from(activeTeamNames));
       }
       if (selectedAssessorId.length > 0) {
         mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
@@ -889,7 +875,11 @@ export default function RendaFixaDash({
         const codAssessor = (r.cod_assessor || "").trim().toUpperCase();
         const assessor = assessorMap.get(codAssessor);
         if (!assessor) return false;
-        if (selectedTeam !== "all" && assessor.time !== selectedTeam) return false;
+        
+        // Corrigido para multi-select
+        if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(codAssessor)) return false;
+        
         return true;
       }).map((r: any) => {
         const codAssessor = (r.cod_assessor || "").trim().toUpperCase();

@@ -341,9 +341,9 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     if (activeAssessorsData && activeAssessorsData.size > 0) {
       const info = activeAssessorsData.get(cod);
       if (!info) return false;
-      if (selectedTeam.length > 0 && !selectedTeam.includes(info.time)) return false;
+      if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return false;
     }
-    if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
+    if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return false;
     return true;
   };
 
@@ -358,8 +358,8 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     // Total custody for meta
     let totalCustody = 0;
     activeAssessorsData.forEach((info: any, cod: string) => {
-      if (selectedTeam.length > 0 && !selectedTeam.includes(info.time)) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
+      if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
       if (info?.custodia_net) totalCustody += Number(info.custodia_net);
     });
 
@@ -395,8 +395,8 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     const custodyMap: Record<string, number> = {};
     mvDataAno.forEach((mv: any) => {
       const cod = (mv.cod_assessor || "").trim().toUpperCase();
-      if (selectedTeam !== "all" && mv.time !== selectedTeam) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
+      if (selectedTeam.length > 0 && mv.time && !selectedTeam.includes(mv.time)) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
       const mk = mv.data_posicao?.substring(0, 7);
       if (mk && mk.startsWith(selectedYear)) {
         if (!custodyMap[mk]) custodyMap[mk] = 0;
@@ -479,8 +479,8 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     if (!activeAssessorsData || !segurosDataMes) return [];
     const rows: any[] = [];
     activeAssessorsData.forEach((info: any, cod: string) => {
-      if (selectedTeam.length > 0 && !selectedTeam.includes(info.time)) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
+      if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
       const myRows = segurosDataMes.filter((r: any) => normalizeAssessor(r.assessor) === cod);
       const receita = myRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_mensal), 0);
       const meta = ((Number(info.custodia_net) || 0) * ROA_SEGUROS) / 12;

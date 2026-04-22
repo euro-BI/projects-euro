@@ -430,8 +430,8 @@ export default function ConsorciosDash({
       const cod = (c.cod_assessor || "").trim().toUpperCase();
       const assessor = activeAssessorsData.get(cod);
 
-      if (selectedTeam !== "all" && assessor?.time !== selectedTeam) return false;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
+      if (selectedTeam.length > 0 && assessor?.time && !selectedTeam.includes(assessor.time)) return false;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return false;
       
       // Filter out cancelled ones
       if (c.data_cancelamento) return false;
@@ -444,8 +444,8 @@ export default function ConsorciosDash({
       const cod = (c.cod_assessor || "").trim().toUpperCase();
       const assessor = activeAssessorsData.get(cod);
 
-      if (selectedTeam !== "all" && assessor?.time !== selectedTeam) return false;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
+      if (selectedTeam.length > 0 && assessor?.time && !selectedTeam.includes(assessor.time)) return false;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return false;
       
       // Calculate active custody to use for meta
       if (assessor && assessor.custodia_net && c.data_cancelamento === null) {
@@ -458,8 +458,8 @@ export default function ConsorciosDash({
     // To calculate custody properly for the target, we gather ALL active assessors 
     // that match the current filters
     activeAssessorsData.forEach((assessor, cod) => {
-      if (selectedTeam !== "all" && assessor.time !== selectedTeam) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
+      if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
       
       if (assessor && assessor.custodia_net) {
         totalCustody += Number(assessor.custodia_net);
@@ -529,8 +529,8 @@ export default function ConsorciosDash({
     const custodyMap: Record<string, number> = {};
     mvDataAno.forEach((mv: any) => {
       const cod = (mv.cod_assessor || "").trim().toUpperCase();
-      if (selectedTeam !== "all" && mv.time !== selectedTeam) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
+      if (selectedTeam.length > 0 && mv.time && !selectedTeam.includes(mv.time)) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
 
       const mKey = mv.data_posicao?.substring(0, 7);
       if (mKey && mv.custodia_net && mKey.startsWith(selectedYear)) {
@@ -548,8 +548,8 @@ export default function ConsorciosDash({
       const cod = (curr.cod_assessor || "").trim().toUpperCase();
       const ptInfo = activeAssessorsData?.get(cod);
       
-      if (selectedTeam !== "all" && ptInfo?.time !== selectedTeam) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
+      if (selectedTeam.length > 0 && ptInfo?.time && !selectedTeam.includes(ptInfo.time)) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
 
       const mKey = curr.data_vencimento?.substring(0, 7);
       if (mKey && grouped[mKey]) {
@@ -564,8 +564,8 @@ export default function ConsorciosDash({
         const cod = (curr.cod_assessor || "").trim().toUpperCase();
         const ptInfo = activeAssessorsData?.get(cod);
         
-        if (selectedTeam !== "all" && ptInfo?.time !== selectedTeam) return;
-        if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
+        if (selectedTeam.length > 0 && ptInfo?.time && !selectedTeam.includes(ptInfo.time)) return;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
   
         const mKey = curr.data_venda?.substring(0, 7);
         if (mKey && grouped[mKey]) {
@@ -629,7 +629,7 @@ export default function ConsorciosDash({
     const grouped = comissoesDataMes.reduce((acc, curr) => {
        const cod = (curr.cod_assessor || "").trim().toUpperCase();
        const ptInfo = activeAssessorsData?.get(cod);
-       if (selectedTeam !== "all" && ptInfo?.time !== selectedTeam) return acc;
+       if (selectedTeam.length > 0 && ptInfo?.time && !selectedTeam.includes(ptInfo.time)) return acc;
        if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return acc;
        
        const adm = curr.administradora || "NÃO INFORMADA";
@@ -661,8 +661,8 @@ export default function ConsorciosDash({
     const rows: any[] = [];
     
     activeAssessorsData.forEach((info, cod) => {
-       if (selectedTeam !== 'all' && info.time !== selectedTeam) return;
-       if (selectedAssessorId !== 'all' && cod !== selectedAssessorId.toUpperCase()) return;
+       if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
+       if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
        
        // Calculate this assessor's meta based on their custody in the selected month
        const mvHist = mvDataAno.find(mv => (mv.cod_assessor || "").toUpperCase() === cod && mv.data_posicao?.startsWith(selectedMonthKey));
@@ -702,7 +702,7 @@ export default function ConsorciosDash({
       const assessor = activeAssessorsData.get(cod);
       
       // 2. Filter by Team and Assessor
-      if (selectedTeam !== "all" && assessor?.time !== selectedTeam) return false;
+      if (selectedTeam.length > 0 && assessor?.time && !selectedTeam.includes(assessor.time)) return false;
       if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
       
       return true;

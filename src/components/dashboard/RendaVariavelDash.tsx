@@ -338,7 +338,7 @@ export default function RendaVariavelDash({
         .lte("data_inclusao", endDate);
 
       if (selectedAssessorId.length > 0) {
-        query = query.eq("assessor_do_cliente", selectedAssessorId);
+        query = query.in("assessor_do_cliente", selectedAssessorId);
       }
 
       const { data, error } = await query;
@@ -371,8 +371,6 @@ export default function RendaVariavelDash({
 
       if (selectedTeam.length > 0) {
         query = query.in("time", selectedTeam);
-      } else {
-        query = query.in("time", Array.from(activeTeamNames));
       }
 
       if (selectedAssessorId.length > 0) {
@@ -523,7 +521,7 @@ export default function RendaVariavelDash({
       // Filter by team — we need to check the assessor's team
       if (selectedTeam.length > 0) {
         const assessorMv = currentMonthMv.find((m) => m.cod_assessor === d.assessor_do_cliente);
-        if (!assessorMv || assessorMv.time !== selectedTeam) return false;
+        if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return false;
       }
       return true;
     });
@@ -543,9 +541,9 @@ export default function RendaVariavelDash({
         if (!activeAssessors.has(op.cod_assessor)) return false;
         if (selectedTeam.length > 0) {
           const assessorMv = currentMonthMv.find((m) => m.cod_assessor === op.cod_assessor);
-          if (!assessorMv || assessorMv.time !== selectedTeam) return false;
+          if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return false;
         }
-        if (selectedAssessorId !== "all" && op.cod_assessor !== selectedAssessorId) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(op.cod_assessor)) return false;
         return op.validado === "SIM";
       });
       clientesSemEngajamento = filteredOpps.length;
@@ -558,10 +556,10 @@ export default function RendaVariavelDash({
         const fixingDate = parseISO(d.fixing);
         const inWeek = isWithinInterval(fixingDate, { start: currentWeekStart, end: currentWeekEnd });
         if (!inWeek) return false;
-        if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(d.assessor_do_cliente)) return false;
         if (selectedTeam.length > 0) {
           const assessorMv = (mvData || []).find((m: any) => m.cod_assessor === d.assessor_do_cliente);
-          if (!assessorMv || assessorMv.time !== selectedTeam) return false;
+          if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return false;
         }
         return true;
       } catch { return false; }
@@ -574,10 +572,10 @@ export default function RendaVariavelDash({
         const fixingDate = parseISO(d.fixing);
         const inWeek = isWithinInterval(fixingDate, { start: previousWeekStart, end: previousWeekEnd });
         if (!inWeek) return false;
-        if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(d.assessor_do_cliente)) return false;
         if (selectedTeam.length > 0) {
           const assessorMv = (mvData || []).find((m: any) => m.cod_assessor === d.assessor_do_cliente);
-          if (!assessorMv || assessorMv.time !== selectedTeam) return false;
+          if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return false;
         }
         return true;
       } catch { return false; }
@@ -651,9 +649,9 @@ export default function RendaVariavelDash({
       if (!activeAssessors.has(op.cod_assessor)) return;
       if (selectedTeam.length > 0) {
         const assessorMv = currentMonthMv.find((m) => m.cod_assessor === op.cod_assessor);
-        if (!assessorMv || assessorMv.time !== selectedTeam) return;
+        if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return;
       }
-      if (selectedAssessorId !== "all" && op.cod_assessor !== selectedAssessorId) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(op.cod_assessor)) return;
       if (op.validado !== "SIM") return;
 
       if (!op.data_ultima_operacao) {
@@ -704,10 +702,10 @@ export default function RendaVariavelDash({
 
     rvFixingData.forEach((d) => {
       if (!d.fixing) return;
-      if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(d.assessor_do_cliente)) return;
       if (selectedTeam.length > 0) {
         const assessorMv = (mvData || []).find((m) => m.cod_assessor === d.assessor_do_cliente);
-        if (!assessorMv || assessorMv.time !== selectedTeam) return;
+        if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return;
       }
 
       const fDate = parseISO(d.fixing);
@@ -750,10 +748,10 @@ export default function RendaVariavelDash({
     const filtered = (rvData || []).filter((d) => {
       if (!d.data_inclusao) return false;
       if (d.data_inclusao.substring(0, 7) !== selectedMonthKey) return false;
-      if (selectedAssessorId !== "all" && d.assessor_do_cliente !== selectedAssessorId) return false;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(d.assessor_do_cliente)) return false;
       if (selectedTeam.length > 0) {
         const assessorMv = (mvData || []).find((m: any) => m.cod_assessor === d.assessor_do_cliente);
-        if (!assessorMv || assessorMv.time !== selectedTeam) return false;
+        if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return false;
       }
       return true;
     });

@@ -490,8 +490,6 @@ export default function ProductsGeralDash({
 
       if (selectedTeam.length > 0) {
         q = q.in("time", selectedTeam);
-      } else {
-        q = q.in("time", Array.from(activeTeamNames));
       }
       if (selectedAssessorId.length > 0) {
         q = q.in("cod_assessor", selectedAssessorId);
@@ -549,7 +547,7 @@ export default function ProductsGeralDash({
         const info = assessorMap.get(cod);
         if (!info) return false;
         if (selectedTeam.length > 0 && !selectedTeam.includes(info.time)) return false;
-        if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return false;
         return true;
       });
 
@@ -602,7 +600,7 @@ export default function ProductsGeralDash({
         const time = aMap.get(cod);
         if (aMap.size > 0 && time === undefined) return false;
         if (selectedTeam.length > 0 && !selectedTeam.includes(time)) return false;
-        if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return false;
         return true;
       });
     },

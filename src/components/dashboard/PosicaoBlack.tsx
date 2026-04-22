@@ -98,12 +98,12 @@ interface AssessorInfo {
 
 interface PosicaoBlackProps {
   selectedMonth: string;
-  selectedTeam?: string;
-  selectedAssessorId?: string;
+  selectedTeam: string[];
+  selectedAssessorId: string[];
   teamPhotos?: Map<string, string>;
 }
 
-export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAssessorId = "all", teamPhotos }: PosicaoBlackProps) {
+export function PosicaoBlack({ selectedMonth, selectedTeam, selectedAssessorId, teamPhotos }: PosicaoBlackProps) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [selectedAssessorForModal, setSelectedAssessorForModal] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -232,8 +232,8 @@ export function PosicaoBlack({ selectedMonth, selectedTeam = "all", selectedAsse
       // Only process if assessor is active in the latest position
       if (!activeAssessorsData.has(cod)) return;
       const advisorInfo = activeAssessorsData.get(cod);
-      if (selectedTeam !== "all" && advisorInfo?.time !== selectedTeam) return;
-      if (selectedAssessorId !== "all" && cod !== selectedAssessorId) return;
+      if (selectedTeam.length > 0 && advisorInfo?.time && !selectedTeam.includes(advisorInfo.time)) return;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
       
       if (!assessorStats.has(cod)) {
         assessorStats.set(cod, {
