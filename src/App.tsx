@@ -32,6 +32,8 @@ import ManagementDash from "./pages/ManagementDash";
 import MarketingDash from "./pages/MarketingDash";
 import AssessorCockpit from "./pages/AssessorCockpit";
 import UpdatePassword from "./pages/UpdatePassword";
+import AdvisorsDash from "./pages/AdvisorsDash";
+
 
 const queryClient = new QueryClient();
 
@@ -207,7 +209,16 @@ const App = () => (
               }
             />
             <Route
+              path="/dash/advisors"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master"]}>
+                  <AdvisorsDash />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/migration-test"
+
               element={
                 <div className="container mx-auto p-6">
                   <MigrationTest />

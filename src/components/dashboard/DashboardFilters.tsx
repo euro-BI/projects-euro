@@ -58,7 +58,10 @@ interface DashboardFiltersProps {
   filteredMonths: string[];
   userRole?: string | null;
   isMultiSelect?: boolean;
+  disableTeamSelection?: boolean;
+  disableAssessorSelection?: boolean;
 }
+
 
 export function DashboardFilters({
   selectedYear,
@@ -73,7 +76,10 @@ export function DashboardFilters({
   filteredMonths,
   userRole,
   isMultiSelect,
+  disableTeamSelection,
+  disableAssessorSelection,
 }: DashboardFiltersProps) {
+
   const [isOpen, setIsOpen] = React.useState(false);
   const [isAssessorOpen, setIsAssessorOpen] = React.useState(false);
 
@@ -151,15 +157,12 @@ export function DashboardFilters({
                size="sm" 
                className="h-6 px-2 text-[10px] text-white/40 hover:text-white hover:bg-white/5"
                onClick={(e) => {
-                 e.stopPropagation();
-                 const role = userRole?.toLowerCase();
-                 if (role !== 'user' && role !== 'lider') {
-                   setSelectedTeam(isMultiSelect ? [] : "all");
-                 }
-                 if (role !== 'user') {
-                    setSelectedAssessorId(isMultiSelect ? [] : "all");
-                 }
-               }}
+                  e.stopPropagation();
+                  const role = userRole?.toLowerCase();
+                  if (role !== 'user') {
+                     setSelectedAssessorId(isMultiSelect ? [] : "all");
+                  }
+                }}
              >
                Limpar Filtros
              </Button>
@@ -219,7 +222,8 @@ export function DashboardFilters({
                      setSelectedAssessorId([]);
                   }
                 }}
-                disabled={userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
+                disabled={disableTeamSelection || userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
+
                 placeholder="Todos os Times"
                 selectAllText="Todos os Times"
                 className={cn(
@@ -237,7 +241,8 @@ export function DashboardFilters({
                      setSelectedAssessorId("all");
                   }
                 }}
-                disabled={userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
+                disabled={disableTeamSelection || userRole?.toLowerCase() === 'user' || userRole?.toLowerCase() === 'lider'}
+
               >
                 <SelectTrigger className={cn(
                   "bg-white/5 border-white/10 text-white text-xs h-9 focus:ring-euro-gold/20 disabled:opacity-50 disabled:cursor-not-allowed",
@@ -278,7 +283,8 @@ export function DashboardFilters({
                 onChange={(val) => {
                   setSelectedAssessorId(val);
                 }}
-                disabled={userRole === 'user'}
+                disabled={disableAssessorSelection || userRole === 'user'}
+
                 placeholder="Todos os Assessores"
                 selectAllText="Todos os Assessores"
                 className={cn(
@@ -293,7 +299,8 @@ export function DashboardFilters({
                     variant="outline"
                     role="combobox"
                     aria-expanded={isAssessorOpen}
-                    disabled={userRole === 'user'}
+                    disabled={disableAssessorSelection || userRole === 'user'}
+
                     className={cn(
                       "w-full justify-between bg-white/5 border-white/10 text-white text-xs h-9 hover:bg-white/10 font-normal disabled:opacity-50 disabled:cursor-not-allowed",
                       selectedAssessorId !== "all" && "border-euro-gold/30 text-euro-gold bg-euro-gold/5"

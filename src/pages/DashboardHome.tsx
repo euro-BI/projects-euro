@@ -4,7 +4,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Briefcase, ShoppingBag, ArrowRight, Settings, BarChart3, User } from "lucide-react";
+import { Briefcase, ShoppingBag, ArrowRight, Settings, BarChart3, User, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function DashboardHome() {
@@ -55,6 +55,36 @@ export default function DashboardHome() {
                   
                   <div className="flex items-center gap-2 text-euro-gold font-data text-xs uppercase tracking-widest opacity-0 transform translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 mt-4">
                     Acessar Dashboard <ArrowRight className="w-4 h-4" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Card Advisors — visível apenas para admin_master */}
+          {userRole === "admin_master" && (
+            <div 
+              onClick={() => navigate("/dash/advisors")}
+              className="group cursor-pointer"
+            >
+              <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-euro-gold/50 hover:shadow-[0_0_30px_rgba(250,192,23,0.15)] group-hover:bg-white/[0.12]">
+                <CardContent className="h-full flex flex-col items-center p-8 pt-10 relative">
+                  <div className="absolute inset-0 bg-gradient-to-b from-euro-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-euro-gold to-[#B8860B] flex items-center justify-center mb-6 shadow-lg transform transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110 shrink-0">
+                    <TrendingUp className="w-10 h-10 text-white" />
+                  </div>
+                  
+                  <h2 className="text-3xl font-display text-white mb-3 tracking-wide group-hover:text-euro-gold transition-colors">
+                    Advisors
+                  </h2>
+                  
+                  <p className="text-[#A0A090] text-center font-light mb-auto max-w-xs group-hover:text-white/80 transition-colors line-clamp-3 min-h-[4.5rem]">
+                    Dashboard exclusivo para o time de Advisors com indicadores de performance.
+                  </p>
+                  
+                  <div className="flex items-center gap-2 text-euro-gold font-data text-xs uppercase tracking-widest opacity-0 transform translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 mt-4">
+                    Acessar Dash Advisors <ArrowRight className="w-4 h-4" />
                   </div>
                 </CardContent>
               </Card>
