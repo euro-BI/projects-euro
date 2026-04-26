@@ -6,10 +6,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { TrendingUp, Search, Users, CheckCircle2, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileSpreadsheet, TrendingUp, Search, Users, CheckCircle2, XCircle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 // ===========================================================================
 // Tipos
@@ -98,6 +100,32 @@ export function VolumeConsultivoDialog({
       .sort((a, b) => (b.data_esforco ?? "").localeCompare(a.data_esforco ?? ""));
   }, [data, activeFilter, search]);
 
+  const downloadXLSX = () => {
+    const exportRows = filtered.map((r) => ({
+      nome_assessor: r.nome_assessor ?? null,
+      cod_assessor: r.cod_assessor ?? null,
+      cliente: r.cliente ?? null,
+      net_em_m: r.net_em_m ?? null,
+      pipe: r.pipe ?? null,
+      id_atividade: r.id_atividade ?? null,
+      data_esforco: r.data_esforco ?? null,
+      data_posicao: r.data_posicao ?? null,
+    }));
+
+    const selectedMonthKey = (() => {
+      try {
+        return format(parseISO(data?.[0]?.data_posicao ?? ""), "yyyy-MM");
+      } catch {
+        return "mes";
+      }
+    })();
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows.length ? exportRows : [{}]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Volume Consultivo");
+    XLSX.writeFile(workbook, `volume_consultivo_${selectedMonthKey}.xlsx`);
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -159,6 +187,16 @@ export function VolumeConsultivoDialog({
                   }
                 </div>
               </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 px-3 text-white/70 hover:text-white hover:bg-white/5"
+                onClick={downloadXLSX}
+              >
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                XLSX
+              </Button>
             </div>
           </div>
 

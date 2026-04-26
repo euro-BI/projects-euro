@@ -9,12 +9,13 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function DashboardHome() {
   const navigate = useNavigate();
-  const { userRole } = useAuth();
+  const { userRole, userCode } = useAuth();
   
   const isMarketing = userRole === "marketing";
   const isProdutosOnly = userRole === "produtos";
   const isAdminOrMaster = userRole === "admin" || userRole === "admin_master";
   const isRegularUser = userRole === "user" || userRole === "lider" || userRole === "consorcio" || userRole === "seguros";
+  const canAccessAdvisors = isAdminOrMaster || userCode === "A39869";
 
   return (
     <PageLayout className="bg-transparent text-[#E8E8E0] font-ui px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative min-h-screen flex flex-col items-center justify-center">
@@ -62,7 +63,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Advisors — visível apenas para admin_master */}
-          {userRole === "admin_master" && (
+          {canAccessAdvisors && (
             <div 
               onClick={() => navigate("/dash/advisors")}
               className="group cursor-pointer"

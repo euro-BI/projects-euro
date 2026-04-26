@@ -6,12 +6,17 @@ import { toast } from "sonner";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: string[];
+  allowedUserCodes?: string[];
 }
 
-export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, loading, userRole } = useAuth();
+export const ProtectedRoute = ({ children, allowedRoles, allowedUserCodes }: ProtectedRouteProps) => {
+  const { user, loading, userRole, userCode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const hasRoleAccess = !allowedRoles || (userRole ? allowedRoles.includes(userRole) : false);
+  const hasCodeAccess = !!allowedUserCodes?.includes(userCode ?? "");
+  const hasAccess = hasRoleAccess || hasCodeAccess;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -19,11 +24,11 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       navigate("/auth", { 
         state: { from: location.pathname + location.search } 
       });
-    } else if (!loading && user && allowedRoles && userRole && !allowedRoles.includes(userRole)) {
+    } else if (!loading && user && (allowedRoles || allowedUserCodes) && !hasAccess) {
       toast.error("Você não tem permissão para acessar esta página.");
       navigate("/"); // Agora todos redirecionam para a home (Welcome)
     }
-  }, [user, loading, userRole, allowedRoles, navigate, location]);
+  }, [user, loading, hasAccess, allowedRoles, allowedUserCodes, navigate, location]);
 
   if (loading) {
     return (
@@ -36,7 +41,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     );
   }
 
-  if (!user || (allowedRoles && userRole && !allowedRoles.includes(userRole))) {
+  if (!user || ((allowedRoles || allowedUserCodes) && !hasAccess)) {
     return null;
   }
 

@@ -211,7 +211,7 @@ const App = () => (
             <Route
               path="/dash/advisors"
               element={
-                <ProtectedRoute allowedRoles={["admin_master"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]} allowedUserCodes={["A39869"]}>
                   <AdvisorsDash />
                 </ProtectedRoute>
               }

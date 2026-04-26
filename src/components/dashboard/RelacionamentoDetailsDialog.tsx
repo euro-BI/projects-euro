@@ -6,11 +6,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
-import { MessageSquare, AlertTriangle, CheckCircle2, Search, Users } from "lucide-react";
+import { FileSpreadsheet, MessageSquare, AlertTriangle, CheckCircle2, Search, Users } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 // ===========================================================================
 // Tipos
@@ -130,6 +132,33 @@ export function RelacionamentoDetailsDialog({
   const nokCount = rows.filter((r) => r.status_relacionamento === "NOK").length;
   const okCount = rows.filter((r) => r.status_relacionamento === "OK").length;
 
+  const selectedMonthKey = React.useMemo(() => {
+    try {
+      return format(parseISO(selectedMonth), "yyyy-MM");
+    } catch {
+      return String(selectedMonth);
+    }
+  }, [selectedMonth]);
+
+  const downloadXLSX = () => {
+    const exportRows = filtered.map((r) => ({
+      status: r.status_relacionamento,
+      nome_assessor: r.nome_assessor ?? null,
+      cod_assessor: r.cod_assessor ?? null,
+      cliente: r.cliente ?? null,
+      net_em_m: r.net_em_m ?? null,
+      id_atividade: r.id_atividade ?? null,
+      pipe: r.pipe ?? null,
+      data_esforco: r.data_esforco ?? null,
+      data_posicao: r.data_posicao ?? null,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows.length ? exportRows : [{}]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Relacionamento");
+    XLSX.writeFile(workbook, `relacionamento_${selectedMonthKey}.xlsx`);
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -185,6 +214,16 @@ export function RelacionamentoDetailsDialog({
                   <span>{nokCount} sem contato recente</span>
                 </div>
               </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 px-3 text-white/70 hover:text-white hover:bg-white/5"
+                onClick={downloadXLSX}
+              >
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                XLSX
+              </Button>
             </div>
           </div>
 
@@ -343,16 +382,41 @@ export function RelacionamentoDetailsDialog({
             </div>
           </div>
 
-          {/* Aviso para NOK */}
-          {activeFilter !== "ok" && nokCount > 0 && (
-            <div className="mx-6 mb-4 flex items-start gap-3 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
-              <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
-              <p className="text-[12px] font-data text-rose-300/80">
-                <span className="font-bold text-rose-300">{nokCount} cliente{nokCount > 1 ? "s" : ""} sem contato</span>{" "}
-                nos últimos 60 dias. Entre em contato para atingir a meta de 75% de cobertura.
-              </p>
-            </div>
-          )}
+          {/* Informativo da meta */}
+          {(() => {
+            const total = okCount + nokCount;
+            if (total === 0) return null;
+            const metaContatos = Math.ceil(total * 0.75);
+            const faltam = Math.max(0, metaContatos - okCount);
+            const atingido = okCount >= metaContatos;
+            return (
+              <div className={`mx-6 mb-4 flex items-start gap-3 p-4 rounded-xl border ${atingido ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"}`}>
+                {atingido ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
+                )}
+                <div className="text-[12px] font-data space-y-1">
+                  {atingido ? (
+                    <p className="text-emerald-300/90">
+                      <span className="font-bold text-emerald-300">Meta atingida!</span>{" "}
+                      {okCount} de {total} clientes com contato ({((okCount / total) * 100).toFixed(1)}%).
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-rose-300/90">
+                        <span className="font-bold text-rose-300">Faltam {faltam} contato{faltam !== 1 ? "s" : ""}</span>{" "}
+                        para atingir a meta de 75%.
+                      </p>
+                      <p className="text-white/40">
+                        Atual: {okCount}/{total} clientes &mdash; Meta: {metaContatos}/{total} ({((metaContatos / total) * 100).toFixed(0)}%)
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </DialogContent>
     </Dialog>

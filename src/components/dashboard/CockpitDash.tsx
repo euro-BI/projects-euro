@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AssessorResumo } from "@/types/dashboard";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
   BarChart, 
   Bar, 
@@ -31,10 +32,22 @@ import {
   ArrowUpRight,
   Shield,
   Coins,
-  LayoutDashboard
+  LayoutDashboard,
+  Pencil,
+  Trash2,
+  RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { motion } from "framer-motion";
 import {
   Dialog,
@@ -54,6 +67,7 @@ interface CockpitDashProps {
 }
 
 type MetricType = 'funding' | 'allocation' | 'variable' | 'banking' | 'insurance';
+type TargetKind = "breakeven" | "roa";
 
 interface MetricConfigEntry {
   label: string;
@@ -118,21 +132,50 @@ const METRIC_CONFIG: Record<MetricType, MetricConfigEntry> = {
 
 const PRODUCT_METRICS = {
   eurostock: [
-    { label: "R. Fixa", fields: ["receita_renda_fixa"], roa: 0.0015 },
-    { label: "Asset", fields: ["asset_m_1"], roa: 0.0002 },
-    { label: "Previd.", fields: ["receita_previdencia"], roa: 0.0001 },
-    { label: "Cetipados", fields: ["receita_cetipados"], roa: 0.0005 },
-    { label: "Ofertas", fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"], roa: 0.0010 },
-    { label: "Offshore", fields: ["receitas_offshore"], roa: 0.0002 },
-    { label: "Estruturas", fields: ["receitas_estruturadas"], roa: 0.0035 },
-    { label: "B3", fields: ["receita_b3"], roa: 0.0020 },
+    { key: "rf", label: "RF", fields: ["receita_renda_fixa"], roa: 0.0015 },
+    { key: "asset", label: "Asset", fields: ["asset_m_1"], roa: 0.0002 },
+    { key: "previdencia", label: "Previdência", fields: ["receita_previdencia"], roa: 0.0001 },
+    { key: "cetipados", label: "Cetipados", fields: ["receita_cetipados"], roa: 0.0005 },
+    { key: "ofertas", label: "Ofertas", fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"], roa: 0.0010 },
+    { key: "offshore", label: "Offshore", fields: ["receitas_offshore"], roa: 0.0002 },
+    { key: "estruturadas", label: "Estruturadas", fields: ["receitas_estruturadas"], roa: 0.0035 },
+    { key: "b3", label: "B3", fields: ["receita_b3"], roa: 0.0020 },
   ],
   affare: [
-    { label: "Consórc.", fields: ["receita_consorcios"], roa: 0.0009 },
-    { label: "Compromis.", fields: ["receita_compromissadas"], roa: 0.0001 },
-    { label: "Câmbio", fields: ["receita_cambio"], roa: 0.0001 },
-    { label: "Seguros", fields: ["receita_seguros"], roa: 0.0007 },
+    { key: "consorcios", label: "Consórcios", fields: ["receita_consorcios"], roa: 0.0009 },
+    { key: "compromissadas_pj", label: "Compromissadas PJ", fields: ["receita_compromissadas"], roa: 0.0001 },
+    { key: "cambio", label: "Câmbio", fields: ["receita_cambio"], roa: 0.0001 },
+    { key: "seguros", label: "Seguros", fields: ["receita_seguros"], roa: 0.0007 },
   ]
+};
+
+const BREAK_EVEN_PRODUCT_OPTIONS = [
+  { key: "estruturadas", label: "Estruturadas" },
+  { key: "b3", label: "B3" },
+  { key: "rf", label: "RF" },
+  { key: "ofertas", label: "Ofertas" },
+  { key: "cetipados", label: "Cetipados" },
+  { key: "asset", label: "Asset" },
+  { key: "offshore", label: "Offshore" },
+  { key: "previdencia", label: "Previdência" },
+  { key: "consorcios", label: "Consórcios" },
+  { key: "seguros", label: "Seguros" },
+  { key: "compromissadas_pj", label: "Compromissadas PJ" },
+  { key: "cambio", label: "Câmbio" },
+] as const;
+
+const BREAK_EVEN_KEYS_BY_METRIC: Record<Exclude<MetricType, "funding">, string[]> = {
+  allocation: ["rf", "asset", "previdencia", "cetipados", "ofertas", "offshore"],
+  variable: ["estruturadas", "b3"],
+  banking: ["consorcios", "compromissadas_pj", "cambio"],
+  insurance: ["seguros"],
+};
+
+type BreakEvenTargetRow = {
+  id: string;
+  competencia: string;
+  product_key: string;
+  value: number;
 };
 
 // Helper to format currency
@@ -154,12 +197,164 @@ const getProgressBarColor = (percent: number) => {
 };
 
 export default function CockpitDash({ currentData, yearlyData, selectedYear }: CockpitDashProps) {
-  const { userCode } = useAuth();
+  const { userRole } = useAuth();
   const isMobile = useIsMobile();
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('funding'); // Changed from 'cap_liquida' to 'funding' to match METRIC_CONFIG keys
   const [viewMode, setViewMode] = useState<'monthly' | 'accumulated'>('monthly');
   const [displayMode, setDisplayMode] = useState<'meta' | 'proportional' | 'pace'>('meta');
+  const [targetKind, setTargetKind] = useState<TargetKind>("breakeven");
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
+  const [breakEvenTargets, setBreakEvenTargets] = useState<BreakEvenTargetRow[]>([]);
+  const [isBreakEvenDialogOpen, setIsBreakEvenDialogOpen] = useState(false);
+  const [isBreakEvenSaving, setIsBreakEvenSaving] = useState(false);
+  const [breakEvenForm, setBreakEvenForm] = useState<{
+    id: string | null;
+    monthKey: string;
+    productKey: string;
+    value: string;
+  }>({
+    id: null,
+    monthKey: `${selectedYear}-01`,
+    productKey: BREAK_EVEN_PRODUCT_OPTIONS[0].key,
+    value: "",
+  });
+
+  const canManageTargets = userRole === "admin" || userRole === "admin_master";
+
+  const monthOptions = useMemo(() => {
+    const year = Number(selectedYear);
+    if (!Number.isFinite(year)) return [];
+    return Array.from({ length: 12 }, (_, idx) => {
+      const d = new Date(year, idx, 1);
+      return {
+        value: format(d, "yyyy-MM"),
+        label: format(d, "MMM/yyyy", { locale: ptBR }),
+      };
+    });
+  }, [selectedYear]);
+
+  const currentMonthKey = useMemo(() => {
+    if (!currentData || currentData.length === 0) return `${selectedYear}-01`;
+    return format(parseISO(currentData[0].data_posicao), "yyyy-MM");
+  }, [currentData, selectedYear]);
+
+  useEffect(() => {
+    if (monthOptions.length > 0) {
+      setBreakEvenForm((prev) => ({ ...prev, monthKey: monthOptions[0].value }));
+    }
+  }, [monthOptions]);
+
+  const loadBreakEvenTargets = async () => {
+    const start = `${selectedYear}-01-01`;
+    const end = `${selectedYear}-12-31`;
+    const { data, error } = await (supabase
+      .from("dashboard_breakeven_targets" as any) as any)
+      .select("id, competencia, product_key, value")
+      .gte("competencia", start)
+      .lte("competencia", end)
+      .order("competencia", { ascending: true })
+      .order("product_key", { ascending: true });
+
+    if (error) {
+      toast.error("Erro ao carregar metas breakeven");
+      return;
+    }
+
+    setBreakEvenTargets((data || []) as BreakEvenTargetRow[]);
+  };
+
+  useEffect(() => {
+    loadBreakEvenTargets();
+  }, [selectedYear]);
+
+  const breakEvenMap = useMemo(() => {
+    const m = new Map<string, number>();
+    breakEvenTargets.forEach((t) => {
+      const mk = format(parseISO(t.competencia), "yyyy-MM");
+      m.set(`${mk}|${t.product_key}`, Number(t.value) || 0);
+    });
+    return m;
+  }, [breakEvenTargets]);
+
+  const getBreakEvenProductTarget = (monthKey: string, productKey: string) => {
+    return breakEvenMap.get(`${monthKey}|${productKey}`) ?? 0;
+  };
+
+  const getBreakEvenMetricTarget = (monthKey: string, metric: MetricType) => {
+    if (metric === "funding") return 0;
+    const keys = BREAK_EVEN_KEYS_BY_METRIC[metric];
+    return keys.reduce((acc, k) => acc + getBreakEvenProductTarget(monthKey, k), 0);
+  };
+
+  const resetBreakEvenForm = () => {
+    setBreakEvenForm({
+      id: null,
+      monthKey: monthOptions[0]?.value || `${selectedYear}-01`,
+      productKey: BREAK_EVEN_PRODUCT_OPTIONS[0].key,
+      value: "",
+    });
+  };
+
+  const onSubmitBreakEven = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canManageTargets) return;
+
+    const parsed = Number(String(breakEvenForm.value).replace(/\./g, "").replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      toast.error("Informe um valor válido");
+      return;
+    }
+
+    setIsBreakEvenSaving(true);
+    const payload = {
+      competencia: `${breakEvenForm.monthKey}-01`,
+      product_key: breakEvenForm.productKey,
+      value: parsed,
+    };
+
+    const base = (supabase.from("dashboard_breakeven_targets" as any) as any);
+    const { error } = breakEvenForm.id
+      ? await base.update(payload).eq("id", breakEvenForm.id)
+      : await base.upsert(payload, { onConflict: "competencia,product_key" });
+
+    setIsBreakEvenSaving(false);
+
+    if (error) {
+      toast.error("Erro ao salvar meta breakeven");
+      return;
+    }
+
+    toast.success("Meta breakeven salva");
+    resetBreakEvenForm();
+    await loadBreakEvenTargets();
+  };
+
+  const onEditBreakEven = (row: BreakEvenTargetRow) => {
+    setBreakEvenForm({
+      id: row.id,
+      monthKey: format(parseISO(row.competencia), "yyyy-MM"),
+      productKey: row.product_key,
+      value: String(row.value ?? ""),
+    });
+    setIsBreakEvenDialogOpen(true);
+  };
+
+  const onDeleteBreakEven = async (row: BreakEvenTargetRow) => {
+    if (!canManageTargets) return;
+    const { error } = await (supabase
+      .from("dashboard_breakeven_targets" as any) as any)
+      .delete()
+      .eq("id", row.id);
+
+    if (error) {
+      toast.error("Erro ao apagar meta breakeven");
+      return;
+    }
+
+    toast.success("Meta breakeven apagada");
+    if (breakEvenForm.id === row.id) resetBreakEvenForm();
+    await loadBreakEvenTargets();
+  };
 
   useEffect(() => {
     const fetchReferenceDate = async () => {
@@ -262,8 +457,11 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
 
       // Calculate Target
       if (config.isRoaBased) {
-        // Monthly Target = (Custody * Annual ROA) / 12
-        target = (custodyTotal * (config.roaTarget || 0)) / 12;
+        if (targetKind === "roa") {
+          target = (custodyTotal * (config.roaTarget || 0)) / 12;
+        } else {
+          target = getBreakEvenMetricTarget(currentMonthKey, type);
+        }
       } else {
         // Direct Target Field (e.g. Meta Captação)
         target = currentData.reduce((acc, curr) => acc + ((curr as any)[config.targetField!] || 0), 0);
@@ -289,7 +487,9 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
 
         const realized = getPaceValue(rawRealized);
 
-        let target = (custodyTotal * product.roa) / 12;
+        let target = targetKind === "roa"
+          ? (custodyTotal * product.roa) / 12
+          : getBreakEvenProductTarget(currentMonthKey, (product as any).key);
         target = getProportionalTarget(target);
 
         const percent = target > 0 ? (realized / target) * 100 : 0;
@@ -346,7 +546,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
         }
       }
     };
-  }, [currentData, displayMode]);
+  }, [currentData, displayMode, targetKind, currentMonthKey, breakEvenMap]);
 
   // 2. Prepare Chart Data
   const chartData = useMemo(() => {
@@ -374,7 +574,9 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
 
       // Target (Accumulate Custody or Target Field)
       if (config.isRoaBased) {
-        acc[monthKey].custody += curr.custodia_net || 0;
+        if (targetKind === "roa") {
+          acc[monthKey].custody += curr.custodia_net || 0;
+        }
       } else {
         acc[monthKey].target += (curr as any)[config.targetField!] || 0;
       }
@@ -386,10 +588,16 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     let result = Object.values(grouped).sort((a: any, b: any) => a.monthKey.localeCompare(b.monthKey));
 
     if (config.isRoaBased) {
-      result = result.map((d: any) => ({
-        ...d,
-        target: (d.custody * (config.roaTarget || 0)) / 12
-      }));
+      result = result.map((d: any) => {
+        const target = targetKind === "roa"
+          ? (d.custody * (config.roaTarget || 0)) / 12
+          : getBreakEvenMetricTarget(d.monthKey, selectedMetric);
+
+        return {
+          ...d,
+          target,
+        };
+      });
     }
 
     if (viewMode === 'accumulated') {
@@ -411,7 +619,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
       ...d,
       gap: d.target - d.realized
     }));
-  }, [yearlyData, selectedMetric, viewMode]);
+  }, [yearlyData, selectedMetric, viewMode, targetKind, breakEvenMap]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -453,6 +661,31 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
           <div className="flex items-center justify-center gap-3 w-full md:w-auto">
             <div className="flex bg-[#1A2030] p-1 rounded-lg border border-euro-gold/20 shadow-[0_0_15px_rgba(0,0,0,0.3)] w-full sm:w-auto">
               <button
+                onClick={() => setTargetKind("breakeven")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex-1 sm:flex-initial",
+                  targetKind === "breakeven"
+                    ? "bg-euro-gold text-black shadow-lg"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                )}
+              >
+                Breakeven
+              </button>
+              <button
+                onClick={() => setTargetKind("roa")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex-1 sm:flex-initial",
+                  targetKind === "roa"
+                    ? "bg-euro-gold text-black shadow-lg"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                )}
+              >
+                ROA
+              </button>
+            </div>
+
+            <div className="flex bg-[#1A2030] p-1 rounded-lg border border-euro-gold/20 shadow-[0_0_15px_rgba(0,0,0,0.3)] w-full sm:w-auto">
+              <button
                 onClick={() => setDisplayMode('meta')}
                 className={cn(
                   "px-3 py-1.5 rounded-md text-[10px] md:text-xs font-data transition-all uppercase tracking-wider font-bold flex-1 sm:flex-initial",
@@ -486,6 +719,206 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                 Projeção
               </button>
             </div>
+
+            {canManageTargets && (
+              <Dialog open={isBreakEvenDialogOpen} onOpenChange={setIsBreakEvenDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-8 px-3 text-[10px] md:text-xs font-data uppercase tracking-wider border-euro-gold/30 text-euro-gold hover:bg-euro-gold hover:text-black"
+                  >
+                    Metas breakeven
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-[#0A0A0B] border-white/10 text-white sm:max-w-[820px] p-0 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.55)]">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+
+                  <DialogHeader className="p-5 border-b border-white/10 bg-white/[0.03]">
+                    <DialogTitle className="text-euro-gold font-display text-lg tracking-wide">
+                      Metas Breakeven
+                    </DialogTitle>
+                    <DialogDescription className="text-white/60 font-data text-xs uppercase tracking-wider">
+                      Cadastre, edite e apague metas por mês/ano e produto
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="p-5 space-y-5">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="min-w-0">
+                          <h4 className="text-white font-display text-sm tracking-wide">
+                            {breakEvenForm.id ? "Editando meta" : "Nova meta"}
+                          </h4>
+                          <p className="text-white/50 font-data text-[10px] uppercase tracking-wider">
+                            {selectedYear} • valores em R$
+                          </p>
+                        </div>
+                        {breakEvenForm.id && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-8 px-2 text-white/70 hover:text-white hover:bg-white/5"
+                            onClick={resetBreakEvenForm}
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                      </div>
+
+                      <form onSubmit={onSubmitBreakEven} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-white/60 text-[10px] font-data uppercase tracking-wider">Mês/Ano</Label>
+                            <Select
+                              value={breakEvenForm.monthKey}
+                              onValueChange={(v) => setBreakEvenForm((p) => ({ ...p, monthKey: v }))}
+                            >
+                              <SelectTrigger className="bg-[#0F1420] border-white/10 text-white h-10 rounded-xl">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#0A0A0B] border-white/10 text-white">
+                                {monthOptions.map((m) => (
+                                  <SelectItem key={m.value} value={m.value} className="text-white">
+                                    {m.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-white/60 text-[10px] font-data uppercase tracking-wider">Produto</Label>
+                            <Select
+                              value={breakEvenForm.productKey}
+                              onValueChange={(v) => setBreakEvenForm((p) => ({ ...p, productKey: v }))}
+                            >
+                              <SelectTrigger className="bg-[#0F1420] border-white/10 text-white h-10 rounded-xl">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#0A0A0B] border-white/10 text-white">
+                                {BREAK_EVEN_PRODUCT_OPTIONS.map((p) => (
+                                  <SelectItem key={p.key} value={p.key} className="text-white">
+                                    {p.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-white/60 text-[10px] font-data uppercase tracking-wider">Valor</Label>
+                            <div className="relative">
+                              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-xs font-data select-none">
+                                R$
+                              </div>
+                              <Input
+                                value={breakEvenForm.value}
+                                onChange={(e) => setBreakEvenForm((p) => ({ ...p, value: e.target.value }))}
+                                inputMode="decimal"
+                                className="bg-[#0F1420] border-white/10 text-white h-10 rounded-xl pl-10"
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="submit"
+                            disabled={isBreakEvenSaving}
+                            className="h-10 px-4 rounded-xl bg-euro-gold text-black hover:bg-euro-gold/90"
+                          >
+                            {breakEvenForm.id ? "Salvar alterações" : "Salvar"}
+                          </Button>
+                        </div>
+                      </form>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+                      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                        <h4 className="text-white font-display text-sm tracking-wide">Metas cadastradas</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-9 px-2 text-white/70 hover:text-white hover:bg-white/5"
+                          onClick={loadBreakEvenTargets}
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="h-[320px] overflow-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="sticky top-0 z-10 bg-[#0A0A0B]">
+                            <tr className="text-[10px] font-data uppercase tracking-widest text-white/55 border-b border-white/10">
+                              <th className="py-3 px-4 font-medium">Mês</th>
+                              <th className="py-3 px-4 font-medium">Produto</th>
+                              <th className="py-3 px-4 font-medium text-right">Valor</th>
+                              <th className="py-3 px-4 font-medium text-right">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.06]">
+                            {breakEvenTargets.length === 0 ? (
+                              <tr>
+                                <td colSpan={4} className="py-10 px-4 text-center text-white/45 font-data text-sm">
+                                  Nenhuma meta cadastrada para {selectedYear}.
+                                </td>
+                              </tr>
+                            ) : (
+                              breakEvenTargets.map((row, idx) => {
+                                const monthLabel = format(parseISO(row.competencia), "MMM/yyyy", { locale: ptBR });
+                                const productLabel =
+                                  BREAK_EVEN_PRODUCT_OPTIONS.find((p) => p.key === row.product_key)?.label ||
+                                  row.product_key;
+
+                                return (
+                                  <tr
+                                    key={row.id}
+                                    className={cn(
+                                      "text-sm font-data",
+                                      idx % 2 === 0 ? "bg-white/[0.015]" : "bg-transparent",
+                                      "hover:bg-white/[0.04] transition-colors"
+                                    )}
+                                  >
+                                    <td className="py-3 px-4 text-white/70">{monthLabel}</td>
+                                    <td className="py-3 px-4 text-white">{productLabel}</td>
+                                    <td className="py-3 px-4 text-right text-white/80 tabular-nums">
+                                      {formatCurrency(Number(row.value) || 0)}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <div className="flex justify-end gap-1">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          className="h-9 w-9 p-0 rounded-xl text-white/65 hover:text-white hover:bg-white/5"
+                                          onClick={() => onEditBreakEven(row)}
+                                          title="Editar"
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          className="h-9 w-9 p-0 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                          onClick={() => onDeleteBreakEven(row)}
+                                          title="Apagar"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
 
             <Dialog>
               <DialogTrigger asChild>

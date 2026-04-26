@@ -6,11 +6,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Target, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileSpreadsheet, Target, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { format, parseISO } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
+import * as XLSX from "xlsx";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -68,6 +71,29 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
     enabled: !!selectedMonth,
   });
 
+  const selectedMonthKey = React.useMemo(() => {
+    try {
+      return format(parseISO(selectedMonth), "yyyy-MM");
+    } catch {
+      return String(selectedMonth);
+    }
+  }, [selectedMonth]);
+
+  const downloadXLSX = () => {
+    const rows = (details ?? []).map((item: any) => ({
+      assessor: item.cod_assessor ?? null,
+      cliente: item.cliente ?? null,
+      net_original: item.net_original_texto ?? null,
+      valor_ativacao_final: item.valor_ativacao_final ?? null,
+      data_posicao: item.data_posicao ?? null,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Ativacoes 300k+");
+    XLSX.writeFile(workbook, `ativacoes_300k_${selectedMonthKey}.xlsx`);
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -79,9 +105,20 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
             <div className="w-10 h-10 rounded-xl bg-euro-gold/20 flex items-center justify-center border border-euro-gold/40 shadow-[0_0_20px_rgba(250,192,23,0.1)]">
               <Target className="w-5 h-5 text-euro-gold" />
             </div>
-            <DialogTitle className="text-2xl font-display text-euro-gold tracking-tight">
-              Detalhamento de Ativações 300k+
-            </DialogTitle>
+            <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+              <DialogTitle className="text-2xl font-display text-euro-gold tracking-tight">
+                Detalhamento de Ativações 300k+
+              </DialogTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 px-3 text-white/70 hover:text-white hover:bg-white/5"
+                onClick={downloadXLSX}
+              >
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                XLSX
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
