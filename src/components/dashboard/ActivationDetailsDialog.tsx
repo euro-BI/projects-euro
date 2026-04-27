@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Target, Search } from "lucide-react";
+import { FileSpreadsheet, Target, Search, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
@@ -31,6 +31,16 @@ interface ActivationDetailsProps {
 }
 
 export function ActivationDetailsDialog({ children, selectedMonth, assessorId, team }: ActivationDetailsProps) {
+  const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
   const { data: details, isLoading } = useQuery({
     queryKey: ["activation-details", selectedMonth, assessorId, team],
     queryFn: async () => {
@@ -70,6 +80,33 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
     },
     enabled: !!selectedMonth,
   });
+
+  const sortedDetails = React.useMemo(() => {
+    if (!details) return [];
+    let sortableItems = [...details];
+    if (sortConfig !== null) {
+      sortableItems.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'net_original_texto') {
+          aValue = parseFloat(String(a.net_original_texto || "0").replace(",", ".")) || 0;
+          bValue = parseFloat(String(b.net_original_texto || "0").replace(",", ".")) || 0;
+        } else if (sortConfig.key === 'valor_ativacao_final') {
+          aValue = aValue || 0;
+          bValue = bValue || 0;
+        } else {
+          aValue = aValue || "";
+          bValue = bValue || "";
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [details, sortConfig]);
 
   const selectedMonthKey = React.useMemo(() => {
     try {
@@ -129,15 +166,23 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest">
-                    <th className="py-3 px-4 font-bold border-r border-euro-navy/10">Assessor</th>
-                    <th className="py-3 px-4 font-bold border-r border-euro-navy/10">Cliente</th>
-                    <th className="py-3 px-4 font-bold text-right border-r border-euro-navy/10">Net Original</th>
-                    <th className="py-3 px-4 font-bold text-right">Vlr Ativação</th>
+                    <th className="py-3 px-4 font-bold border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('cod_assessor')}>
+                      <div className="flex items-center gap-1">Assessor <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
+                    </th>
+                    <th className="py-3 px-4 font-bold border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('cliente')}>
+                      <div className="flex items-center gap-1">Cliente <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
+                    </th>
+                    <th className="py-3 px-4 font-bold text-right border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('net_original_texto')}>
+                      <div className="flex items-center justify-end gap-1">Net Original <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
+                    </th>
+                    <th className="py-3 px-4 font-bold text-right cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('valor_ativacao_final')}>
+                      <div className="flex items-center justify-end gap-1">Vlr Ativação <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.05]">
-                  {details && details.length > 0 ? (
-                    details.map((item, idx) => (
+                  {sortedDetails && sortedDetails.length > 0 ? (
+                    sortedDetails.map((item, idx) => (
                       <tr
                         key={idx}
                         className="group even:bg-white/[0.02] hover:bg-white/[0.05] transition-all text-[12.6px] font-data"

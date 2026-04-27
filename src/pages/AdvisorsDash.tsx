@@ -28,7 +28,8 @@ import {
   Search,
   Wallet,
   CheckCircle2,
-  XCircle
+  XCircle,
+  ArrowUpDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
@@ -307,6 +308,15 @@ function IndicacoesConvertidasDialog({
 }) {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<"todos" | "qualifica" | "abaixo">("todos");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -393,7 +403,7 @@ function IndicacoesConvertidasDialog({
 
   const filteredDeals = useMemo(() => {
     const s = search.trim().toLowerCase();
-    return allDeals.filter(d => {
+    let result = allDeals.filter(d => {
       if (activeFilter === "qualifica" && !d.qualifica) return false;
       if (activeFilter === "abaixo" && d.qualifica) return false;
       if (!s) return true;
@@ -405,7 +415,28 @@ function IndicacoesConvertidasDialog({
         (d.telefone ?? "").toLowerCase().includes(s)
       );
     });
-  }, [activeFilter, allDeals, search]);
+
+    if (sortConfig !== null) {
+      result.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'valor') {
+          aValue = aValue ?? 0;
+          bValue = bValue ?? 0;
+        } else {
+          aValue = aValue ?? "";
+          bValue = bValue ?? "";
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [activeFilter, allDeals, search, sortConfig]);
 
   const qualificados = useMemo(() => allDeals.filter(d => d.qualifica), [allDeals]);
 
@@ -524,13 +555,13 @@ function IndicacoesConvertidasDialog({
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#0F1520] border-b border-white/10 text-[10px] font-data uppercase tracking-widest text-white/50">
-                      <th className="py-3 px-4 font-bold">ID Lead</th>
-                      <th className="py-3 px-4 font-bold">Ganho em</th>
-                      <th className="py-3 px-4 font-bold">Assessor</th>
-                      <th className="py-3 px-4 font-bold">Stage</th>
-                      <th className="py-3 px-4 font-bold">Tipo</th>
-                      <th className="py-3 px-4 font-bold text-right">Valor</th>
-                      <th className="py-3 px-4 font-bold">Conta</th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('id_lead')}><div className="flex items-center gap-1">ID Lead <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('ganho_em')}><div className="flex items-center gap-1">Ganho em <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('cod_assessor')}><div className="flex items-center gap-1">Assessor <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('stage')}><div className="flex items-center gap-1">Stage <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('tipo_pipe')}><div className="flex items-center gap-1">Tipo <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold text-right cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('valor')}><div className="flex items-center justify-end gap-1">Valor <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('qualifica')}><div className="flex items-center gap-1">Conta <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -630,6 +661,15 @@ function CaptacaoLiquidaDialog({
 }) {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<"todos" | "creditos" | "debitos">("todos");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -675,18 +715,39 @@ function CaptacaoLiquidaDialog({
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    return data
-      .filter(r => {
-        if (activeFilter === "creditos" && r.aux !== "C") return false;
-        if (activeFilter === "debitos" && r.aux !== "D") return false;
-        if (!s) return true;
-        return (
-          (r.cod_assessor ?? "").toLowerCase().includes(s) ||
-          (r.tipo_captacao ?? "").toLowerCase().includes(s)
-        );
-      })
-      .sort((a, b) => (b.data_captacao ?? "").localeCompare(a.data_captacao ?? ""));
-  }, [activeFilter, data, search]);
+    let result = data.filter(r => {
+      if (activeFilter === "creditos" && r.aux !== "C") return false;
+      if (activeFilter === "debitos" && r.aux !== "D") return false;
+      if (!s) return true;
+      return (
+        (r.cod_assessor ?? "").toLowerCase().includes(s) ||
+        (r.tipo_captacao ?? "").toLowerCase().includes(s)
+      );
+    });
+
+    if (sortConfig !== null) {
+      result.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'valor_captacao') {
+          aValue = aValue ?? 0;
+          bValue = bValue ?? 0;
+        } else {
+          aValue = aValue ?? "";
+          bValue = bValue ?? "";
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    } else {
+      result.sort((a, b) => (b.data_captacao ?? "").localeCompare(a.data_captacao ?? ""));
+    }
+
+    return result;
+  }, [activeFilter, data, search, sortConfig]);
 
   return (
     <Dialog>
@@ -790,11 +851,11 @@ function CaptacaoLiquidaDialog({
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#0F1520] border-b border-white/10 text-[10px] font-data uppercase tracking-widest text-white/50">
-                      <th className="py-3 px-4 font-bold">Data</th>
-                      <th className="py-3 px-4 font-bold">Assessor</th>
-                      <th className="py-3 px-4 font-bold">Tipo</th>
-                      <th className="py-3 px-4 font-bold">Aux</th>
-                      <th className="py-3 px-4 font-bold text-right">Valor</th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('data_captacao')}><div className="flex items-center gap-1">Data <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('cod_assessor')}><div className="flex items-center gap-1">Assessor <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('tipo_captacao')}><div className="flex items-center gap-1">Tipo <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('aux')}><div className="flex items-center gap-1">Aux <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold text-right cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('valor_captacao')}><div className="flex items-center justify-end gap-1">Valor <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
@@ -1241,7 +1302,7 @@ export default function AdvisorsDash() {
     if (totalClientes === 0) return null;
 
     const percentual = clientesOk / totalClientes;
-    const atingido = percentual >= 0.75;
+    const atingido = percentual >= 0.90;
 
     return { percentual, clientesOk, totalClientes, atingido };
   }, [relacionamentoData]);
@@ -1436,6 +1497,7 @@ export default function AdvisorsDash() {
         .from("vw_esforcos")
         .select("id_lead, valor_lead, cod_assessor, ganho_em, stage, tipo_pipe, telefone")
         .eq("status_lead", "won")
+        .eq("tipo_pipe", "Reunião de Diagnóstico (R1)")
         .gte("ganho_em", startStr)
         .lt("ganho_em", endStr)
         .in("cod_assessor", assessorCodes);
@@ -1898,22 +1960,22 @@ export default function AdvisorsDash() {
                     color="#8B5CF6"
                     delay={0.15}
                     valuePrimary={indiceRelacionamento ? `${(indiceRelacionamento.percentual * 100).toFixed(0)}%` : null}
-                    metaValue="≥ 75%"
-                    progressPct={indiceRelacionamento ? Math.min((indiceRelacionamento.percentual / 0.75) * 100, 100) : null}
+                    metaValue="≥ 90%"
+                    progressPct={indiceRelacionamento ? Math.min((indiceRelacionamento.percentual / 0.90) * 100, 100) : null}
                     atingido={indiceRelacionamento?.atingido ?? null}
                     statusText={
                       !indiceRelacionamento
                         ? "Sem dados no período"
                         : indiceRelacionamento.atingido
                           ? "Meta atingida ✓"
-                          : `Faltam ${Math.max(0, Math.ceil(0.75 * indiceRelacionamento.totalClientes - indiceRelacionamento.clientesOk))} clientes`
+                          : `Faltam ${Math.max(0, Math.ceil(0.90 * indiceRelacionamento.totalClientes - indiceRelacionamento.clientesOk))} clientes`
                     }
                     detailText={
                       indiceRelacionamento
                         ? `${indiceRelacionamento.clientesOk} de ${indiceRelacionamento.totalClientes} clientes cobertos`
                         : "Clique para detalhar · Cobertura 60 dias"
                     }
-                    tooltipInfo="Clique para ver o detalhamento. Cobertura nos últimos 60 dias para clientes 300k+ PF. Meta: ≥ 75%."
+                    tooltipInfo="Clique para ver o detalhamento. Cobertura nos últimos 60 dias para clientes 300k+ PF. Meta: ≥ 90%."
                   />
                 </div>
               </RelacionamentoDetailsDialog>

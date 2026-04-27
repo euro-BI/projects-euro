@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Heart, Search, Users, CheckCircle2, XCircle, AlertTriangle, Star } from "lucide-react";
+import { FileSpreadsheet, Heart, Search, Users, CheckCircle2, XCircle, AlertTriangle, Star, ArrowUpDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -92,6 +92,15 @@ export function NpsDetailsDialog({
   type FilterKey = "todos" | "promotor" | "passivo" | "detrator" | "sem_nota";
   const [activeFilter, setActiveFilter] = useState<FilterKey>("todos");
   const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   // Todos os registros (incluindo não-respondidos) ordenados
   const sorted = React.useMemo(() => {
@@ -110,7 +119,7 @@ export function NpsDetailsDialog({
   }, [data]);
 
   const filtered = React.useMemo(() => {
-    return sorted.filter((r) => {
+    let result = sorted.filter((r) => {
       if (activeFilter === "promotor"  && r.classificacao_nps !== "Promotor")  return false;
       if (activeFilter === "passivo"   && r.classificacao_nps !== "Passivo")   return false;
       if (activeFilter === "detrator"  && r.classificacao_nps !== "Detrator")  return false;
@@ -125,7 +134,27 @@ export function NpsDetailsDialog({
       }
       return true;
     });
-  }, [sorted, activeFilter, search]);
+
+    if (sortConfig !== null) {
+      result.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'nota_score') {
+          aValue = aValue ?? -1;
+          bValue = bValue ?? -1;
+        } else {
+          aValue = aValue ?? "";
+          bValue = bValue ?? "";
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [sorted, activeFilter, search, sortConfig]);
 
   const semRespostaCount = data.filter(r => r.nota_score === null).length;
 
@@ -298,15 +327,15 @@ export function NpsDetailsDialog({
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#0F1520] border-b border-white/10 text-[10px] font-data uppercase tracking-widest text-white/50">
-                      <th className="py-3 px-4 font-bold">Classificação</th>
-                      <th className="py-3 px-4 font-bold">Conta</th>
-                      <th className="py-3 px-4 font-bold">Assessor</th>
-                      <th className="py-3 px-4 font-bold">Jornada</th>
-                      <th className="py-3 px-4 font-bold">Tipo Convite</th>
-                      <th className="py-3 px-4 font-bold text-center">Nota</th>
-                      <th className="py-3 px-4 font-bold">Status</th>
-                      <th className="py-3 px-4 font-bold">Data Envio</th>
-                      <th className="py-3 px-4 font-bold">Data Resposta</th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('classificacao_nps')}><div className="flex items-center gap-1">Classificação <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('conta')}><div className="flex items-center gap-1">Conta <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('assessor')}><div className="flex items-center gap-1">Assessor <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('jornada')}><div className="flex items-center gap-1">Jornada <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('tipo_convite')}><div className="flex items-center gap-1">Tipo Convite <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold text-center cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('nota_score')}><div className="flex items-center justify-center gap-1">Nota <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('status')}><div className="flex items-center gap-1">Status <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('data_envio')}><div className="flex items-center gap-1">Data Envio <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('data_resposta')}><div className="flex items-center gap-1">Data Resposta <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">

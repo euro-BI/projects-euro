@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, TrendingUp, Search, Users, CheckCircle2, XCircle } from "lucide-react";
+import { FileSpreadsheet, TrendingUp, Search, Users, CheckCircle2, XCircle, ArrowUpDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -78,27 +78,56 @@ export function VolumeConsultivoDialog({
 }: VolumeConsultivoDialogProps) {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<"todos" | "revisao" | "apresentacao">("todos");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const revisaoCount = data.filter(r => r.pipe === "Revisão de Carteira").length;
   const apresentacaoCount = data.filter(r => r.pipe === "Reunião de Apresentação FP").length;
 
   const filtered = React.useMemo(() => {
-    return data
-      .filter(r => {
-        if (activeFilter === "revisao" && r.pipe !== "Revisão de Carteira") return false;
-        if (activeFilter === "apresentacao" && r.pipe !== "Reunião de Apresentação FP") return false;
-        if (search) {
-          const s = search.toLowerCase();
-          return (
-            r.cliente?.toLowerCase().includes(s) ||
-            r.nome_assessor?.toLowerCase().includes(s) ||
-            r.pipe?.toLowerCase().includes(s)
-          );
+    let result = data.filter(r => {
+      if (activeFilter === "revisao" && r.pipe !== "Revisão de Carteira") return false;
+      if (activeFilter === "apresentacao" && r.pipe !== "Reunião de Apresentação FP") return false;
+      if (search) {
+        const s = search.toLowerCase();
+        return (
+          r.cliente?.toLowerCase().includes(s) ||
+          r.nome_assessor?.toLowerCase().includes(s) ||
+          r.pipe?.toLowerCase().includes(s)
+        );
+      }
+      return true;
+    });
+
+    if (sortConfig !== null) {
+      result.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'net_em_m') {
+          aValue = aValue ?? 0;
+          bValue = bValue ?? 0;
+        } else {
+          aValue = aValue ?? "";
+          bValue = bValue ?? "";
         }
-        return true;
-      })
-      .sort((a, b) => (b.data_esforco ?? "").localeCompare(a.data_esforco ?? ""));
-  }, [data, activeFilter, search]);
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    } else {
+      result.sort((a, b) => (b.data_esforco ?? "").localeCompare(a.data_esforco ?? ""));
+    }
+    return result;
+  }, [data, activeFilter, search, sortConfig]);
 
   const downloadXLSX = () => {
     const exportRows = filtered.map((r) => ({
@@ -246,12 +275,12 @@ export function VolumeConsultivoDialog({
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#0F1520] border-b border-white/10 text-[10px] font-data uppercase tracking-widest text-white/50">
-                      <th className="py-3 px-4 font-bold">Assessor</th>
-                      <th className="py-3 px-4 font-bold">Cod. Cliente</th>
-                      <th className="py-3 px-4 font-bold text-right">Net</th>
-                      <th className="py-3 px-4 font-bold">Tipo de Reunião</th>
-                      <th className="py-3 px-4 font-bold">ID Atividade</th>
-                      <th className="py-3 px-4 font-bold">Data</th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('nome_assessor')}><div className="flex items-center gap-1">Assessor <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('cliente')}><div className="flex items-center gap-1">Cod. Cliente <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold text-right cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('net_em_m')}><div className="flex items-center justify-end gap-1">Net <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('pipe')}><div className="flex items-center gap-1">Tipo de Reunião <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('id_atividade')}><div className="flex items-center gap-1">ID Atividade <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('data_esforco')}><div className="flex items-center gap-1">Data <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">

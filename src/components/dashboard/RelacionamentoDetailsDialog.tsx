@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-import { FileSpreadsheet, MessageSquare, AlertTriangle, CheckCircle2, Search, Users } from "lucide-react";
+import { FileSpreadsheet, MessageSquare, AlertTriangle, CheckCircle2, Search, Users, ArrowUpDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -82,6 +82,15 @@ export function RelacionamentoDetailsDialog({
 }: RelacionamentoDetailsDialogProps) {
   const [activeFilter, setActiveFilter] = useState<"todos" | "nok" | "ok">("todos");
   const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   // Deduplica por cliente: para cada cliente pega a linha mais recente com atividade,
   // ou a primeira linha se não tiver (status NOK).
@@ -114,7 +123,7 @@ export function RelacionamentoDetailsDialog({
   }, [clienteMap]);
 
   const filtered = React.useMemo(() => {
-    return rows.filter((r) => {
+    let result = rows.filter((r) => {
       if (activeFilter === "nok" && r.status_relacionamento !== "NOK") return false;
       if (activeFilter === "ok" && r.status_relacionamento !== "OK") return false;
       if (search) {
@@ -127,7 +136,28 @@ export function RelacionamentoDetailsDialog({
       }
       return true;
     });
-  }, [rows, activeFilter, search]);
+
+    if (sortConfig !== null) {
+      result.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'net_em_m') {
+          aValue = aValue ?? 0;
+          bValue = bValue ?? 0;
+        } else {
+          aValue = aValue ?? "";
+          bValue = bValue ?? "";
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [rows, activeFilter, search, sortConfig]);
 
   const nokCount = rows.filter((r) => r.status_relacionamento === "NOK").length;
   const okCount = rows.filter((r) => r.status_relacionamento === "OK").length;
@@ -278,13 +308,13 @@ export function RelacionamentoDetailsDialog({
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#0F1520] border-b border-white/10 text-[10px] font-data uppercase tracking-widest text-white/50">
-                      <th className="py-3 px-4 font-bold">Status</th>
-                      <th className="py-3 px-4 font-bold">Assessor</th>
-                      <th className="py-3 px-4 font-bold">Cod. Cliente</th>
-                      <th className="py-3 px-4 font-bold text-right">Net</th>
-                      <th className="py-3 px-4 font-bold">ID Atividade</th>
-                      <th className="py-3 px-4 font-bold">Pipe</th>
-                      <th className="py-3 px-4 font-bold">Data Esforço</th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('status_relacionamento')}><div className="flex items-center gap-1">Status <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('nome_assessor')}><div className="flex items-center gap-1">Assessor <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('cliente')}><div className="flex items-center gap-1">Cod. Cliente <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold text-right cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('net_em_m')}><div className="flex items-center justify-end gap-1">Net <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('id_atividade')}><div className="flex items-center gap-1">ID Atividade <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('pipe')}><div className="flex items-center gap-1">Pipe <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
+                      <th className="py-3 px-4 font-bold cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('data_esforco')}><div className="flex items-center gap-1">Data Esforço <ArrowUpDown className="w-3 h-3 opacity-50" /></div></th>
                     </tr>
                   </thead>
                 <tbody className="divide-y divide-white/[0.04]">
@@ -386,7 +416,7 @@ export function RelacionamentoDetailsDialog({
           {(() => {
             const total = okCount + nokCount;
             if (total === 0) return null;
-            const metaContatos = Math.ceil(total * 0.75);
+            const metaContatos = Math.ceil(total * 0.90);
             const faltam = Math.max(0, metaContatos - okCount);
             const atingido = okCount >= metaContatos;
             return (
@@ -406,7 +436,7 @@ export function RelacionamentoDetailsDialog({
                     <>
                       <p className="text-rose-300/90">
                         <span className="font-bold text-rose-300">Faltam {faltam} contato{faltam !== 1 ? "s" : ""}</span>{" "}
-                        para atingir a meta de 75%.
+                        para atingir a meta de 90%.
                       </p>
                       <p className="text-white/40">
                         Atual: {okCount}/{total} clientes &mdash; Meta: {metaContatos}/{total} ({((metaContatos / total) * 100).toFixed(0)}%)
