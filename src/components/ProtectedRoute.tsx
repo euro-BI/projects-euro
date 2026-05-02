@@ -25,7 +25,6 @@ export const ProtectedRoute = ({ children, allowedRoles, allowedUserCodes }: Pro
         state: { from: location.pathname + location.search } 
       });
     } else if (!loading && user && (allowedRoles || allowedUserCodes) && !hasAccess) {
-      toast.error("Você não tem permissão para acessar esta página.");
       navigate("/"); // Agora todos redirecionam para a home (Welcome)
     }
   }, [user, loading, hasAccess, allowedRoles, allowedUserCodes, navigate, location]);

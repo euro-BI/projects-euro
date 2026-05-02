@@ -58,6 +58,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { HelpCircle } from "lucide-react";
+import { ProductDetailsDialog } from "./ProductDetailsDialog";
+import { FundingMonthDialog } from "./FundingMonthDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CockpitDashProps {
@@ -68,6 +70,19 @@ interface CockpitDashProps {
 
 type MetricType = 'funding' | 'allocation' | 'variable' | 'banking' | 'insurance';
 type TargetKind = "breakeven" | "roa";
+type FundingFilter = 'all' | 'pf' | 'pj';
+
+const FUNDING_FIELDS: Record<FundingFilter, string[]> = {
+  all: ["captacao_liquida_total"],
+  pf: ["captacao_liquida_total_pf"],
+  pj: ["captacao_liquida_total_pj"],
+};
+
+const FUNDING_LABELS: Record<FundingFilter, string> = {
+  all: "Todos",
+  pf: "PF",
+  pj: "PJ",
+};
 
 interface MetricConfigEntry {
   label: string;
@@ -218,6 +233,9 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     productKey: BREAK_EVEN_PRODUCT_OPTIONS[0].key,
     value: "",
   });
+  const [selectedProduct, setSelectedProduct] = useState<{ key: string; label: string; fields: string[]; roa: number } | null>(null);
+  const [fundingFilter, setFundingFilter] = useState<FundingFilter>('all');
+  const [selectedChartMonth, setSelectedChartMonth] = useState<string | null>(null);
 
   const canManageTargets = userRole === "admin" || userRole === "admin_master";
 
@@ -440,7 +458,11 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     const custodyTotal = currentData.reduce((acc, curr) => acc + (curr.custodia_net || 0), 0);
     
     const calculateMetric = (type: MetricType) => {
-      const config = METRIC_CONFIG[type];
+      const config = { ...METRIC_CONFIG[type] };
+      // Override funding fields based on filter
+      if (type === 'funding') {
+        config.fields = FUNDING_FIELDS[fundingFilter];
+      }
       let realized = 0;
       let target = 0;
 
@@ -546,11 +568,15 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
         }
       }
     };
-  }, [currentData, displayMode, targetKind, currentMonthKey, breakEvenMap]);
+  }, [currentData, displayMode, targetKind, currentMonthKey, breakEvenMap, fundingFilter]);
 
   // 2. Prepare Chart Data
   const chartData = useMemo(() => {
-    const config = METRIC_CONFIG[selectedMetric];
+    const config = { ...METRIC_CONFIG[selectedMetric] };
+    // Override funding fields based on filter
+    if (selectedMetric === 'funding') {
+      config.fields = FUNDING_FIELDS[fundingFilter];
+    }
     
     // Group by Month
     const grouped = yearlyData.reduce((acc: Record<string, any>, curr) => {
@@ -619,7 +645,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
       ...d,
       gap: d.target - d.realized
     }));
-  }, [yearlyData, selectedMetric, viewMode, targetKind, breakEvenMap]);
+  }, [yearlyData, selectedMetric, viewMode, targetKind, breakEvenMap, fundingFilter]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -1141,7 +1167,11 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                     .slice()
                     .sort((a: any, b: any) => b.target - a.target)
                     .map((p: any, i: number) => (
-                    <div key={i} className="grid grid-cols-4 gap-2 text-[10px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/5 transition-colors rounded-sm px-1">
+                    <div 
+                      key={i} 
+                      onClick={() => setSelectedProduct(p)}
+                      className="grid grid-cols-4 gap-2 text-[10px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/10 transition-colors rounded-sm px-1 cursor-pointer"
+                    >
                       <div className="text-white truncate col-span-1 flex items-center" title={p.label}>{p.label}</div>
                       <div className="text-right text-white/60">{formatCurrency(p.target)}</div>
                       <div className="text-right text-white">{formatCurrency(p.realized)}</div>
@@ -1213,7 +1243,11 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                     .slice()
                     .sort((a: any, b: any) => b.target - a.target)
                     .map((p: any, i: number) => (
-                    <div key={i} className="grid grid-cols-4 gap-2 text-[10px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/5 transition-colors rounded-sm px-1">
+                    <div 
+                      key={i} 
+                      onClick={() => setSelectedProduct(p)}
+                      className="grid grid-cols-4 gap-2 text-[10px] lg:text-[10px] xl:text-[11px] font-data border-b border-white/5 pb-1 last:border-0 hover:bg-white/10 transition-colors rounded-sm px-1 cursor-pointer"
+                    >
                       <div className="text-white truncate col-span-1 flex items-center" title={p.label}>{p.label}</div>
                       <div className="text-right text-white/60">{formatCurrency(p.target)}</div>
                       <div className="text-right text-white">{formatCurrency(p.realized)}</div>
@@ -1320,11 +1354,33 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
             <h3 className="text-lg font-display text-white flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-euro-gold" />
               Evolução - {METRIC_CONFIG[selectedMetric].label}
+              {selectedMetric === 'funding' && fundingFilter !== 'all' && (
+                <span className="text-sm font-data text-euro-gold/70 uppercase">({FUNDING_LABELS[fundingFilter]})</span>
+              )}
             </h3>
             <p className="text-xs text-white/40 font-data mt-1">
               Acompanhamento mensal vs Meta
             </p>
           </div>
+
+          {selectedMetric === 'funding' && (
+            <div className="flex bg-black/20 p-1 rounded-lg border border-white/5">
+              {(['all', 'pf', 'pj'] as FundingFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFundingFilter(f)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-md text-xs font-data transition-all uppercase tracking-wider",
+                    fundingFilter === f
+                      ? "bg-euro-gold text-black font-bold shadow-lg"
+                      : "text-white/40 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  {FUNDING_LABELS[f]}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="flex bg-black/20 p-1 rounded-lg border border-white/5">
             <button
@@ -1400,6 +1456,12 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                 name="Realizado" 
                 radius={[4, 4, 0, 0]} 
                 barSize={30}
+                cursor={selectedMetric === 'funding' ? 'pointer' : undefined}
+                onClick={(data: any) => {
+                  if (selectedMetric === 'funding' && data?.monthKey) {
+                    setSelectedChartMonth(data.monthKey);
+                  }
+                }}
               >
                 {chartData.map((entry: any, index: number) => {
                   let fillUrl = "url(#barGradientPositive)";
@@ -1431,6 +1493,22 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
           </ResponsiveContainer>
         </div>
       </Card>
+
+      <ProductDetailsDialog
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        product={selectedProduct}
+        data={currentData}
+        getPaceValue={getPaceValue}
+        getProportionalTarget={getProportionalTarget}
+      />
+
+      <FundingMonthDialog
+        isOpen={!!selectedChartMonth}
+        onClose={() => setSelectedChartMonth(null)}
+        monthKey={selectedChartMonth}
+        yearlyData={yearlyData}
+      />
     </div>
   );
 }

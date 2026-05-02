@@ -46,6 +46,8 @@ export interface AssessorResumo {
   captacao_saida_transf: number;
   captacao_transf_liquida: number;
   captacao_liquida_total: number;
+  captacao_liquida_total_pf: number;
+  captacao_liquida_total_pj: number;
   meta_captacao: number;
 
   // Pontuação e Metas
