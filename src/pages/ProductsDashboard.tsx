@@ -28,6 +28,7 @@ import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import { PosicaoBlack } from "@/components/dashboard/PosicaoBlack";
 import RendaVariavelDash from "@/components/dashboard/RendaVariavelDash";
 import RendaFixaDash from "@/components/dashboard/RendaFixaDash";
+import ProdutosRFDash from "@/components/dashboard/ProdutosRFDash";
 import ConsorciosDash from "@/components/dashboard/ConsorciosDash";
 import ProductsGeralDash from "@/components/dashboard/ProductsGeralDash";
 import SegurosDash from "@/components/dashboard/SegurosDash";
@@ -224,6 +225,7 @@ export default function ProductsDashboard() {
   const allTabs = [
     { id: "geral", label: "Geral" },
     { id: "renda-fixa", label: "Renda Fixa" },
+    { id: "produtos-rf", label: "Produtos RF" },
     { id: "renda-variavel", label: "Renda Variável" },
     { id: "consorcios", label: "Consórcios" },
     { id: "seguros", label: "Seguros" },
@@ -366,6 +368,14 @@ export default function ProductsDashboard() {
                 />
               ) : tab.id === "renda-fixa" ? (
                 <RendaFixaDash
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={effectiveAssessorId}
+                  teamPhotos={teamPhotos}
+                />
+              ) : tab.id === "produtos-rf" ? (
+                <ProdutosRFDash
                   selectedMonth={selectedMonth}
                   selectedYear={selectedYear}
                   selectedTeam={selectedTeam}
