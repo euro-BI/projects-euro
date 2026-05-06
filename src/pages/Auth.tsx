@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/card";
 import { LogIn, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { BackgroundVideo } from "@/components/BackgroundVideo";
 import { supabase } from "@/integrations/supabase/client";
 
 const loginSchema = z.object({
@@ -16,7 +15,7 @@ const loginSchema = z.object({
 });
 
 export default function Auth() {
-  const { signIn, user, userRole } = useAuth();
+  const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
@@ -29,11 +28,10 @@ export default function Auth() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (user && userRole) {
-      // Agora todos vão para o destino pretendido (que por padrão é "/")
+    if (!loading && user) {
       navigate(from, { replace: true });
     }
-  }, [user, userRole, navigate, from]);
+  }, [loading, user, navigate, from]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,9 +97,8 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background/20 flex items-center justify-center p-4 relative overflow-hidden">
-      <BackgroundVideo />
-      <Card className="glass-card w-full max-w-md p-8 animate-fade-in relative z-10">
+    <div className="min-h-dvh bg-background flex justify-center px-4 py-10 relative overflow-y-auto">
+      <Card className="glass-card w-full max-w-md p-6 md:p-8 relative z-10 my-auto max-h-[calc(100dvh-2rem)] overflow-auto">
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
             <img

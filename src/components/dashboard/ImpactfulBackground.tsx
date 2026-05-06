@@ -23,7 +23,7 @@ export const ImpactfulBackground = ({
   ], [ROCK_1, ROCK_3]);
 
   // Stars generation for extra depth
-  const stars = useMemo(() => Array.from({ length: 100 }).map((_, i) => ({
+  const stars = useMemo(() => Array.from({ length: 40 }).map((_, i) => ({
     id: i,
     top: `${Math.random() * 100}%`,
     left: `${Math.random() * 100}%`,
@@ -33,7 +33,10 @@ export const ImpactfulBackground = ({
   })), []);
 
   return (
-    <div className="fixed inset-0 z-[-1] overflow-hidden bg-euro-navy pointer-events-none select-none">
+    <div
+      className="fixed inset-0 z-[-1] overflow-hidden bg-euro-navy pointer-events-none select-none"
+      style={{ opacity }}
+    >
       
       {/* 1. Dark Background Overlay (Previously Video) */}
       <div className="absolute inset-0 z-0 overflow-hidden bg-[#0A0A0B]" />
@@ -54,7 +57,7 @@ export const ImpactfulBackground = ({
               delay: star.delay,
               ease: "easeInOut"
             }}
-            className="absolute rounded-full bg-white shadow-[0_0_8px_white]"
+            className="absolute rounded-full bg-white"
             style={{
               top: star.top,
               left: star.left,

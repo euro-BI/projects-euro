@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,13 +18,18 @@ export const ProtectedRoute = ({ children, allowedRoles, allowedUserCodes }: Pro
   const hasAccess = hasRoleAccess || hasCodeAccess;
 
   useEffect(() => {
-    if (!loading && !user) {
-      // Save the current location to redirect back after login
-      navigate("/auth", { 
-        state: { from: location.pathname + location.search } 
+    if (loading) return;
+
+    if (!user) {
+      navigate("/auth", {
+        replace: true,
+        state: { from: location.pathname + location.search },
       });
-    } else if (!loading && user && (allowedRoles || allowedUserCodes) && !hasAccess) {
-      navigate("/"); // Agora todos redirecionam para a home (Welcome)
+      return;
+    }
+
+    if ((allowedRoles || allowedUserCodes) && !hasAccess) {
+      navigate("/", { replace: true });
     }
   }, [user, loading, hasAccess, allowedRoles, allowedUserCodes, navigate, location]);
 

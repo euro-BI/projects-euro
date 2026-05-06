@@ -124,7 +124,7 @@ export default function Welcome() {
   return (
     <PageLayout className="relative overflow-hidden bg-transparent">
       <div className="container mx-auto px-4 py-12 max-w-6xl relative z-10">
-        <div className="text-center mb-12 animate-fade-in">
+        <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gradient-cyan">
             Bem-vindo ao Hub - Eurostock
           </h1>
@@ -134,26 +134,25 @@ export default function Welcome() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item, index) => (
+          {filteredItems.map((item) => (
             <Card
               key={item.path}
               className={cn(
-                "glass-card p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg group animate-slide-up",
+                "glass-card p-6 cursor-pointer group",
                 item.borderColor
               )}
-              style={{ animationDelay: `${index * 100}ms` }}
               onClick={() => navigate(item.path)}
             >
               <div className="flex items-start gap-4">
                 <div className={cn(
-                  "p-3 rounded-xl transition-colors duration-300 group-hover:scale-110",
+                  "p-3 rounded-xl",
                   item.bgColor,
                   item.color
                 )}>
                   <item.icon className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
+                  <h3 className="text-xl font-semibold mb-2">
                     {item.title}
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
@@ -166,7 +165,7 @@ export default function Welcome() {
         </div>
 
         {isAdminMaster && (
-          <div className="mt-12 p-6 glass-card border-primary/20 rounded-2xl animate-fade-in">
+          <div className="mt-12 p-6 glass-card border-primary/20 rounded-2xl">
             <div className="flex items-center gap-3 mb-4">
               <ShieldCheck className="w-6 h-6 text-primary" />
               <h2 className="text-xl font-bold">Painel do Administrador Master</h2>
