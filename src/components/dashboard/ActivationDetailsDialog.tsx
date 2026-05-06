@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, Target, Search, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
@@ -32,6 +32,7 @@ interface ActivationDetailsProps {
 
 export function ActivationDetailsDialog({ children, selectedMonth, assessorId, team }: ActivationDetailsProps) {
   const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+  const PAGE_SIZE = 500;
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -41,72 +42,77 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
     setSortConfig({ key, direction });
   };
 
-  const { data: details, isLoading } = useQuery({
-    queryKey: ["activation-details", selectedMonth, assessorId, team],
-    queryFn: async () => {
+  const sortKey = sortConfig?.key ?? "valor_ativacao_final";
+  const sortDirection = sortConfig?.direction ?? "desc";
+
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["activation-details", selectedMonth, assessorId, team, sortKey, sortDirection],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const from = pageParam * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
       let query = supabase
-        .from("detalhamento_ativacoes" as any)
-        .select("*")
+        .from("mv_detalhamento_ativacoes" as any)
+        .select("cod_assessor,cliente,net_original_texto,valor_ativacao_final,data_posicao")
         .eq("data_posicao", selectedMonth);
 
       if (assessorId.length > 0) {
-        // Normalize codes to always have "A" prefix
-        const normalizedCodes = assessorId.map(id => id.startsWith("A") ? id : `A${id}`);
+        const normalizedCodes = assessorId.map((id) => (id.startsWith("A") ? id : `A${id}`));
         query = query.in("cod_assessor", normalizedCodes);
       } else if (team.length > 0) {
-        // detalhamento_ativacoes doesn't have a "time" column,
-        // so look up which assessors belong to the selected team(s)
-        const { data: teamAssessors } = await supabase
+        const { data: teamAssessors, error: teamError } = await supabase
           .from("mv_resumo_assessor" as any)
           .select("cod_assessor")
           .eq("data_posicao", selectedMonth)
           .in("time", team);
 
+        if (teamError) {
+          console.error("Error fetching team assessors:", teamError);
+          return { rows: [] as any[], pageParam };
+        }
+
         const assessorCodes = [...new Set((teamAssessors || []).map((a: any) => a.cod_assessor).filter(Boolean))];
 
         if (assessorCodes.length === 0) {
-          return [];
+          return { rows: [] as any[], pageParam };
         }
 
         query = query.in("cod_assessor", assessorCodes);
       }
 
-      const { data, error } = await query;
+      query = query.order(sortKey, { ascending: sortDirection === "asc" }).range(from, to);
+
+      const { data: rows, error } = await query;
       if (error) {
         console.error("Error fetching activation details:", error);
-        return [];
+        return { rows: [] as any[], pageParam };
       }
-      return data as any[];
+
+      return { rows: (rows as any[]) ?? [], pageParam };
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.rows.length < PAGE_SIZE) return undefined;
+      return lastPage.pageParam + 1;
     },
     enabled: !!selectedMonth,
   });
 
+  const details = React.useMemo(() => {
+    const pages = data?.pages ?? [];
+    return pages.flatMap((p) => p.rows);
+  }, [data]);
+
   const sortedDetails = React.useMemo(() => {
     if (!details) return [];
-    let sortableItems = [...details];
-    if (sortConfig !== null) {
-      sortableItems.sort((a: any, b: any) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-
-        if (sortConfig.key === 'net_original_texto') {
-          aValue = parseFloat(String(a.net_original_texto || "0").replace(",", ".")) || 0;
-          bValue = parseFloat(String(b.net_original_texto || "0").replace(",", ".")) || 0;
-        } else if (sortConfig.key === 'valor_ativacao_final') {
-          aValue = aValue || 0;
-          bValue = bValue || 0;
-        } else {
-          aValue = aValue || "";
-          bValue = bValue || "";
-        }
-
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableItems;
-  }, [details, sortConfig]);
+    return details;
+  }, [details]);
 
   const selectedMonthKey = React.useMemo(() => {
     try {
@@ -162,7 +168,7 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
         <ScrollArea className="max-h-[70vh]">
           <div className="p-6">
             <div className="bg-euro-card/40 border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
-              {isLoading && <LoadingOverlay isLoading={true} />}
+              {(isLoading || isFetchingNextPage) && <LoadingOverlay isLoading={true} />}
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest">
@@ -216,6 +222,20 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
                 </tbody>
               </table>
             </div>
+
+            {hasNextPage && (
+              <div className="pt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                  disabled={isFetchingNextPage}
+                  onClick={() => fetchNextPage()}
+                >
+                  {isFetchingNextPage ? "Carregando..." : "Carregar mais"}
+                </Button>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </DialogContent>
