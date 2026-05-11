@@ -36,7 +36,13 @@ const ProjectsDebugTest = lazy(() => import("./components/ProjectsDebugTest").th
 const InsertTestData = lazy(() => import("./components/InsertTestData").then(m => ({ default: m.InsertTestData })));
 
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const HeaderWrapper = () => {
   const location = useLocation();

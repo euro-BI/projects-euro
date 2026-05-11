@@ -38,7 +38,7 @@ import {
   Briefcase,
   ArrowLeft
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, readSessionJson, writeSessionJson } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { MultiSelect } from "@/components/MultiSelect";
 import {
@@ -140,16 +140,35 @@ const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 
 export default function PerformanceDash() {
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>([]);
+  const persistKey = "filters:PerformanceDash";
+  const persisted = readSessionJson<{
+    selectedYear?: string;
+    selectedMonth?: string;
+    selectedTeam?: string[];
+    selectedAssessorId?: string[];
+    activeTab?: string;
+  } | null>(persistKey, null);
+
+  const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
+  const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? []);
+  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => persisted?.selectedAssessorId ?? []);
   const [isAssessorPopoverOpen, setIsAssessorPopoverOpen] = useState(false);
   const [selectedAssessor, setSelectedAssessor] = useState<AssessorResumo | null>(null);
   const [selectedAssessorRank, setSelectedAssessorRank] = useState<number | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("geral");
+  const [activeTab, setActiveTab] = useState<string>(() => persisted?.activeTab ?? "geral");
+
+  React.useEffect(() => {
+    writeSessionJson(persistKey, {
+      selectedYear,
+      selectedMonth,
+      selectedTeam,
+      selectedAssessorId,
+      activeTab,
+    });
+  }, [persistKey, selectedYear, selectedMonth, selectedTeam, selectedAssessorId, activeTab]);
   
   // RANKING TAB STATE (Independent of global filters)
   const [rankingYear, setRankingYear] = useState<string>(() => {

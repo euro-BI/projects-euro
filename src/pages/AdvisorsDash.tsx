@@ -31,7 +31,7 @@ import {
   XCircle,
   ArrowUpDown
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, readSessionJson, writeSessionJson } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1131,10 +1131,27 @@ function FechamentosCrossSellDialog({
 // ==========================================================================
 
 export default function AdvisorsDash() {
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedTeam, setSelectedTeam] = useState<string[]>(["ADVISORS"]);
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>([]);
+  const persistKey = "filters:AdvisorsDash";
+  const persisted = readSessionJson<{
+    selectedYear?: string;
+    selectedMonth?: string;
+    selectedTeam?: string[];
+    selectedAssessorId?: string[];
+  } | null>(persistKey, null);
+
+  const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
+  const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? ["ADVISORS"]);
+  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => persisted?.selectedAssessorId ?? []);
+
+  React.useEffect(() => {
+    writeSessionJson(persistKey, {
+      selectedYear,
+      selectedMonth,
+      selectedTeam,
+      selectedAssessorId,
+    });
+  }, [persistKey, selectedYear, selectedMonth, selectedTeam, selectedAssessorId]);
   const [isMaximized, setIsMaximized] = useState(false);
   
   const navigate = useNavigate();

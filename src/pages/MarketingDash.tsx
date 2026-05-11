@@ -59,7 +59,7 @@ import {
 } from 'recharts';
 import { format, parseISO, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, readSessionJson, writeSessionJson } from "@/lib/utils";
 import { FacebookAdsData } from "@/types/dashboard";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarketingFilters } from "@/components/dashboard/MarketingFilters";
@@ -69,17 +69,36 @@ type MetricType = "impressions" | "inline_link_clicks" | "results";
 
 export default function MarketingDash() {
   const navigate = useNavigate();
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>("impressions");
-  const [searchTerm, setSearchTerm] = useState("");
+  const persistKey = "filters:MarketingDash";
+  const persisted = readSessionJson<{
+    selectedYear?: string;
+    selectedMonth?: string;
+    selectedCampaign?: string;
+    selectedMetric?: MetricType;
+    searchTerm?: string;
+  } | null>(persistKey, null);
+
+  const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>(() => persisted?.selectedCampaign ?? "all");
+  const [selectedMetric, setSelectedMetric] = useState<MetricType>(() => persisted?.selectedMetric ?? "impressions");
+  const [searchTerm, setSearchTerm] = useState(() => persisted?.searchTerm ?? "");
   const [isMaximized, setIsMaximized] = useState(false);
   const [selectedAdForModal, setSelectedAdForModal] = useState<any>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'ctr',
     direction: 'desc'
   });
+
+  React.useEffect(() => {
+    writeSessionJson(persistKey, {
+      selectedYear,
+      selectedMonth,
+      selectedCampaign,
+      selectedMetric,
+      searchTerm,
+    });
+  }, [persistKey, selectedYear, selectedMonth, selectedCampaign, selectedMetric, searchTerm]);
 
   // Fetch Filters Data
   const { data: filtersData, isLoading: isFiltersLoading } = useQuery({

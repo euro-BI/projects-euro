@@ -18,3 +18,23 @@ export function createLocalDate(dateString: string): Date {
   const [year, month, day] = dateString.split('-').map(Number);
   return new Date(year, month - 1, day); // month - 1 porque Date usa 0-11 para meses
 }
+
+export function readSessionJson<T>(key: string, fallback: T): T {
+  try {
+    if (typeof window === "undefined") return fallback;
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeSessionJson(key: string, value: unknown) {
+  try {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    return;
+  }
+}

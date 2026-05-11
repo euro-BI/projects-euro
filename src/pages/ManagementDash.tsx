@@ -13,7 +13,7 @@ import {
   LayoutDashboard,
   Settings
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, readSessionJson, writeSessionJson } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,15 +30,34 @@ import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground"
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 
 export default function ManagementDash() {
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>([]);
+  const persistKey = "filters:ManagementDash";
+  const persisted = readSessionJson<{
+    selectedYear?: string;
+    selectedMonth?: string;
+    selectedTeam?: string[];
+    selectedAssessorId?: string[];
+    activeTab?: string;
+  } | null>(persistKey, null);
+
+  const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
+  const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? []);
+  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => persisted?.selectedAssessorId ?? []);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("cockpit");
+  const [activeTab, setActiveTab] = useState<string>(() => persisted?.activeTab ?? "cockpit");
   
   const navigate = useNavigate();
   const { userRole, userCode } = useAuth();
+
+  React.useEffect(() => {
+    writeSessionJson(persistKey, {
+      selectedYear,
+      selectedMonth,
+      selectedTeam,
+      selectedAssessorId,
+      activeTab,
+    });
+  }, [persistKey, selectedYear, selectedMonth, selectedTeam, selectedAssessorId, activeTab]);
 
   // Toggle maximization and handle ESC key
   const toggleMaximize = async () => {

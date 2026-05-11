@@ -724,6 +724,11 @@ export default function RendaVariavelDash({
     
     const filtered = rvFixingData.filter((d: any) => {
       if (!d.fixing) return false;
+      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(d.assessor_do_cliente)) return false;
+      if (selectedTeam.length > 0) {
+        const assessorMv = (mvData || []).find((m) => m.cod_assessor === d.assessor_do_cliente);
+        if (!assessorMv || !selectedTeam.includes(assessorMv.time)) return false;
+      }
       const fDate = parseISO(d.fixing);
       return isWithinInterval(fDate, selectedBucket.range);
     });
@@ -742,7 +747,85 @@ export default function RendaVariavelDash({
       if (valA > valB) return direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [selectedBucket, rvFixingData, modalSortConfig]);
+  }, [selectedBucket, rvFixingData, modalSortConfig, selectedAssessorId, selectedTeam, mvData]);
+
+  const [isWeeklyXlsxDownloading, setIsWeeklyXlsxDownloading] = useState(false);
+
+  const downloadWeeklyDistributionXlsx = async () => {
+    if (!selectedMonthKey) return;
+    if (!weeklyData || weeklyData.length === 0) return;
+
+    const bucketRanges = weeklyData.map((b: any) => b.range).filter(Boolean);
+    const starts = bucketRanges.map((r: any) => r.start).filter(Boolean) as Date[];
+    const ends = bucketRanges.map((r: any) => r.end).filter(Boolean) as Date[];
+    if (starts.length === 0 || ends.length === 0) return;
+
+    const minStart = new Date(Math.min(...starts.map((d) => d.getTime())));
+    const maxEnd = new Date(Math.max(...ends.map((d) => d.getTime())));
+
+    setIsWeeklyXlsxDownloading(true);
+    try {
+      const { data, error } = await supabase
+        .from("dados_rv_executadas" as any)
+        .select("*")
+        .gte("fixing", format(minStart, "yyyy-MM-dd"))
+        .lte("fixing", format(maxEnd, "yyyy-MM-dd"));
+
+      if (error) throw error;
+
+      const monthMv = (mvData || []).filter((m: any) => m.data_posicao && m.data_posicao.substring(0, 7) === selectedMonthKey);
+      const assessorInfo = new Map<string, { nome: string; time: string }>();
+      monthMv.forEach((m: any) => {
+        if (!m.cod_assessor) return;
+        assessorInfo.set(m.cod_assessor, { nome: m.nome_assessor || m.cod_assessor, time: m.time || "" });
+      });
+
+      const baseRows = (data as any[] | null) ?? [];
+      const filteredRows = baseRows.filter((d: any) => {
+        if (!d.fixing) return false;
+        if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(d.assessor_do_cliente)) return false;
+        if (selectedTeam.length > 0) {
+          const info = assessorInfo.get(d.assessor_do_cliente);
+          if (!info || !selectedTeam.includes(info.time)) return false;
+        }
+        return true;
+      });
+
+      const workbook = XLSX.utils.book_new();
+
+      weeklyData.forEach((bucket: any) => {
+        if (!bucket?.range?.start || !bucket?.range?.end) return;
+
+        const rows = filteredRows
+          .filter((b: any) => {
+            try {
+              const fDate = parseISO(b.fixing);
+              return isWithinInterval(fDate, bucket.range);
+            } catch {
+              return false;
+            }
+          })
+          .map((b: any) => ({
+            "Cód. Assessor": b.assessor_do_cliente ?? "",
+            "Assessor": (assessorInfo.get(b.assessor_do_cliente)?.nome || b.assessor_do_cliente) ?? "",
+            "Cliente": (b.nome_cliente || b.cliente || b.codigo_cliente || b.cod_cliente) ?? "",
+            "Inclusão": b.data_inclusao ? format(parseISO(b.data_inclusao), "dd/MM/yy") : "",
+            "Vencimento": b.fixing ? format(parseISO(b.fixing), "dd/MM/yy") : "",
+            "Ativo": b.ativo ?? "",
+            "Operação": b.operacao ?? "",
+            "Comissão": b.comissao ? (parseFloat(String(b.comissao).replace(/[^\d.,-]/g, "").replace(",", ".")) || 0) : 0,
+          }));
+
+        const sheetName = String(bucket.name || "Semana").slice(0, 31);
+        const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      });
+
+      XLSX.writeFile(workbook, `distribuicao_semanal_${selectedMonthKey}.xlsx`);
+    } finally {
+      setIsWeeklyXlsxDownloading(false);
+    }
+  };
 
   const rvTableRows = useMemo(() => {
     const filtered = (rvData || []).filter((d) => {
@@ -1084,14 +1167,26 @@ export default function RendaVariavelDash({
 
         {/* Gráfico de Barras: Distribuição Semanal de Boletas */}
         <Card className="lg:col-span-2 bg-euro-card/60 backdrop-blur-xl border-white/10 shadow-2xl overflow-hidden p-6 hover:border-euro-gold/30 transition-all">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-              <CalendarClock className="w-4 h-4 text-blue-400" />
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                <CalendarClock className="w-4 h-4 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-[13px] font-data text-white uppercase tracking-widest font-bold">Distribuição Semanal</h3>
+                <p className="text-[11px] text-white/70 font-medium uppercase tracking-tighter">Boletas à vencer por janela de tempo</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-[13px] font-data text-white uppercase tracking-widest font-bold">Distribuição Semanal</h3>
-              <p className="text-[11px] text-white/70 font-medium uppercase tracking-tighter">Boletas à vencer por janela de tempo</p>
-            </div>
+
+            <Button
+              type="button"
+              onClick={downloadWeeklyDistributionXlsx}
+              disabled={!selectedMonthKey || isWeeklyXlsxDownloading}
+              className="bg-euro-gold hover:bg-euro-gold/80 text-euro-navy font-bold h-9 gap-2 px-3 shadow-lg shadow-euro-gold/10 disabled:opacity-30 disabled:hover:bg-euro-gold"
+            >
+              <Download className="w-4 h-4" />
+              {isWeeklyXlsxDownloading ? "Baixando..." : "XLSX"}
+            </Button>
           </div>
 
           <div className="h-[250px]">
@@ -1100,10 +1195,10 @@ export default function RendaVariavelDash({
                 data={weeklyData} 
                 margin={{ top: 60, right: 10, left: 10, bottom: 0 }}
                 onClick={(data) => {
-                  if (!isMobile && data && data.activePayload && data.activePayload[0]) {
+                  if (data && data.activePayload && data.activePayload[0]) {
                     const bucket = data.activePayload[0].payload;
                     setSelectedBucket(bucket);
-                    setIsModalOpen(true);
+                    if (!isMobile) setIsModalOpen(true);
                   }
                 }}
                 style={{ cursor: isMobile ? 'default' : 'pointer' }}

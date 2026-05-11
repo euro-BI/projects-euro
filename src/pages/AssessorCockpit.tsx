@@ -34,7 +34,7 @@ import {
   ArrowUpRight,
   HelpCircle
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, readSessionJson, writeSessionJson } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { 
@@ -106,17 +106,41 @@ import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { Briefcase as BriefcaseIcon } from "lucide-react";
 
 export default function AssessorCockpit() {
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const persistKey = "filters:AssessorCockpit";
+  const persisted = readSessionJson<{
+    selectedYear?: string;
+    selectedMonth?: string;
+    displayMode?: 'meta' | 'proportional' | 'pace';
+    referenceDate?: string;
+    selectedAssessorCode?: string;
+    selectedTeam?: string;
+  } | null>(persistKey, null);
+
+  const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
   const [isMaximized, setIsMaximized] = useState(false);
-  const [displayMode, setDisplayMode] = useState<'meta' | 'proportional' | 'pace'>('meta');
-  const [referenceDate, setReferenceDate] = useState<Date>(new Date());
+  const [displayMode, setDisplayMode] = useState<'meta' | 'proportional' | 'pace'>(() => persisted?.displayMode ?? 'meta');
+  const [referenceDate, setReferenceDate] = useState<Date>(() => {
+    const d = persisted?.referenceDate ? new Date(persisted.referenceDate) : new Date();
+    return Number.isNaN(d.getTime()) ? new Date() : d;
+  });
   
   const navigate = useNavigate();
   const { userCode, userRole } = useAuth();
   
-  const [selectedAssessorCode, setSelectedAssessorCode] = useState<string>("all");
-  const [selectedTeam, setSelectedTeam] = useState<string>("all");
+  const [selectedAssessorCode, setSelectedAssessorCode] = useState<string>(() => persisted?.selectedAssessorCode ?? "all");
+  const [selectedTeam, setSelectedTeam] = useState<string>(() => persisted?.selectedTeam ?? "all");
+
+  React.useEffect(() => {
+    writeSessionJson(persistKey, {
+      selectedYear,
+      selectedMonth,
+      displayMode,
+      referenceDate: referenceDate.toISOString(),
+      selectedAssessorCode,
+      selectedTeam,
+    });
+  }, [persistKey, selectedYear, selectedMonth, displayMode, referenceDate, selectedAssessorCode, selectedTeam]);
 
   // Initial initialization of assessor code logic (similar to PerformanceDash)
   useEffect(() => {
