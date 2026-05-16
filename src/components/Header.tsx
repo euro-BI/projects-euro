@@ -60,6 +60,7 @@ export const Header = () => {
     if (location.pathname.startsWith('/projects')) return 'Projetos';
     if (location.pathname === '/bi-dashboard') return 'Atualizações BD';
     if (location.pathname === '/consorcios') return 'Consórcios';
+    if (location.pathname === '/seguros') return 'Seguros';
     if (location.pathname === '/chat') return 'IA Chat';
     if (location.pathname === '/users') return 'Usuários';
     if (location.pathname === '/tv-presentations') return 'Gestão TV';
@@ -74,6 +75,7 @@ export const Header = () => {
     if (location.pathname.startsWith('/projects')) return FolderKanban;
     if (location.pathname === '/bi-dashboard') return RefreshCw;
     if (location.pathname === '/consorcios') return FileSpreadsheet;
+    if (location.pathname === '/seguros') return Shield;
     if (location.pathname === '/chat') return MessageSquare;
     if (location.pathname === '/users') return Users;
     if (location.pathname === '/tv-presentations' || location.pathname === '/tv-published') return Tv;
@@ -297,6 +299,12 @@ export const Header = () => {
                   <DropdownMenuItem onClick={() => navigate('/consorcios')}>
                     <FileSpreadsheet className="w-4 h-4 mr-2" />
                     Consórcios
+                  </DropdownMenuItem>
+                )}
+                {(isAdminMaster || isSeguros) && (
+                  <DropdownMenuItem onClick={() => navigate('/seguros')}>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Seguros
                   </DropdownMenuItem>
                 )}
                 {canAccessPowerBI && (

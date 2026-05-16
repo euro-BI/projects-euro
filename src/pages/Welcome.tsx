@@ -86,6 +86,16 @@ export default function Welcome() {
       borderColor: "border-primary/20"
     },
     {
+      title: "Seguros",
+      description: "Acompanhe e gerencie os dados de seguros.",
+      icon: ShieldCheck,
+      path: "/seguros",
+      roles: ["admin_master", "seguros"],
+      color: "text-blue-400",
+      bgColor: "bg-blue-400/10",
+      borderColor: "border-blue-400/20"
+    },
+    {
       title: "Atualizações BD",
       description: "Gerencie e acompanhe atualizações do banco de dados BI.",
       icon: RefreshCw,

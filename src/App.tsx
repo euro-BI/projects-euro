@@ -30,6 +30,7 @@ const MarketingDash = lazy(() => import("./pages/MarketingDash"));
 const ManagementDash = lazy(() => import("./pages/ManagementDash"));
 const AssessorCockpit = lazy(() => import("./pages/AssessorCockpit"));
 const AdvisorsDash = lazy(() => import("./pages/AdvisorsDash"));
+const Seguros = lazy(() => import("./pages/Seguros"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MigrationTest = lazy(() => import("./components/MigrationTest").then(m => ({ default: m.MigrationTest })));
 const ProjectsDebugTest = lazy(() => import("./components/ProjectsDebugTest").then(m => ({ default: m.ProjectsDebugTest })));
@@ -134,6 +135,14 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["admin_master", "consorcio"]}>
                     <Consorcios />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/seguros"
+                element={
+                  <ProtectedRoute allowedRoles={["admin_master", "seguros"]}>
+                    <Seguros />
                   </ProtectedRoute>
                 }
               />

@@ -76,7 +76,7 @@ const ROA_SEGUROS = 0.0007; // 0.07% ao ano
 // Helpers
 // ==========================================================================
 
-/** Parse valor_mensal that comes as TEXT from Supabase (e.g. "1168,04" or "1168.04") */
+/** Parse valores monetários (pode vir como número ou texto PT-BR) */
 const parseValor = (raw: any): number => {
   if (raw === null || raw === undefined || raw === "") return 0;
   const str = String(raw).replace(/\s/g, "");
@@ -86,7 +86,7 @@ const parseValor = (raw: any): number => {
   return isNaN(n) ? 0 : n;
 };
 
-const formatCurrency = (value: number, decimals = 0) =>
+const formatCurrency = (value: number, decimals = 2) =>
   `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 
 const formatNumber = (value: number) => value.toLocaleString("pt-BR");
@@ -285,10 +285,10 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Query 3 — vw_seguros_extrato for selected month
+  // Query 3 — dados_seguros_novo for selected month
   // ──────────────────────────────────────────────────────────────────────────
   const { data: segurosDataMes, isLoading: isLoadingMes } = useQuery({
-    queryKey: ["seguros-extrato-mes", selectedMonthKey],
+    queryKey: ["seguros-novo-mes", selectedMonthKey],
     queryFn: async () => {
       if (!selectedMonthKey) return [];
       const [year, month] = selectedMonthKey.split("-").map(Number);
@@ -297,10 +297,10 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
       const endDate = `${year}-${String(month).padStart(2, "0")}-${String(endDt.getDate()).padStart(2, "0")}`;
 
       const { data, error } = await supabase
-        .from("vw_seguros_extrato" as any)
-        .select("proposta, assessor, valor_mensal, seguradora, cliente, data_vencimento")
-        .gte("data_vencimento", startDate)
-        .lte("data_vencimento", endDate);
+        .from("dados_seguros_novo" as any)
+        .select("inscricao, cod_assessor, seguradora, cliente, data_inicial, valor_parcela, valor_comissao")
+        .gte("data_inicial", startDate)
+        .lte("data_inicial", endDate);
 
       if (error) throw error;
       return (data as any[]) || [];
@@ -308,16 +308,16 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Query 4 — vw_seguros_extrato for the full year (chart)
+  // Query 4 — dados_seguros_novo for the full year (chart)
   // ──────────────────────────────────────────────────────────────────────────
   const { data: segurosDataAno, isLoading: isLoadingAno } = useQuery({
-    queryKey: ["seguros-extrato-ano", selectedYear],
+    queryKey: ["seguros-novo-ano", selectedYear],
     queryFn: async () => {
       const { data } = await supabase
-        .from("vw_seguros_extrato" as any)
-        .select("proposta, assessor, valor_mensal, seguradora, cliente, data_vencimento")
-        .gte("data_vencimento", `${selectedYear}-01-01`)
-        .lte("data_vencimento", `${selectedYear}-12-31`);
+        .from("dados_seguros_novo" as any)
+        .select("inscricao, cod_assessor, seguradora, cliente, data_inicial, valor_parcela, valor_comissao")
+        .gte("data_inicial", `${selectedYear}-01-01`)
+        .lte("data_inicial", `${selectedYear}-12-31`);
       return (data as any[]) || [];
     },
   });
@@ -336,7 +336,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   // Filter helpers: apply team + assessor filters
   // ──────────────────────────────────────────────────────────────────────────
   const filterRow = (row: any) => {
-    const cod = normalizeAssessor(row.assessor || "");
+    const cod = normalizeAssessor(row.cod_assessor || row.assessor || "");
     // If assessor map not loaded yet, allow all rows through (avoid blank state)
     if (activeAssessorsData && activeAssessorsData.size > 0) {
       const info = activeAssessorsData.get(cod);
@@ -364,14 +364,14 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     });
 
     const filteredMes = (segurosDataMes || []).filter(filterRow);
-    const receitaMes = filteredMes.reduce((acc: number, r: any) => acc + parseValor(r.valor_mensal), 0);
+    const receitaMes = filteredMes.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
     const apolicesMes = filteredMes.length;
     const metaMes = (totalCustody * ROA_SEGUROS) / 12;
 
     const filteredAno = (segurosDataAno || []).filter(filterRow);
-    const receitaAno = filteredAno.reduce((acc: number, r: any) => acc + parseValor(r.valor_mensal), 0);
+    const receitaAno = filteredAno.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
 
-    const uniqueClients = new Set(filteredAno.map((r: any) => r.cliente || r.proposta));
+    const uniqueClients = new Set(filteredAno.map((r: any) => r.cliente || r.inscricao));
     const clientesAno = uniqueClients.size;
     const apolicesAno = filteredAno.length;
     const ticketMedio = apolicesAno > 0 ? receitaAno / apolicesAno : 0;
@@ -410,9 +410,9 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     // Seguros realized
     segurosDataAno.forEach((r: any) => {
       if (!filterRow(r)) return;
-      const mk = r.data_vencimento?.substring(0, 7);
+      const mk = r.data_inicial?.substring(0, 7);
       if (mk && buckets[mk]) {
-        buckets[mk].realized += parseValor(r.valor_mensal);
+        buckets[mk].realized += parseValor(r.valor_comissao);
         buckets[mk].apolices += 1;
       }
     });
@@ -458,7 +458,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     segurosDataMes.filter(filterRow).forEach((r: any) => {
       const seg = r.seguradora || "NÃO INFORMADA";
       if (!grouped[seg]) grouped[seg] = 0;
-      grouped[seg] += parseValor(r.valor_mensal);
+      grouped[seg] += parseValor(r.valor_comissao);
     });
     const colors = ["#FAC017", "#0066FF", "#8B5CF6", "#10B981", "#F43F5E", "#F97316", "#A855F7", "#3B82F6", "#22C55E"];
     const total = Object.values(grouped).reduce((a, b) => a + b, 0);
@@ -481,8 +481,8 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     activeAssessorsData.forEach((info: any, cod: string) => {
       if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
       if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
-      const myRows = segurosDataMes.filter((r: any) => normalizeAssessor(r.assessor) === cod);
-      const receita = myRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_mensal), 0);
+      const myRows = segurosDataMes.filter((r: any) => normalizeAssessor(r.cod_assessor) === cod);
+      const receita = myRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
       const meta = ((Number(info.custodia_net) || 0) * ROA_SEGUROS) / 12;
       if (receita > 0 || meta > 0) {
         rows.push({ cod_assessor: cod, nome: info.nome_assessor, foto_url: info.foto_url, meta, receita, atingimento: meta > 0 ? (receita / meta) * 100 : 0 });
@@ -505,7 +505,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     return segurosDataMes
       .filter(filterRow)
       .map((r: any) => {
-        const cod = normalizeAssessor(r.assessor);
+        const cod = normalizeAssessor(r.cod_assessor);
         const info = activeAssessorsData.get(cod) || {};
         return {
           ...r,
@@ -513,7 +513,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
           nome_assessor: info.nome_assessor || cod,
           time: info.time || "",
           foto_url: info.foto_url || null,
-          receita_num: parseValor(r.valor_mensal),
+          receita_num: parseValor(r.valor_comissao),
         };
       })
       .filter((r: any) => {
@@ -521,10 +521,10 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
         const t = searchTerm.toLowerCase();
         return (
           (r.nome_assessor || "").toLowerCase().includes(t) ||
-          (r.assessor || "").toLowerCase().includes(t) ||
+          (r.cod_assessor || "").toLowerCase().includes(t) ||
           (r.seguradora || "").toLowerCase().includes(t) ||
           (r.cliente || "").toLowerCase().includes(t) ||
-          (r.proposta || "").toLowerCase().includes(t)
+          (r.inscricao || "").toLowerCase().includes(t)
         );
       })
       .sort((a: any, b: any) => {
@@ -573,7 +573,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
                 value={formatCurrency(metrics.receitaMes)}
                 rawValue={metrics.receitaMes}
                 metaValue={metrics.metaMes}
-                subtitle="Soma de valor_mensal no mês"
+                subtitle="Soma de comissão no mês"
                 icon={TrendingUp}
                 color="#0066FF"
                 delay={0}
@@ -581,7 +581,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
               <KpiCard
                 title="Apólices Ativas"
                 value={formatNumber(metrics.apolicesMes)}
-                subtitle="Registros com vencimento no mês"
+                subtitle="Registros com data no mês"
                 icon={FileText}
                 color="#FAC017"
                 delay={0.1}
@@ -608,7 +608,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
               <KpiCard title="Receita Total (Ano)" value={formatCurrency(metrics.receitaAno)} subtitle="Soma anual de seguros" icon={DollarSign} color="#FAC017" delay={0.3} />
               <KpiCard title="Total Apólices Ativas" value={formatNumber(metrics.apolicesAno)} subtitle="Registros no ano" icon={Target} color="#8B5CF6" delay={0.4} />
               <KpiCard title="Clientes Únicos" value={formatNumber(metrics.clientesAno)} subtitle="CPFs/CNPJs distintos" icon={Users} color="#A0A090" delay={0.5} />
-              <KpiCard title="Ticket Médio / Apólice" value={formatCurrency(metrics.ticketMedio, 2)} subtitle="Receita média por apólice/mês" icon={Briefcase} color="#14B8A6" delay={0.6} />
+              <KpiCard title="Ticket Médio / Parcela" value={formatCurrency(metrics.ticketMedio, 2)} subtitle="Comissão média por registro" icon={Briefcase} color="#14B8A6" delay={0.6} />
             </div>
           </div>
 
@@ -820,7 +820,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
             <div className="flex items-center gap-2 w-full md:w-auto">
               <div className="relative w-full md:w-80 group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
-                <Input type="text" placeholder="Buscar por assessor, seguradora, cliente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10" />
+                <Input type="text" placeholder="Buscar por assessor, seguradora, cliente, inscrição..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10" />
               </div>
               <Button
                 onClick={() => {
@@ -830,9 +830,9 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
                     "Assessor": r.nome_assessor || "",
                     "Seguradora": r.seguradora || "",
                     "Cliente": r.cliente || "",
-                    "Proposta": r.proposta || "",
-                    "Vencimento": r.data_vencimento || "",
-                    "Receita Mensal R$": r.receita_num || 0,
+                    "Inscrição": r.inscricao || "",
+                    "Data": r.data_inicial || "",
+                    "Comissão R$": r.receita_num || 0,
                   }));
                   const worksheet = XLSX.utils.json_to_sheet(rows);
                   const workbook = XLSX.utils.book_new();
@@ -865,14 +865,14 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
                     <th onClick={() => handleSort("cliente")} className="py-4 px-4 font-bold border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
                       <div className="flex items-center gap-2">Cliente <SortIcon column="cliente" /></div>
                     </th>
-                    <th onClick={() => handleSort("proposta")} className="py-4 px-4 font-bold border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
-                      <div className="flex items-center gap-2">Proposta <SortIcon column="proposta" /></div>
+                    <th onClick={() => handleSort("inscricao")} className="py-4 px-4 font-bold border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <div className="flex items-center gap-2">Inscrição <SortIcon column="inscricao" /></div>
                     </th>
-                    <th onClick={() => handleSort("data_vencimento")} className="py-4 px-4 font-bold border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
-                      <div className="flex items-center gap-2">Vencimento <SortIcon column="data_vencimento" /></div>
+                    <th onClick={() => handleSort("data_inicial")} className="py-4 px-4 font-bold border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <div className="flex items-center gap-2">Data <SortIcon column="data_inicial" /></div>
                     </th>
                     <th onClick={() => handleSort("receita_num")} className="py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80 transition-colors">
-                      <div className="flex items-center gap-2 justify-end">Receita Mensal <SortIcon column="receita_num" /></div>
+                      <div className="flex items-center gap-2 justify-end">Comissão <SortIcon column="receita_num" /></div>
                     </th>
                   </tr>
                 </thead>
@@ -907,9 +907,9 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
                       </td>
                       <td className="py-3 px-4 text-white border-r border-white/5 uppercase">{item.seguradora || "—"}</td>
                       <td className="py-3 px-4 text-white border-r border-white/5 uppercase max-w-[200px] truncate">{item.cliente || "—"}</td>
-                      <td className="py-3 px-4 text-white/80 border-r border-white/5 font-mono">{item.proposta || "—"}</td>
+                      <td className="py-3 px-4 text-white/80 border-r border-white/5 font-mono">{item.inscricao || "—"}</td>
                       <td className="py-3 px-4 text-white/80 border-r border-white/5">
-                        {item.data_vencimento ? format(parseISO(item.data_vencimento), "dd/MM/yyyy") : "—"}
+                        {item.data_inicial ? format(parseISO(item.data_inicial), "dd/MM/yyyy") : "—"}
                       </td>
                       <td className="py-3 px-4 text-right text-euro-gold font-bold">{formatCurrency(item.receita_num)}</td>
                     </tr>
