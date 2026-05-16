@@ -557,10 +557,10 @@ export default function ProductsGeralDash({
 
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Query 3 — vw_seguros_extrato (monthly revenue)
+  // Query 3 — dados_seguros_novo (monthly commissions)
   // ──────────────────────────────────────────────────────────────────────────
   const { data: segurosData, isLoading: isSegLoading } = useQuery({
-    queryKey: ["prod-geral-seguros", selectedYear, selectedTeam, selectedAssessorId],
+    queryKey: ["prod-geral-seguros-novo", selectedYear, selectedTeam, selectedAssessorId],
     queryFn: async () => {
       // Get assessor map for team/assessor filtering
       const { data: latestDateData } = await supabase
@@ -590,13 +590,13 @@ export default function ProductsGeralDash({
       };
 
       const { data: segRows } = await supabase
-        .from("vw_seguros_extrato" as any)
-        .select("assessor, valor_mensal, data_vencimento")
-        .gte("data_vencimento", `${selectedYear}-01-01`)
-        .lte("data_vencimento", `${selectedYear}-12-31`);
+        .from("dados_seguros_novo" as any)
+        .select("cod_assessor, valor_comissao, data_inicial")
+        .gte("data_inicial", `${selectedYear}-01-01`)
+        .lte("data_inicial", `${selectedYear}-12-31`);
 
       return ((segRows as any[]) || []).filter((r: any) => {
-        const cod = normalizeA(r.assessor || "");
+        const cod = normalizeA(r.cod_assessor || "");
         const time = aMap.get(cod);
         if (aMap.size > 0 && time === undefined) return false;
         if (selectedTeam.length > 0 && !selectedTeam.includes(time)) return false;
@@ -650,13 +650,13 @@ export default function ProductsGeralDash({
 
     // Seguros — filter month from year data
     const segRows = (segurosData || []).filter(
-      (r: any) => r.data_vencimento?.substring(0, 7) === selectedMonthKey
+      (r: any) => r.data_inicial?.substring(0, 7) === selectedMonthKey
     );
     const segPrevRows = (segurosData || []).filter(
-      (r: any) => r.data_vencimento?.substring(0, 7) === prevMonthKey
+      (r: any) => r.data_inicial?.substring(0, 7) === prevMonthKey
     );
-    const segRealized = segRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_mensal), 0);
-    const segPrev = segPrevRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_mensal), 0);
+    const segRealized = segRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
+    const segPrev = segPrevRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
     const segTarget = (custodiaTotal * ROA_SEG) / 12;
 
     const rfDetails = [
@@ -737,9 +737,9 @@ export default function ProductsGeralDash({
 
     // Seguros
     (segurosData || []).forEach((r: any) => {
-      const mk = r.data_vencimento?.substring(0, 7);
+      const mk = r.data_inicial?.substring(0, 7);
       if (!mk || !buckets[mk]) return;
-      buckets[mk].segRealized += parseValor(r.valor_mensal);
+      buckets[mk].segRealized += parseValor(r.valor_comissao);
     });
 
     const now = new Date();
