@@ -101,6 +101,7 @@ import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground"
 import { ActivationDetailsDialog } from "@/components/dashboard/ActivationDetailsDialog";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import EsforcosDash from "@/components/dashboard/EsforcosDash";
+import NpsDash from "@/components/dashboard/NpsDash";
 
 const REVENUE_METRICS: Record<string, MetricConfig> = {
   total: { label: "Receita Total", roa: 0.0108, field: "receita_total", icon: <Coins className="w-3.5 h-3.5" /> },
@@ -816,6 +817,12 @@ export default function PerformanceDash() {
                   Ranking
                 </TabsTrigger>
                 <TabsTrigger 
+                  value="nps" 
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
+                >
+                  NPS
+                </TabsTrigger>
+                <TabsTrigger 
                   value="esforcos" 
                   className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
                 >
@@ -1286,6 +1293,16 @@ export default function PerformanceDash() {
                 <RankingRace selectedYear={rankingYear} />
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="nps" className="space-y-12 mt-0 border-none p-0 outline-none">
+            <NpsDash 
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              targetAssessors={targetAssessors}
+              assessorDetails={dashData.current}
+              teamPhotos={dashData.teamPhotos}
+            />
           </TabsContent>
 
           <TabsContent value="forecast" className="space-y-12 mt-0 border-none p-0 outline-none">
