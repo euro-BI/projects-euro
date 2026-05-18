@@ -27,6 +27,7 @@ const DashboardHome = lazy(() => import("./pages/DashboardHome"));
 const PerformanceDash = lazy(() => import("./pages/PerformanceDash"));
 const ProductsDashboard = lazy(() => import("./pages/ProductsDashboard"));
 const MarketingDash = lazy(() => import("./pages/MarketingDash"));
+const WeeklyEffortsDash = lazy(() => import("./pages/WeeklyEffortsDash"));
 const ManagementDash = lazy(() => import("./pages/ManagementDash"));
 const AssessorCockpit = lazy(() => import("./pages/AssessorCockpit"));
 const AdvisorsDash = lazy(() => import("./pages/AdvisorsDash"));
@@ -215,6 +216,14 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["admin_master", "admin", "marketing"]}>
                     <MarketingDash />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dash/esforco-semanal"
+                element={
+                  <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
+                    <WeeklyEffortsDash />
                   </ProtectedRoute>
                 }
               />
