@@ -255,13 +255,13 @@ export default function AssessorCockpit() {
       let referenceDateISO = null;
       try {
         const { data: refData } = await (supabase
-          .from('wv_tabelas_atualizacao' as any) as any)
+          .from('vw_tabelas_atualizacao' as any) as any)
           .select('ultima_atualizacao')
           .order('ultima_atualizacao', { ascending: false })
           .limit(1);
         referenceDateISO = refData?.[0]?.ultima_atualizacao || null;
       } catch (err) {
-        console.warn("Failed to fetch wv_tabelas_atualizacao");
+        console.warn("Failed to fetch vw_tabelas_atualizacao");
       }
 
       return { allMonths, years, teams, assessors, teamLogoMap, referenceDateISO };

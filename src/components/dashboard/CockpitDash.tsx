@@ -378,7 +378,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     const fetchReferenceDate = async () => {
       try {
         const { data, error } = await (supabase
-          .from('wv_tabelas_atualizacao' as any) as any)
+          .from('vw_tabelas_atualizacao' as any) as any)
           .select('ultima_atualizacao')
           .order('ultima_atualizacao', { ascending: false })
           .limit(1);

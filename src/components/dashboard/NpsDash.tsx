@@ -300,7 +300,7 @@ export default function NpsDash({
                 "text-[10px] font-data uppercase tracking-wider mt-1",
                 m.amostrageSuficiente ? "text-emerald-400" : "text-amber-400"
               )}>
-                Mínimo {MIN_AMOSTRAS}
+                Mínimo {MIN_AMOSTRAS} por assessor
               </span>
             </div>
             
@@ -442,10 +442,10 @@ export default function NpsDash({
                     stroke="#FBBF24" 
                     strokeWidth={3}
                     dot={(props: any) => {
-                      const { cx, cy, payload } = props;
+                      const { cx, cy, payload, index } = props;
                       const isSelected = payload.monthKey === selectedMonthKey;
-                      if (!payload.valid) return <circle cx={cx} cy={cy} r={4} fill="#64748B" stroke="#0F1520" strokeWidth={2} />;
-                      return <circle cx={cx} cy={cy} r={isSelected ? 6 : 4} fill={isSelected ? "#FBBF24" : "#10B981"} stroke="#0F1520" strokeWidth={2} />;
+                      if (!payload.valid) return <circle key={`dot-${index}`} cx={cx} cy={cy} r={4} fill="#64748B" stroke="#0F1520" strokeWidth={2} />;
+                      return <circle key={`dot-${index}`} cx={cx} cy={cy} r={isSelected ? 6 : 4} fill={isSelected ? "#FBBF24" : "#10B981"} stroke="#0F1520" strokeWidth={2} />;
                     }}
                     activeDot={{ r: 6, fill: "#FBBF24", stroke: "#0F1520", strokeWidth: 2 }}
                   />
