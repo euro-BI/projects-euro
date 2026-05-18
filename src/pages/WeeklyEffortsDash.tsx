@@ -138,7 +138,7 @@ export default function WeeklyEffortsDash() {
 
       const { data: reunioes, error } = await supabase
         .from("vw_reunioes_pipe" as any)
-        .select("id_atividade, deal_id, data_vencimento, data_adicionado, canal, assessor")
+        .select("id_atividade, deal_id, data_vencimento, data_adicionado, canal, assessor, concluido")
         .gte("data_vencimento", minDate)
         .lte("data_vencimento", maxDate);
 
@@ -186,7 +186,7 @@ export default function WeeklyEffortsDash() {
         if (selectedTeam !== "all" && assessorMeta?.team !== selectedTeam) return;
         if (selectedAssessor !== "all" && cod !== selectedAssessor) return;
 
-        const isRealizada = r.data_vencimento.substring(0, 10) <= todayStr;
+        const isRealizada = String(r.concluido).toLowerCase() === "true";
         
         if (isRealizada) realizadas++;
         else agendadas++;

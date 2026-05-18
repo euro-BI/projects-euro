@@ -287,33 +287,41 @@ export default function NpsDash({
             <CardTitle className="text-[10px] font-data text-white/60 uppercase tracking-widest leading-tight">
               Respostas
             </CardTitle>
-            <NpsDetailsDialog 
-              data={npsData as NpsRow[]}
-              selectedMonth={selectedMonth}
-              score={m.score}
-              promotores={m.promotores}
-              passivos={m.passivos}
-              detratores={m.detratores}
-              totalRespostas={m.totalRespostas}
-              atingido={m.atingido}
-              metaNps={META_NPS}
-              minAmostras={MIN_AMOSTRAS}
-            >
-              <button className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 bg-blue-400/20 hover:bg-blue-400/40 transition-colors cursor-pointer text-blue-400">
-                <Search className="w-3.5 h-3.5" />
-              </button>
-            </NpsDetailsDialog>
+            <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 bg-blue-400/20">
+              <Users className="w-3.5 h-3.5 text-blue-400" />
+            </div>
           </CardHeader>
-          <CardContent className="pt-0 pb-4 pl-5 pr-3 flex-grow flex flex-col items-center justify-center">
-            <span className="text-3xl font-display text-[#F5F5F0] leading-tight mt-2">
-              {m.totalRespostas}
-            </span>
-            <span className={cn(
-              "text-[10px] font-data uppercase tracking-wider mt-1",
-              m.amostrageSuficiente ? "text-emerald-400" : "text-amber-400"
-            )}>
-              Mínimo {MIN_AMOSTRAS}
-            </span>
+          <CardContent className="pt-0 pb-3 pl-5 pr-5 flex-grow flex flex-col">
+            <div className="flex-grow flex flex-col items-center justify-center">
+              <span className="text-3xl font-display text-[#F5F5F0] leading-tight mt-2">
+                {m.totalRespostas}
+              </span>
+              <span className={cn(
+                "text-[10px] font-data uppercase tracking-wider mt-1",
+                m.amostrageSuficiente ? "text-emerald-400" : "text-amber-400"
+              )}>
+                Mínimo {MIN_AMOSTRAS}
+              </span>
+            </div>
+            
+            <div className="w-full border-t border-white/5 mt-3 pt-3 flex justify-end">
+              <NpsDetailsDialog 
+                data={npsData as NpsRow[]}
+                selectedMonth={selectedMonth}
+                score={m.score}
+                promotores={m.promotores}
+                passivos={m.passivos}
+                detratores={m.detratores}
+                totalRespostas={m.totalRespostas}
+                atingido={m.atingido}
+                metaNps={META_NPS}
+                minAmostras={MIN_AMOSTRAS}
+              >
+                <button className="text-[10px] font-data text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer">
+                  Detalhes
+                </button>
+              </NpsDetailsDialog>
+            </div>
           </CardContent>
         </Card>
 
