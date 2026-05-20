@@ -11,8 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Maximize2, Minimize2, CalendarCheck, Clock, ThumbsUp, Target, TrendingUp, TrendingDown, Users, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Play, X } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2, CalendarCheck, Clock, ThumbsUp, Target, TrendingUp, TrendingDown, Users, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Play, X, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth";
 
@@ -98,7 +99,10 @@ export default function WeeklyEffortsDash() {
         .select("cod_assessor, nome_assessor, time, foto_url")
         .eq("data_posicao", latestDate || format(today, "yyyy-MM-dd"));
 
-      const validRows = (mvRows as any[] || []).filter(r => r.time?.toUpperCase() !== "OPERACIONAIS");
+      const validRows = (mvRows as any[] || []).filter(r => {
+        const t = r.time?.toUpperCase();
+        return t !== "OPERACIONAIS" && t !== "ADVISORS" && t !== "ANYWHERE";
+      });
 
       const teams = Array.from(new Set(validRows.map(r => r.time).filter(Boolean))).sort();
       const assessors = validRows.map(r => ({
@@ -294,6 +298,25 @@ export default function WeeklyEffortsDash() {
       return direction === 'asc' ? aVal - bVal : bVal - aVal;
     });
   }, [processedData, sortConfig]);
+
+  const handleDownloadExcel = () => {
+    if (!sortedRanking || sortedRanking.length === 0) return;
+
+    const dataToExport = sortedRanking.map((assessor, index) => ({
+      'Posição': index + 1,
+      'Assessor': assessor.nome,
+      'Time': assessor.time,
+      'R1 Realizadas': assessor.realizadas,
+      'R1 Agendadas': assessor.agendadas,
+      'Status': assessor.statusText
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ranking");
+
+    XLSX.writeFile(wb, `ranking_esforco_r1_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+  };
 
   const isLoading = isMetaLoading || isDataLoading;
 
@@ -581,6 +604,15 @@ export default function WeeklyEffortsDash() {
                 <h3 className="text-lg font-data text-euro-gold tracking-widest uppercase flex items-center gap-2">
                   🏆 Ranking de Assessores
                 </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadExcel}
+                  className="bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold border-euro-gold/30 h-8 flex items-center gap-2 transition-all duration-300"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="text-[10px] font-data uppercase tracking-wider hidden sm:inline">Baixar Excel</span>
+                </Button>
               </div>
               
               <div className="overflow-auto custom-scrollbar relative flex-1">
