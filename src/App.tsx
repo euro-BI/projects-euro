@@ -222,7 +222,7 @@ const App = () => (
               <Route
                 path="/dash/esforco-semanal"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]}>
                     <WeeklyEffortsDash />
                   </ProtectedRoute>
                 }

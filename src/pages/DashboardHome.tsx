@@ -228,34 +228,32 @@ export default function DashboardHome() {
           )}
 
           {/* Card Esforço Semanal */}
-          {isAdminOrMaster && (
-            <div 
-              onClick={() => navigate("/dash/esforco-semanal")}
-              className="cursor-pointer"
-            >
-              <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
-                <CardContent className="h-full flex flex-col items-center p-8 pt-10 relative">
-                  <div className="absolute inset-0 bg-gradient-to-b from-[#06B6D4]/5 to-transparent" />
-                  
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#06B6D4] to-[#0891B2] flex items-center justify-center mb-6 shadow-lg shrink-0">
-                    <CalendarCheck className="w-10 h-10 text-white" />
-                  </div>
-                  
-                  <h2 className="text-3xl font-display text-white mb-3 tracking-wide text-center leading-tight">
-                    Esforços
-                  </h2>
-                  
-                  <p className="text-[#A0A090] text-center font-light mb-auto max-w-xs line-clamp-3 min-h-[4.5rem]">
-                    Acompanhamento de reuniões de diagnóstico (R1).
-                  </p>
-                  
-                  <div className="flex items-center gap-2 text-[#06B6D4] font-data text-xs uppercase tracking-widest mt-4">
-                    Acessar Esforços <ArrowRight className="w-4 h-4" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <div 
+            onClick={() => navigate("/dash/esforco-semanal")}
+            className="cursor-pointer"
+          >
+            <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
+              <CardContent className="h-full flex flex-col items-center p-8 pt-10 relative">
+                <div className="absolute inset-0 bg-gradient-to-b from-[#06B6D4]/5 to-transparent" />
+                
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#06B6D4] to-[#0891B2] flex items-center justify-center mb-6 shadow-lg shrink-0">
+                  <CalendarCheck className="w-10 h-10 text-white" />
+                </div>
+                
+                <h2 className="text-3xl font-display text-white mb-3 tracking-wide text-center leading-tight">
+                  Esforços
+                </h2>
+                
+                <p className="text-[#A0A090] text-center font-light mb-auto max-w-xs line-clamp-3 min-h-[4.5rem]">
+                  Acompanhamento de reuniões de diagnóstico (R1).
+                </p>
+                
+                <div className="flex items-center gap-2 text-[#06B6D4] font-data text-xs uppercase tracking-widest mt-4">
+                  Acessar Esforços <ArrowRight className="w-4 h-4" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </PageLayout>
