@@ -49,7 +49,7 @@ const queryClient = new QueryClient({
 const HeaderWrapper = () => {
   const location = useLocation();
   const isChatPage = location.pathname === "/chat";
-  const isTVViewerPage = location.pathname.startsWith("/tv-viewer");
+  const isTVViewerPage = location.pathname.startsWith("/tv-viewer") || location.pathname.startsWith("/tv/");
   return !isChatPage && !isTVViewerPage ? <Header /> : null;
 };
 
@@ -261,6 +261,7 @@ const App = () => (
                   </div>
                 }
               />
+              <Route path="/tv/esforco-semanal" element={<WeeklyEffortsDash />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

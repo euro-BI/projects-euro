@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parseISO, isBefore, isAfter, isEqual, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -19,8 +19,11 @@ type PeriodType = "currentWeek" | "prevWeek" | "currentMonth";
 
 export default function WeeklyEffortsDash() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isPublicTV = location.pathname === "/tv/esforco-semanal";
+
   const [isMaximized, setIsMaximized] = useState(false);
-  const [showPresentation, setShowPresentation] = useState(false);
+  const [showPresentation, setShowPresentation] = useState(isPublicTV);
   const [period, setPeriod] = useState<PeriodType>("currentWeek");
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedAssessor, setSelectedAssessor] = useState<string>("all");
@@ -101,7 +104,8 @@ export default function WeeklyEffortsDash() {
 
       const validRows = (mvRows as any[] || []).filter(r => {
         const t = r.time?.toUpperCase();
-        return t !== "OPERACIONAIS" && t !== "ADVISORS" && t !== "ANYWHERE";
+        const cod = r.cod_assessor?.toUpperCase();
+        return t !== "OPERACIONAIS" && t !== "ADVISORS" && t !== "ANYWHERE" && cod !== "A26969" && cod !== "A1607";
       });
 
       const teams = Array.from(new Set(validRows.map(r => r.time).filter(Boolean))).sort();
@@ -324,7 +328,7 @@ export default function WeeklyEffortsDash() {
     return (
       <TVPresentationMode 
         data={processedData} 
-        onClose={() => {
+        onClose={isPublicTV ? undefined : () => {
           setShowPresentation(false);
           if (document.exitFullscreen && document.fullscreenElement) {
             document.exitFullscreen().catch(console.error);
@@ -702,7 +706,7 @@ export default function WeeklyEffortsDash() {
 // ----------------------------------------------------------------------------
 // Componente de Apresentação TV (Tela Cheia, Slides Automáticos)
 // ----------------------------------------------------------------------------
-function TVPresentationMode({ data, onClose }: { data: any, onClose: () => void }) {
+function TVPresentationMode({ data, onClose }: { data: any, onClose?: () => void }) {
   const [slideIndex, setSlideIndex] = useState(0);
 
   const slides = useMemo(() => [
@@ -752,13 +756,15 @@ function TVPresentationMode({ data, onClose }: { data: any, onClose: () => void 
             Esforço R1 <span className="text-euro-gold font-light">· {currentSlide.title}</span>
           </h1>
         </div>
-        <Button 
-          variant="ghost" 
-          onClick={onClose}
-          className="text-white/50 hover:text-white hover:bg-white/10"
-        >
-          <X className="w-8 h-8" />
-        </Button>
+        {onClose && (
+          <Button 
+            variant="ghost" 
+            onClick={onClose}
+            className="text-white/50 hover:text-white hover:bg-white/10"
+          >
+            <X className="w-8 h-8" />
+          </Button>
+        )}
       </div>
 
       <div className="relative z-10 flex-1 flex flex-col justify-between">
@@ -772,7 +778,7 @@ function TVPresentationMode({ data, onClose }: { data: any, onClose: () => void 
           </Card>
           <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
             <div className="p-8 flex flex-col items-center text-center">
-              <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">R1 Agendadas</span>
+              <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">Reuniões em Aberto</span>
               <span className="font-display text-white tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.agendadas}</span>
             </div>
           </Card>
@@ -799,7 +805,7 @@ function TVPresentationMode({ data, onClose }: { data: any, onClose: () => void 
             {top5.map((assessor, idx) => {
               const orderVal = [3, 2, 4, 1, 5][idx] || 99;
               const widthVal = ["300px", "260px", "260px", "220px", "220px"][idx] || "200px";
-              const heightVal = ["380px", "300px", "240px", "180px", "140px"][idx] || "100px";
+              const heightVal = ["420px", "340px", "280px", "220px", "200px"][idx] || "180px";
 
               const colorClass = [
                 "border-euro-gold text-euro-gold shadow-[0_0_50px_rgba(212,175,55,0.25)]",
@@ -852,18 +858,18 @@ function TVPresentationMode({ data, onClose }: { data: any, onClose: () => void 
 
                   {/* Podium Base */}
                   <div 
-                    className="w-full rounded-t-3xl bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border-x border-t border-white/20 flex flex-col items-center pt-12 pb-6 px-4 shadow-2xl relative"
+                    className="w-full rounded-t-3xl bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border-x border-t border-white/20 flex flex-col items-center pt-10 pb-6 px-4 shadow-2xl relative"
                     style={{ height: heightVal }}
                   >
                     {/* Numbers Grid */}
                     <div className="w-full grid grid-cols-2 gap-2 bg-black/30 rounded-xl p-3 border border-white/5 mt-2">
-                      <div className="flex flex-col items-center">
+                      <div className="flex flex-col items-center justify-center text-center">
                         <span className="text-4xl sm:text-5xl font-display text-white leading-none mb-1">{assessor.realizadas}</span>
                         <span className="text-[9px] text-euro-gold uppercase tracking-widest font-bold">Realizadas</span>
                       </div>
-                      <div className="flex flex-col items-center border-l border-white/10">
+                      <div className="flex flex-col items-center justify-center text-center border-l border-white/10">
                         <span className="text-4xl sm:text-5xl font-display text-white/50 leading-none mb-1">{assessor.agendadas}</span>
-                        <span className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Agendadas</span>
+                        <span className="text-[9px] text-white/30 uppercase tracking-widest font-bold leading-[1.2]">Reuniões<br/>em Aberto</span>
                       </div>
                     </div>
 
