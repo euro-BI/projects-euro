@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parseISO, isBefore, isAfter, isEqual, startOfDay } from "date-fns";
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parseISO, isBefore, isAfter, isEqual, startOfDay, differenceInCalendarWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
@@ -164,6 +164,15 @@ export default function WeeklyEffortsDash() {
 
     // Helper to process a specific date range
     const processRange = (start: string, end: string) => {
+      const startDate = parseISO(start);
+      const endDate = parseISO(end);
+      const effectiveEnd = isBefore(endDate, today) ? endDate : today;
+      let weeks = differenceInCalendarWeeks(effectiveEnd, startDate, { weekStartsOn: 1 }) + 1;
+      if (weeks < 1) weeks = 1;
+
+      const topPerformerTarget = 2 * weeks;
+      const metaTarget = 1 * weeks;
+
       const filtered = reunioes.filter(r => {
         if (!r.data_vencimento) return false;
         const d = r.data_vencimento.substring(0, 10);
@@ -215,7 +224,7 @@ export default function WeeklyEffortsDash() {
       const zerados: any[] = [];
 
       assessorStats.forEach((stats, cod) => {
-        if (stats.realizadas >= 1) bateramMeta++;
+        if (stats.realizadas >= metaTarget) bateramMeta++;
         
         const aMeta = assessorMap.get(cod);
         const entry = {
@@ -226,11 +235,13 @@ export default function WeeklyEffortsDash() {
           realizadas: stats.realizadas,
           agendadas: stats.agendadas,
           total: stats.realizadas + stats.agendadas,
-          statusColor: stats.realizadas >= 2 ? "bg-euro-gold/20 text-euro-gold border-euro-gold/30" : 
-                       stats.realizadas === 1 ? "bg-green-500/20 text-green-400 border-green-500/30" : 
+          statusColor: stats.realizadas >= topPerformerTarget ? "bg-euro-gold/20 text-euro-gold border-euro-gold/30" : 
+                       stats.realizadas >= metaTarget ? "bg-green-500/20 text-green-400 border-green-500/30" : 
+                       stats.realizadas > 0 ? "bg-orange-500/20 text-orange-400 border-orange-500/30" :
                        "bg-red-500/20 text-red-400 border-red-500/30",
-          statusText: stats.realizadas >= 2 ? "Top Performer ⭐" : 
-                      stats.realizadas === 1 ? "Meta ✓" : 
+          statusText: stats.realizadas >= topPerformerTarget ? "Top Performer ⭐" : 
+                      stats.realizadas >= metaTarget ? "Meta ✓" : 
+                      stats.realizadas > 0 ? "Abaixo da Meta" :
                       "Zerado"
         };
         
