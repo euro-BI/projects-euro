@@ -21,14 +21,21 @@ interface ProdutosRFDashProps {
   teamPhotos?: Map<string, string>;
 }
 
-const formatCurrency = (value: number, decimals: number = 2) =>
-  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+const formatCurrency = (value: number, decimals: number = 2) => {
+  const safeValue = value || 0;
+  return `R$ ${safeValue.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+};
 
 const parseNet = (val: string | null) => {
   if (!val) return 0;
   const cleanStr = val.replace(/["']/g, "").replace(/\./g, "").replace(",", ".");
   const num = parseFloat(cleanStr);
   return isNaN(num) ? 0 : num;
+};
+
+const formatPercent = (value: number, total: number) => {
+  if (!total || total === 0) return "(0%)";
+  return `(${Math.round((value / total) * 100)}%)`;
 };
 
 export default function ProdutosRFDash({
@@ -73,9 +80,10 @@ export default function ProdutosRFDash({
       // Always fetch assessor mapping for the table, regardless of filters
       let mvQuery = supabase
         .from("mv_resumo_assessor" as any)
-        .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster")
+        .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster, custodia_net, data_posicao")
         .gte("data_posicao", `${selectedMonthKey}-01`)
-        .lte("data_posicao", selectedMonthEndDate);
+        .lte("data_posicao", selectedMonthEndDate)
+        .order("data_posicao", { ascending: true });
 
       if (selectedTeam.length > 0) {
         mvQuery = mvQuery.in("time", selectedTeam);
@@ -120,7 +128,7 @@ export default function ProdutosRFDash({
     }
   });
 
-  const { totals, tableData, detailData } = useMemo(() => {
+  const { totals, tableData, detailData, tableFooterTotalNet } = useMemo(() => {
     const result = {
       "Fundos": 0,
       "Previdência": 0,
@@ -128,7 +136,7 @@ export default function ProdutosRFDash({
       "Tesouro Direto": 0
     };
     
-    if (!diversificadorData || !diversificadorData.data) return { totals: result, tableData: [], detailData: [] };
+    if (!diversificadorData || !diversificadorData.data) return { totals: result, tableData: [], detailData: [], tableFooterTotalNet: 0 };
     
     // Usually position tables contain snapshots. Let's find the latest data_posicao first.
     const latestDate = diversificadorData.data.reduce((max, row) => {
@@ -165,7 +173,7 @@ export default function ProdutosRFDash({
           Previdencia: 0,
           RendaFixa: 0,
           TesouroDireto: 0,
-          total: 0
+          total: Number(info.custodia_net) || 0
         });
       }
       
@@ -184,7 +192,6 @@ export default function ProdutosRFDash({
         result["Tesouro Direto"] += val;
         stats.TesouroDireto += val;
       }
-      stats.total += val;
     });
     
     const tableArray = Array.from(byAssessor.values())
@@ -244,7 +251,9 @@ export default function ProdutosRFDash({
       return direction === 'asc' ? (aVal > bVal ? 1 : -1) : (bVal > aVal ? 1 : -1);
     });
     
-    return { totals: result, tableData: tableArray, detailData: detailArray };
+    const tableFooterTotalNet = tableArray.reduce((acc, curr) => acc + curr.total, 0);
+
+    return { totals: result, tableData: tableArray, detailData: detailArray, tableFooterTotalNet };
   }, [diversificadorData, searchTerm, detailSearchTerm, sortConfig, detailSortConfig]);
 
   const modalData = useMemo(() => {
@@ -374,6 +383,25 @@ export default function ProdutosRFDash({
     XLSX.writeFile(wb, `detalhamento_rf_${selectedMonthKey}.xlsx`);
   };
 
+  const handleExportSummary = () => {
+    if (!tableData || tableData.length === 0) return;
+    
+    const ws = XLSX.utils.json_to_sheet(tableData.map(row => ({
+      "Time": row.time || "",
+      "Código Assessor": row.cod_assessor,
+      "Nome Assessor": row.nome_assessor,
+      "Total Net": row.total,
+      "Renda Fixa": row.RendaFixa,
+      "Fundos": row.Fundos,
+      "Previdência": row.Previdencia,
+      "Tesouro Direto": row.TesouroDireto
+    })));
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Resumo");
+    XLSX.writeFile(wb, `resumo_rf_${selectedMonthKey}.xlsx`);
+  };
+
   const totalPages = Math.ceil((detailData?.length || 0) / itemsPerPage);
   const paginatedData = detailData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -414,7 +442,7 @@ export default function ProdutosRFDash({
                       {formatCurrency(card.value)}
                     </span>
                     <span className="text-xs font-data text-white/30 uppercase tracking-wider mt-1">
-                      Total Net
+                      Total Net {tableFooterTotalNet > 0 ? `• ${formatPercent(card.value, tableFooterTotalNet)}` : ''}
                     </span>
                   </div>
                 </CardContent>
@@ -430,15 +458,24 @@ export default function ProdutosRFDash({
           <h3 className="text-lg font-data text-euro-gold tracking-widest uppercase flex-shrink-0">
             Resumo Produtos RF por Assessor {formattedMonth ? `(${formattedMonth})` : ""}
           </h3>
-          <div className="relative w-full md:w-80 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
-            <Input
-              type="text"
-              placeholder="Buscar assessor por nome ou código..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
-            />
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="relative w-full md:w-80 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
+              <Input
+                type="text"
+                placeholder="Buscar assessor por nome ou código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
+              />
+            </div>
+            <button
+              onClick={handleExportSummary}
+              className="flex items-center gap-2 px-4 py-2 bg-euro-elevated border border-white/10 rounded-lg text-white text-xs font-bold uppercase tracking-widest hover:border-euro-gold hover:text-euro-gold transition-colors shrink-0 h-10"
+            >
+              <Download className="w-4 h-4" />
+              Baixar XLSX
+            </button>
           </div>
         </div>
 
@@ -558,25 +595,33 @@ export default function ProdutosRFDash({
                       className="py-3 px-4 text-right text-white/80 border-r border-white/5 cursor-pointer hover:bg-white/5 transition-colors group/cell"
                       onClick={() => setSelectedAssessorForDetails({ cod_assessor: item.cod_assessor, nome: item.nome_assessor, product: 'Renda Fixa' })}
                     >
-                      <span className="group-hover/cell:text-euro-gold transition-colors">{formatCurrency(item.RendaFixa)}</span>
+                      <span className="group-hover/cell:text-euro-gold transition-colors whitespace-nowrap">
+                        {formatCurrency(item.RendaFixa)} <span className="text-[10px] opacity-50 ml-1">{formatPercent(item.RendaFixa, item.total)}</span>
+                      </span>
                     </td>
                     <td 
                       className="py-3 px-4 text-right text-white/80 border-r border-white/5 cursor-pointer hover:bg-white/5 transition-colors group/cell"
                       onClick={() => setSelectedAssessorForDetails({ cod_assessor: item.cod_assessor, nome: item.nome_assessor, product: 'Fundos' })}
                     >
-                      <span className="group-hover/cell:text-euro-gold transition-colors">{formatCurrency(item.Fundos)}</span>
+                      <span className="group-hover/cell:text-euro-gold transition-colors whitespace-nowrap">
+                        {formatCurrency(item.Fundos)} <span className="text-[10px] opacity-50 ml-1">{formatPercent(item.Fundos, item.total)}</span>
+                      </span>
                     </td>
                     <td 
                       className="py-3 px-4 text-right text-white/80 border-r border-white/5 cursor-pointer hover:bg-white/5 transition-colors group/cell"
                       onClick={() => setSelectedAssessorForDetails({ cod_assessor: item.cod_assessor, nome: item.nome_assessor, product: 'Previdência' })}
                     >
-                      <span className="group-hover/cell:text-euro-gold transition-colors">{formatCurrency(item.Previdencia)}</span>
+                      <span className="group-hover/cell:text-euro-gold transition-colors whitespace-nowrap">
+                        {formatCurrency(item.Previdencia)} <span className="text-[10px] opacity-50 ml-1">{formatPercent(item.Previdencia, item.total)}</span>
+                      </span>
                     </td>
                     <td 
                       className="py-3 px-4 text-right text-white/80 cursor-pointer hover:bg-white/5 transition-colors group/cell"
                       onClick={() => setSelectedAssessorForDetails({ cod_assessor: item.cod_assessor, nome: item.nome_assessor, product: 'Tesouro Direto' })}
                     >
-                      <span className="group-hover/cell:text-euro-gold transition-colors">{formatCurrency(item.TesouroDireto)}</span>
+                      <span className="group-hover/cell:text-euro-gold transition-colors whitespace-nowrap">
+                        {formatCurrency(item.TesouroDireto)} <span className="text-[10px] opacity-50 ml-1">{formatPercent(item.TesouroDireto, item.total)}</span>
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -596,11 +641,19 @@ export default function ProdutosRFDash({
                 <tr className="bg-black/80 backdrop-blur-md text-xs font-bold font-data border-t-2 border-euro-gold">
                   <td className="py-4 px-4 text-euro-gold uppercase tracking-widest sticky left-0 bg-black/90 z-40 border-r border-white/10 w-[80px] min-w-[80px] max-w-[80px]">Total</td>
                   <td className="sticky left-[80px] bg-black/90 z-40 border-r border-white/10"></td>
-                  <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatCurrency(totals["Fundos"] + totals["Previdência"] + totals["Renda Fixa"] + totals["Tesouro Direto"])}</td>
-                  <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals["Renda Fixa"])}</td>
-                  <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals["Fundos"])}</td>
-                  <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrency(totals["Previdência"])}</td>
-                  <td className="py-4 px-4 text-right text-white bg-black/80">{formatCurrency(totals["Tesouro Direto"])}</td>
+                  <td className="py-4 px-4 text-right text-euro-gold border-r border-white/5 bg-black/80">{formatCurrency(tableFooterTotalNet)}</td>
+                  <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">
+                    <span className="whitespace-nowrap">{formatCurrency(totals["Renda Fixa"])} <span className="text-[10px] opacity-50 ml-1">{formatPercent(totals["Renda Fixa"], tableFooterTotalNet)}</span></span>
+                  </td>
+                  <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">
+                    <span className="whitespace-nowrap">{formatCurrency(totals["Fundos"])} <span className="text-[10px] opacity-50 ml-1">{formatPercent(totals["Fundos"], tableFooterTotalNet)}</span></span>
+                  </td>
+                  <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">
+                    <span className="whitespace-nowrap">{formatCurrency(totals["Previdência"])} <span className="text-[10px] opacity-50 ml-1">{formatPercent(totals["Previdência"], tableFooterTotalNet)}</span></span>
+                  </td>
+                  <td className="py-4 px-4 text-right text-white bg-black/80">
+                    <span className="whitespace-nowrap">{formatCurrency(totals["Tesouro Direto"])} <span className="text-[10px] opacity-50 ml-1">{formatPercent(totals["Tesouro Direto"], tableFooterTotalNet)}</span></span>
+                  </td>
                 </tr>
               </tfoot>
             </table>
