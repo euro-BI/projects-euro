@@ -30,6 +30,7 @@ export interface NpsRow {
   continha_pergunta: boolean;
   nota_score: number | null;
   classificacao_nps: string | null;
+  pesquisa_caducou?: string | null;
 }
 
 interface NpsDetailsDialogProps {
@@ -94,6 +95,15 @@ export function NpsDetailsDialog({
   const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
+  const baseData = React.useMemo(() => {
+    const isCaducou = (v: any) => {
+      if (v === true) return true;
+      const s = String(v ?? "").trim().toLowerCase();
+      return s === "sim" || s === "true" || s === "1";
+    };
+    return (data || []).filter((r: any) => !isCaducou(r.pesquisa_caducou));
+  }, [data]);
+
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -104,7 +114,7 @@ export function NpsDetailsDialog({
 
   // Todos os registros (incluindo não-respondidos) ordenados
   const sorted = React.useMemo(() => {
-    return [...data].sort((a, b) => {
+    return [...baseData].sort((a, b) => {
       // Respondidos primeiro (Finished com nota)
       const aFinished = a.status === "Finished" && a.nota_score !== null ? 0 : 1;
       const bFinished = b.status === "Finished" && b.nota_score !== null ? 0 : 1;
@@ -116,7 +126,7 @@ export function NpsDetailsDialog({
       if (aOrder !== bOrder) return aOrder - bOrder;
       return (b.data_real ?? "").localeCompare(a.data_real ?? "");
     });
-  }, [data]);
+  }, [baseData]);
 
   const filtered = React.useMemo(() => {
     let result = sorted.filter((r) => {
@@ -156,7 +166,7 @@ export function NpsDetailsDialog({
     return result;
   }, [sorted, activeFilter, search, sortConfig]);
 
-  const semRespostaCount = data.filter(r => r.nota_score === null).length;
+  const semRespostaCount = baseData.filter(r => r.nota_score === null).length;
 
   const mesLabel = (() => {
     try { return format(parseISO(selectedMonth), "MMMM 'de' yyyy", { locale: ptBR }); }
