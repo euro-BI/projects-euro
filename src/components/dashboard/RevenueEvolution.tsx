@@ -9,6 +9,7 @@ import {
   TrendingUp, 
   Coins, 
   Briefcase, 
+  Wallet,
   BarChart3,
   Star,
   Users as UsersIcon,
@@ -48,11 +49,12 @@ interface RevenueEvolutionProps {
 type MetricKey = 
   | "total" | "invest" | "cross" 
   | "asset" | "b3" | "estruturadas" | "cetipados" | "ofertas" | "renda_fixa"
-  | "seguros" | "previdencia" | "compromissadas" | "cambio" | "offshore" | "consorcios";
+  | "seguros" | "previdencia" | "compromissadas" | "cambio" | "offshore" | "consorcios"
+  | "roa" | "custodia" | "clientes";
 
 type AnalysisType = "meta" | "mom" | "yoy" | "avg" | "mm3" | "mm6" | "mm12" | "acc";
 
-const METRICS: Record<MetricKey, { label: string; roa: number; fields?: string[]; field?: string; icon?: React.ReactNode }> = {
+const METRICS: Record<MetricKey, { label: string; roa?: number; fields?: string[]; field?: string; icon?: React.ReactNode; mode?: "currency" | "percent" | "number"; targetValue?: number; supportsAcc?: boolean }> = {
   total: { label: "Receita Total", roa: 0.0108, field: "receita_total", icon: <Coins className="w-3.5 h-3.5" /> },
   invest: { 
     label: "Receita Investimento", 
@@ -66,6 +68,9 @@ const METRICS: Record<MetricKey, { label: string; roa: number; fields?: string[]
     fields: ["receita_seguros", "receita_previdencia", "receita_compromissadas", "receita_cambio", "receitas_offshore", "receita_consorcios"],
     icon: <ArrowRightLeft className="w-3.5 h-3.5" />
   },
+  roa: { label: "ROA", mode: "percent", targetValue: 0.0108, icon: <Percent className="w-3.5 h-3.5" />, supportsAcc: false },
+  custodia: { label: "Custódia Líquida", mode: "currency", field: "custodia_net", icon: <Wallet className="w-3.5 h-3.5" />, supportsAcc: false },
+  clientes: { label: "Clientes", mode: "number", field: "total_clientes", icon: <UsersIcon className="w-3.5 h-3.5" />, supportsAcc: false },
   asset: { label: "Asset", roa: 0.0002, field: "asset_m_1" },
   b3: { label: "B3", roa: 0.0020, field: "receita_b3" },
   estruturadas: { label: "Estruturados", roa: 0.0035, field: "receitas_estruturadas" },
@@ -87,6 +92,15 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedMonthData, setSelectedMonthData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const activeMetric = METRICS[selectedMetric];
+  const currentMode = activeMetric.mode || "currency";
+  const hasTarget = selectedMetric === "roa" ? true : !!activeMetric.roa || !!activeMetric.targetValue;
+  const supportsAcc = activeMetric.supportsAcc ?? true;
+
+  useEffect(() => {
+    if (analysisType === "meta" && !hasTarget) setAnalysisType("mom");
+    if (analysisType === "acc" && !supportsAcc) setAnalysisType("mom");
+  }, [analysisType, hasTarget, supportsAcc]);
 
   // Resize listener
   useEffect(() => {
@@ -131,18 +145,29 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
       const monthAssessors = groupedByMonth[monthKey];
       const monthDate = parseISO(`${monthKey}-01`);
       
-      // Calculate total value and total custody for this month
-      const calculateValue = (assessors: AssessorResumo[]) => assessors.reduce((sum, curr) => {
-        if (metric.field) return sum + ((curr as any)[metric.field] || 0);
-        if (metric.fields) return sum + metric.fields.reduce((fSum, f) => fSum + ((curr as any)[f] || 0), 0);
-        return sum;
-      }, 0);
+      const calculateValue = (assessors: AssessorResumo[]) => {
+        if (currentMode === "percent" && selectedMetric === "roa") {
+          const totalRev = assessors.reduce((sum, curr) => sum + (curr.receita_total || 0), 0);
+          const totalCust = assessors.reduce((sum, curr) => sum + (curr.custodia_net || 0), 0);
+          return totalCust > 0 ? (totalRev / totalCust) * 12 : 0;
+        }
+
+        return assessors.reduce((sum, curr) => {
+          if (metric.field) return sum + ((curr as any)[metric.field] || 0);
+          if (metric.fields) return sum + metric.fields.reduce((fSum, f) => fSum + ((curr as any)[f] || 0), 0);
+          return sum;
+        }, 0);
+      };
 
       const totalValue = calculateValue(monthAssessors);
       const totalCustody = monthAssessors.reduce((sum, curr) => sum + (curr.custodia_net || 0), 0);
       
-      // Target Revenue = (Target ROA / 12) * Custody
-      const targetValue = (metric.roa / 12) * totalCustody;
+      let targetValue = 0;
+      if (metric.roa) {
+        targetValue = (metric.roa / 12) * totalCustody;
+      } else if (metric.targetValue) {
+        targetValue = metric.targetValue;
+      }
 
       // YoY Calculation: Find same month in previous year
       const prevMonthKey = format(subMonths(monthDate, 12), "yyyy-MM");
@@ -164,22 +189,48 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
         return windowValues.reduce((s, v) => s + v, 0) / windowValues.length;
       };
 
-      // Find best assessor for this month/metric
-      const bestAssessorRaw = [...monthAssessors].sort((a, b) => {
-        let valA = metric.field ? (a as any)[metric.field] : metric.fields?.reduce((s, f) => s + ((a as any)[f] || 0), 0);
-        let valB = metric.field ? (b as any)[metric.field] : metric.fields?.reduce((s, f) => s + ((b as any)[f] || 0), 0);
+      const sortedAssessors = [...monthAssessors].sort((a, b) => {
+        let valA = 0;
+        let valB = 0;
+        if (currentMode === "percent" && selectedMetric === "roa") {
+          valA = a.roa || 0;
+          valB = b.roa || 0;
+        } else {
+          valA = metric.field ? (a as any)[metric.field] : metric.fields?.reduce((s, f) => s + ((a as any)[f] || 0), 0);
+          valB = metric.field ? (b as any)[metric.field] : metric.fields?.reduce((s, f) => s + ((b as any)[f] || 0), 0);
+        }
         return (valB || 0) - (valA || 0);
-      })[0];
+      });
+      const bestAssessorRaw = sortedAssessors[0];
 
       // Find best team for this month/metric
       const teamTotals = monthAssessors.reduce((acc: Record<string, number>, curr) => {
         const team = curr.time || "Sem Time";
-        let val = metric.field ? (curr as any)[metric.field] : metric.fields?.reduce((s, f) => s + ((curr as any)[f] || 0), 0);
-        acc[team] = (acc[team] || 0) + (val || 0);
+        let val = 0;
+        if (currentMode === "percent" && selectedMetric === "roa") {
+          if (!acc[team + "_rev"]) acc[team + "_rev"] = 0;
+          if (!acc[team + "_cust"]) acc[team + "_cust"] = 0;
+          acc[team + "_rev"] += curr.receita_total || 0;
+          acc[team + "_cust"] += curr.custodia_net || 0;
+        } else {
+          val = metric.field ? (curr as any)[metric.field] : metric.fields?.reduce((s, f) => s + ((curr as any)[f] || 0), 0);
+          acc[team] = (acc[team] || 0) + (val || 0);
+        }
         return acc;
       }, {});
       
-      const bestTeam = Object.entries(teamTotals).sort((a, b) => b[1] - a[1])[0];
+      let bestTeam: [string, number] = ["Sem Dados", 0];
+      if (currentMode === "percent" && selectedMetric === "roa") {
+        const teams = Array.from(new Set(monthAssessors.map(a => a.time || "Sem Time")));
+        const teamROAs = teams.map(t => {
+          const rev = teamTotals[t + "_rev"] || 0;
+          const cust = teamTotals[t + "_cust"] || 0;
+          return [t, cust > 0 ? (rev / cust) * 12 : 0] as [string, number];
+        });
+        bestTeam = teamROAs.sort((a, b) => b[1] - a[1])[0] || ["Sem Dados", 0];
+      } else {
+        bestTeam = Object.entries(teamTotals).sort((a, b) => b[1] - a[1])[0] || ["Sem Dados", 0];
+      }
 
       return {
         month: monthKey,
@@ -188,14 +239,14 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
         targetValue: targetValue,
         prevYearValue: prevYearValue,
         yoyPercentage: yoyPercentage,
-        achievement: (totalValue / (targetValue || 1)) * 100,
+        achievement: targetValue > 0 ? (totalValue / targetValue) * 100 : 0,
         mm3: getMM(3),
         mm6: getMM(6),
         mm12: getMM(12),
         bestAssessor: {
           name: bestAssessorRaw.nome_assessor,
           photo: bestAssessorRaw.foto_url,
-          value: metric.field ? (bestAssessorRaw as any)[metric.field] : metric.fields?.reduce((s: number, f: string) => s + ((bestAssessorRaw as any)[f] || 0), 0)
+          value: currentMode === "percent" && selectedMetric === "roa" ? (bestAssessorRaw.roa || 0) : (metric.field ? (bestAssessorRaw as any)[metric.field] : metric.fields?.reduce((s: number, f: string) => s + ((bestAssessorRaw as any)[f] || 0), 0))
         },
         bestTeam: {
           name: bestTeam[0],
@@ -210,7 +261,7 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
     // Calculate MoM percentage changes and Accumulated values
     let currentAcc = 0;
     return aggregated.map((d, i, arr) => {
-      currentAcc += d.value;
+      if (supportsAcc) currentAcc += d.value;
       let prevValue = 0;
       if (i > 0) {
         prevValue = arr[i - 1].value;
@@ -219,19 +270,45 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
         const prevMonthDate = subMonths(d.date, 1);
         const prevMonthKey = format(prevMonthDate, "yyyy-MM");
         if (prevGroupedByMonth[prevMonthKey]) {
-          const calculateValue = (assessors: AssessorResumo[]) => assessors.reduce((sum, curr) => {
-            if (metric.field) return sum + ((curr as any)[metric.field] || 0);
-            if (metric.fields) return sum + metric.fields.reduce((fSum, f) => fSum + ((curr as any)[f] || 0), 0);
-            return sum;
-          }, 0);
+          const calculateValue = (assessors: AssessorResumo[]) => {
+            if (currentMode === "percent" && selectedMetric === "roa") {
+              const totalRev = assessors.reduce((sum, curr) => sum + (curr.receita_total || 0), 0);
+              const totalCust = assessors.reduce((sum, curr) => sum + (curr.custodia_net || 0), 0);
+              return totalCust > 0 ? (totalRev / totalCust) * 12 : 0;
+            }
+            return assessors.reduce((sum, curr) => {
+              if (metric.field) return sum + ((curr as any)[metric.field] || 0);
+              if (metric.fields) return sum + metric.fields.reduce((fSum, f) => fSum + ((curr as any)[f] || 0), 0);
+              return sum;
+            }, 0);
+          };
           prevValue = calculateValue(prevGroupedByMonth[prevMonthKey]);
         }
       }
 
       const percentage = prevValue > 0 ? ((d.value - prevValue) / prevValue) * 100 : 0;
-      return { ...d, percentage, overallAvg, prevValue, accValue: currentAcc };
+      return { ...d, percentage, overallAvg, prevValue, accValue: supportsAcc ? currentAcc : d.value };
     });
-  }, [data, previousYearData, selectedMetric]);
+  }, [data, previousYearData, selectedMetric, currentMode, supportsAcc]);
+
+  const formatCompactValue = (val: number) => {
+    if (currentMode === "percent") return `${(val * 100).toFixed(2)}%`;
+    if (currentMode === "number") return val.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+    if (currentMode === "currency") {
+      const absVal = Math.abs(val);
+      if (absVal >= 1000000) return `R$ ${(val / 1000000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}Mi`;
+      if (absVal >= 1000) return `R$ ${(val / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
+      return `R$ ${val.toLocaleString("pt-BR")}`;
+    }
+    return val.toLocaleString("pt-BR");
+  };
+
+  const formatMainValue = (val: number) => {
+    if (currentMode === "percent") return `${(val * 100).toFixed(2)}%`;
+    if (currentMode === "number") return val.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+    if (currentMode === "currency") return `R$ ${val.toLocaleString("pt-BR")}`;
+    return val.toLocaleString("pt-BR");
+  };
 
   useEffect(() => {
     if (!monthlyData.length || dimensions.width === 0) return;
@@ -255,8 +332,18 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
       },
       y: {
         grid: true,
-        label: "Receita (R$)",
-        tickFormat: (d) => `R$ ${(d / 1000).toFixed(0)}k`,
+        label: null,
+        tickFormat: (d) => {
+          if (currentMode === "percent") return `${(d * 100).toFixed(2)}%`;
+          if (currentMode === "currency") {
+            const absVal = Math.abs(d);
+            if (absVal >= 1000000) return `R$ ${(d / 1000000).toFixed(1)}M`;
+            if (absVal >= 1000) return `R$ ${(d / 1000).toFixed(0)}k`;
+            return `R$ ${d}`;
+          }
+          if (currentMode === "number") return d.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+          return d;
+        },
       },
       marks: [
         // Realized Area
@@ -304,7 +391,7 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
             strokeWidth: 1.5,
           }),
           Plot.text([monthlyData[0]?.overallAvg], {
-            text: (d) => `MÉDIA: R$ ${(d / 1000).toFixed(0)}k`,
+            text: (d) => `MÉDIA: ${formatCompactValue(d)}`,
             x: monthlyData[0]?.date,
             dy: -10,
             fontSize: 12.6,
@@ -367,7 +454,7 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
               return `${d.percentage > 0 ? "↑" : "↓"} ${Math.abs(d.percentage).toFixed(1)}%`;
             }
             if (analysisType === "meta") {
-              return `${d.achievement.toFixed(0)}%`;
+              return d.targetValue > 0 ? `${d.achievement.toFixed(0)}%` : "";
             }
             if (analysisType === "yoy" && d.yoyPercentage !== 0) {
               return `${d.yoyPercentage > 0 ? "↑" : "↓"} ${Math.abs(d.yoyPercentage).toFixed(1)}%`;
@@ -411,8 +498,11 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
           y: analysisType === "acc" ? "accValue" : "value",
           text: (d) => {
             const val = analysisType === "acc" ? d.accValue : d.value;
-            if (val >= 1000000) return `${(val / 1000000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}Mi`;
-            if (val >= 1000) return `${(val / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
+            if (currentMode === "percent") return `${(val * 100).toFixed(2)}%`;
+            if (currentMode === "number") return val.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+            const absVal = Math.abs(val);
+            if (absVal >= 1000000) return `${(val / 1000000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}Mi`;
+            if (absVal >= 1000) return `${(val / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
             return val.toLocaleString("pt-BR");
           },
           dy: -12,
@@ -456,7 +546,7 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
         containerRef.current.removeEventListener("click", handleClick);
       }
     };
-  }, [monthlyData, dimensions, analysisType]);
+  }, [monthlyData, dimensions, analysisType, currentMode]);
 
   const analysisSubtitles: Record<AnalysisType, string> = {
     meta: "Comparativo de atingimento em relação à meta projetada",
@@ -497,14 +587,9 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
     }
   };
 
-  const formatAbbreviated = (val: number, forceCurrency = false) => {
-    if (analysisType === "acc" && !forceCurrency) {
-      // For ACC, the comparison value is a percentage
-      return `${val > 0 ? "+" : ""}${val.toFixed(1)}%`;
-    }
-    if (val >= 1000000) return `${(val / 1000000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}Mi`;
-    if (val >= 1000) return `${(val / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
-    return val.toLocaleString("pt-BR");
+  const formatComparisonValue = (val: number) => {
+    if (analysisType === "acc") return `${val > 0 ? "+" : ""}${val.toFixed(1)}%`;
+    return formatCompactValue(val);
   };
 
   return (
@@ -527,9 +612,10 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
               variant="ghost" 
               size="sm"
               onClick={() => setAnalysisType("meta")}
+              disabled={!hasTarget}
               className={cn(
                 "h-8 px-3 text-[10px] font-data uppercase tracking-wider transition-all whitespace-nowrap",
-                analysisType === "meta" ? "bg-euro-gold text-euro-navy shadow-lg" : "text-[#5C5C50] hover:text-[#A0A090]"
+                !hasTarget ? "text-[#5C5C50] opacity-50 cursor-not-allowed" : analysisType === "meta" ? "bg-euro-gold text-euro-navy shadow-lg" : "text-[#5C5C50] hover:text-[#A0A090]"
               )}
             >
               Meta
@@ -567,17 +653,19 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
             >
               Média
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setAnalysisType("acc")}
-              className={cn(
-                "h-8 px-3 text-[10px] font-data uppercase tracking-wider transition-all whitespace-nowrap",
-                analysisType === "acc" ? "bg-euro-gold text-euro-navy shadow-lg" : "text-[#5C5C50] hover:text-[#A0A090]"
-              )}
-            >
-              Acumulado
-            </Button>
+            {supportsAcc && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setAnalysisType("acc")}
+                className={cn(
+                  "h-8 px-3 text-[10px] font-data uppercase tracking-wider transition-all whitespace-nowrap",
+                  analysisType === "acc" ? "bg-euro-gold text-euro-navy shadow-lg" : "text-[#5C5C50] hover:text-[#A0A090]"
+                )}
+              >
+                Acumulado
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
@@ -723,10 +811,25 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
                 </DropdownMenuItem>
                 
                 <DropdownMenuSeparator className="bg-white/5" />
+                <DropdownMenuLabel className="text-[10px] uppercase text-[#5C5C50] font-data">KPIs</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSelectedMetric("roa")} className="gap-2 cursor-pointer">
+                  {METRICS.roa.icon && <span className="text-euro-gold/80">{METRICS.roa.icon}</span>}
+                  {METRICS.roa.label}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSelectedMetric("custodia")} className="gap-2 cursor-pointer">
+                  {METRICS.custodia.icon && <span className="text-euro-gold/80">{METRICS.custodia.icon}</span>}
+                  {METRICS.custodia.label}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSelectedMetric("clientes")} className="gap-2 cursor-pointer">
+                  {METRICS.clientes.icon && <span className="text-euro-gold/80">{METRICS.clientes.icon}</span>}
+                  {METRICS.clientes.label}
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator className="bg-white/5" />
                 <DropdownMenuLabel className="text-[10px] uppercase text-[#5C5C50] font-data">Individuais</DropdownMenuLabel>
                 <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
                   {(Object.keys(METRICS) as MetricKey[])
-                    .filter(k => !["total", "invest", "cross"].includes(k))
+                    .filter(k => !["total", "invest", "cross", "roa", "custodia", "clientes"].includes(k))
                     .map((key) => (
                       <DropdownMenuItem key={key} onClick={() => setSelectedMetric(key)} className="cursor-pointer text-xs">
                         {METRICS[key].label}
@@ -753,7 +856,7 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
                       {format(selectedMonthData.date, "MMMM yyyy", { locale: ptBR })}
                     </span>
                     <span className="text-2xl font-display text-[#F5F5F0]">
-                      R$ {selectedMonthData.value.toLocaleString("pt-BR")}
+                      {formatMainValue(selectedMonthData.value)}
                     </span>
                   </div>
                   <div className="flex flex-col items-end">
@@ -761,7 +864,7 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
                       {getComparisonLabel()}
                     </span>
                     <span className="text-sm font-data text-euro-gold">
-                      {analysisType === "acc" ? formatAbbreviated(getComparisonValue(selectedMonthData)) : `R$ ${formatAbbreviated(getComparisonValue(selectedMonthData))}`}
+                      {formatComparisonValue(getComparisonValue(selectedMonthData))}
                     </span>
                   </div>
                 </DialogTitle>
@@ -785,23 +888,25 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
                   </div>
                   <div className="flex flex-col overflow-hidden">
                     <span className="text-base font-ui text-[#E8E8E0] truncate">{selectedMonthData.bestAssessor.name}</span>
-                    <span className="text-sm font-data text-euro-gold">R$ {selectedMonthData.bestAssessor.value.toLocaleString("pt-BR")}</span>
+                    <span className="text-sm font-data text-euro-gold">{formatMainValue(selectedMonthData.bestAssessor.value)}</span>
                   </div>
                 </div>
 
                 {/* Share do Assessor */}
-                <div className="px-1">
-                  <div className="flex justify-between items-center text-[10px] font-data uppercase text-white/80">
-                    <span>Participação no Mês</span>
-                    <span>{((selectedMonthData.bestAssessor.value / (selectedMonthData.value || 1)) * 100).toFixed(1)}%</span>
+                {currentMode !== "percent" && (
+                  <div className="px-1">
+                    <div className="flex justify-between items-center text-[10px] font-data uppercase text-white/80">
+                      <span>Participação no Mês</span>
+                      <span>{((selectedMonthData.bestAssessor.value / (selectedMonthData.value || 1)) * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full mt-1.5 overflow-hidden">
+                      <div 
+                        className="h-full bg-euro-gold/60 shadow-[0_0_8px_rgba(250,192,23,0.3)]"
+                        style={{ width: `${(selectedMonthData.bestAssessor.value / (selectedMonthData.value || 1)) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full bg-white/5 rounded-full mt-1.5 overflow-hidden">
-                    <div 
-                      className="h-full bg-euro-gold/60 shadow-[0_0_8px_rgba(250,192,23,0.3)]"
-                      style={{ width: `${(selectedMonthData.bestAssessor.value / (selectedMonthData.value || 1)) * 100}%` }}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Melhor Time */}
@@ -812,22 +917,24 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
                 </div>
                 <div className="flex justify-between items-center bg-white/5 px-4 py-3 rounded-lg border border-white/5">
                   <span className="text-base font-ui text-[#E8E8E0]">{selectedMonthData.bestTeam.name}</span>
-                  <span className="text-base font-data text-euro-gold">R$ {formatAbbreviated(selectedMonthData.bestTeam.value, true)}</span>
+                  <span className="text-base font-data text-euro-gold">{formatCompactValue(selectedMonthData.bestTeam.value)}</span>
                 </div>
 
                 {/* Share do Time */}
-                <div className="px-1">
-                  <div className="flex justify-between items-center text-[10px] font-data uppercase text-white/80">
-                    <span>Participação no Mês</span>
-                    <span>{((selectedMonthData.bestTeam.value / (selectedMonthData.value || 1)) * 100).toFixed(1)}%</span>
+                {currentMode !== "percent" && (
+                  <div className="px-1">
+                    <div className="flex justify-between items-center text-[10px] font-data uppercase text-white/80">
+                      <span>Participação no Mês</span>
+                      <span>{((selectedMonthData.bestTeam.value / (selectedMonthData.value || 1)) * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full mt-1.5 overflow-hidden">
+                      <div 
+                        className="h-full bg-euro-gold/60 shadow-[0_0_8px_rgba(250,192,23,0.3)]"
+                        style={{ width: `${(selectedMonthData.bestTeam.value / (selectedMonthData.value || 1)) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full bg-white/5 rounded-full mt-1.5 overflow-hidden">
-                    <div 
-                      className="h-full bg-euro-gold/60 shadow-[0_0_8px_rgba(250,192,23,0.3)]"
-                      style={{ width: `${(selectedMonthData.bestTeam.value / (selectedMonthData.value || 1)) * 100}%` }}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -836,4 +943,3 @@ export default function RevenueEvolution({ data, previousYearData = [] }: Revenu
     </div>
   );
 }
-

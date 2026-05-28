@@ -44,7 +44,10 @@ export default function ManagementDash() {
   const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? []);
   const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => persisted?.selectedAssessorId ?? []);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(() => persisted?.activeTab ?? "cockpit");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (persisted?.activeTab === "superranking") return "cockpit";
+    return persisted?.activeTab ?? "cockpit";
+  });
   
   const navigate = useNavigate();
   const { userRole, userCode } = useAuth();

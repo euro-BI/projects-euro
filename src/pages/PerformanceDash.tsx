@@ -16,7 +16,6 @@ import {
   Search,
   Star,
   ChevronRight,
-  LayoutDashboard,
   BarChart3,
   PieChart,
   ArrowUpCircle,
@@ -85,7 +84,6 @@ import {
 
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import RankingRace from "@/components/dashboard/RankingRace";
-import EvolutionTrend, { MetricConfig } from "@/components/dashboard/EvolutionTrend";
 import AssessorSheet from "@/components/dashboard/AssessorSheet";
 import AdvisorRevenueTable from "@/components/dashboard/AdvisorRevenueTable";
 import SuperRanking from "@/components/dashboard/SuperRanking";
@@ -95,47 +93,10 @@ import RevenueEvolution from "@/components/dashboard/RevenueEvolution";
 import FundingEvolution from "@/components/dashboard/FundingEvolution";
 import RankingEvolution from "@/components/dashboard/RankingEvolution";
 import RankingTable from "@/components/dashboard/RankingTable";
-import ForecastAnalysis from "@/components/dashboard/ForecastAnalysis";
-import ComparisonView from "@/components/dashboard/ComparisonView";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { ActivationDetailsDialog } from "@/components/dashboard/ActivationDetailsDialog";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
-import EsforcosDash from "@/components/dashboard/EsforcosDash";
 import NpsDash from "@/components/dashboard/NpsDash";
-
-const REVENUE_METRICS: Record<string, MetricConfig> = {
-  total: { label: "Receita Total", roa: 0.0108, field: "receita_total", icon: <Coins className="w-3.5 h-3.5" /> },
-  invest: { 
-    label: "Receita Investimento", 
-    roa: 0.0087,
-    fields: ["asset_m_1", "receita_b3", "receitas_estruturadas", "receita_cetipados", "receitas_ofertas_fundos", "receitas_ofertas_rf", "receita_renda_fixa"],
-    icon: <Briefcase className="w-3.5 h-3.5" />
-  },
-  cross: { 
-    label: "Receita Cross-Sell", 
-    roa: 0.0021,
-    fields: ["receita_seguros", "receita_previdencia", "receita_compromissadas", "receita_cambio", "receitas_offshore", "receita_consorcios"],
-    icon: <ArrowRightLeft className="w-3.5 h-3.5" />
-  },
-  asset: { label: "Asset", roa: 0.0002, field: "asset_m_1" },
-  b3: { label: "B3", roa: 0.0020, field: "receita_b3" },
-  estruturadas: { label: "Estruturados", roa: 0.0035, field: "receitas_estruturadas" },
-  cetipados: { label: "Cetipados", roa: 0.0005, field: "receita_cetipados" },
-  ofertas: { label: "Ofertas (Fundos e RF)", roa: 0.0100, fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"] },
-  renda_fixa: { label: "Renda Fixa", roa: 0.0015, field: "receita_renda_fixa" },
-  seguros: { label: "Seguros", roa: 0.0007, field: "receita_seguros" },
-  previdencia: { label: "Previdência", roa: 0.0001, field: "receita_previdencia" },
-  compromissadas: { label: "Compromissadas", roa: 0.0001, field: "receita_compromissadas" },
-  cambio: { label: "Câmbio PJ", roa: 0.0001, field: "receita_cambio" },
-  offshore: { label: "Offshore", roa: 0.0002, field: "receitas_offshore" },
-  consorcios: { label: "Consórcios", roa: 0.0009, field: "receita_consorcios" },
-};
-
-const KPI_METRICS: Record<string, MetricConfig> = {
-  roa: { label: "ROA", mode: "percent", icon: <Percent className="w-3.5 h-3.5" /> },
-  custodia: { label: "Custódia Líquida", field: "custodia_net", mode: "currency", icon: <Wallet className="w-3.5 h-3.5" /> },
-  clientes: { label: "Total de Clientes", field: "total_clientes", mode: "number", icon: <Users className="w-3.5 h-3.5" /> },
-};
 
 const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
@@ -159,7 +120,16 @@ export default function PerformanceDash() {
   const [selectedAssessorRank, setSelectedAssessorRank] = useState<number | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(() => persisted?.activeTab ?? "geral");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (
+      persisted?.activeTab === "esforcos" ||
+      persisted?.activeTab === "forecast" ||
+      persisted?.activeTab === "comparativo"
+    ) {
+      return "geral";
+    }
+    return persisted?.activeTab ?? "geral";
+  });
 
   React.useEffect(() => {
     writeSessionJson(persistKey, {
@@ -822,26 +792,6 @@ export default function PerformanceDash() {
                 >
                   NPS
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="esforcos" 
-                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
-                >
-                  Esforços
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="forecast" 
-                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
-                >
-                  Forecast
-                </TabsTrigger>
-                {userRole !== 'user' && (
-                  <TabsTrigger 
-                    value="comparativo" 
-                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none hidden sm:inline-flex"
-                  >
-                    Batalha
-                  </TabsTrigger>
-                )}
               </TabsList>
 
               <div className="w-px h-4 bg-white/10 mx-1" />
@@ -1221,18 +1171,6 @@ export default function PerformanceDash() {
                   previousYearData={prevYearlyData || []} 
                 />
               </Card>
-              
-              <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[450px]">
-                <EvolutionTrend 
-                  data={yearlyData || []} 
-                  previousYearData={prevYearlyData || []} 
-                  metrics={KPI_METRICS}
-                  defaultMetric="roa"
-                  title="Evolução"
-                  mode="percent"
-                  icon={<LayoutDashboard className="w-4 h-4" />}
-                />
-              </Card>
             </div>
 
             {/* DETALHE (TIER 3) - NEW BEAUTIFUL TABLE (Moved below revenue evolution) */}
@@ -1253,14 +1191,6 @@ export default function PerformanceDash() {
               selectedYear={fpData?.latestDate ? parseISO(fpData.latestDate).getFullYear().toString() : selectedYear}
               selectedMonth={fpData?.latestDate || selectedMonth}
               teamPhotos={fpData?.teamPhotos}
-            />
-          </TabsContent>
-
-          <TabsContent value="esforcos" className="space-y-12 mt-0 border-none p-0 outline-none">
-            <EsforcosDash 
-              selectedYear={selectedYear}
-              selectedMonth={selectedMonth}
-              targetAssessors={targetAssessors}
             />
           </TabsContent>
 
@@ -1304,22 +1234,6 @@ export default function PerformanceDash() {
               teamPhotos={dashData.teamPhotos}
             />
           </TabsContent>
-
-          <TabsContent value="forecast" className="space-y-12 mt-0 border-none p-0 outline-none">
-            <ForecastAnalysis 
-              data={fpData?.trend || []} 
-              selectedYear={selectedYear}
-              userRole={userRole}
-              userCode={userCode}
-              effectiveAssessorId={effectiveAssessorId}
-            />
-          </TabsContent>
-
-          {userRole !== 'user' && (
-            <TabsContent value="comparativo" className="space-y-12 mt-0 border-none p-0 outline-none">
-              <ComparisonView />
-            </TabsContent>
-          )}
 
 
         </Tabs>
