@@ -9,9 +9,7 @@ import { parseISO } from "date-fns";
 import { 
   ArrowLeft,
   Maximize2,
-  Minimize2,
-  LayoutDashboard,
-  Settings
+  Minimize2
 } from "lucide-react";
 import { cn, readSessionJson, writeSessionJson } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
@@ -26,6 +24,7 @@ import {
 // Dashboard Components
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import CockpitDash from "@/components/dashboard/CockpitDash";
+import RankingGerencialDash from "@/components/dashboard/RankingGerencialDash";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 
@@ -46,6 +45,8 @@ export default function ManagementDash() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (persisted?.activeTab === "superranking") return "cockpit";
+    if (persisted?.activeTab === "em-breve") return "ranking-gerencial";
+    if (persisted?.activeTab === "indicadores") return "ranking-gerencial";
     return persisted?.activeTab ?? "cockpit";
   });
   
@@ -268,11 +269,10 @@ export default function ManagementDash() {
                   Cockpit
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="em-breve" 
-                  disabled
-                  className="rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#5C5C50] flex-1 sm:flex-initial"
+                  value="ranking-gerencial"
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white transition-all whitespace-nowrap flex-1 sm:flex-initial"
                 >
-                  Novas Abas +
+                  Ranking Gerencial
                 </TabsTrigger>
               </TabsList>
 
@@ -303,6 +303,10 @@ export default function ManagementDash() {
               yearlyData={yearlyData || []}
               selectedYear={selectedYear}
             />
+          </TabsContent>
+
+          <TabsContent value="ranking-gerencial" className="space-y-6 mt-0 border-none p-0 outline-none">
+            <RankingGerencialDash data={dashData || []} selectedMonthLabel={selectedMonth} />
           </TabsContent>
         </Tabs>
       </div>
