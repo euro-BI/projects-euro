@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AssessorResumo } from "@/types/dashboard";
 import { cn } from "@/lib/utils";
 import { 
@@ -55,11 +55,15 @@ interface SuperRankingProps {
   selectedYear: string;
   onYearChange?: (year: string) => void;
   onAssessorClick?: (assessor: AssessorResumo) => void;
+  variant?: "default" | "tv";
+  tvMode?: "month" | "semester" | "year";
 }
 
 type PeriodType = "year" | "s1" | "s2" | "month";
 
-export default function SuperRanking({ data, selectedYear, onYearChange, onAssessorClick }: SuperRankingProps) {
+export default function SuperRanking({ data, selectedYear, onYearChange, onAssessorClick, variant = "default", tvMode }: SuperRankingProps) {
+  const isTv = variant === "tv";
+  const effectiveTvMode = isTv ? (tvMode ?? "month") : undefined;
   const [periodType, setPeriodType] = useState<PeriodType>("year");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [mobileDetailAssessor, setMobileDetailAssessor] = useState<any | null>(null);
@@ -71,6 +75,45 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     const months = Array.from(new Set(validData.map(d => format(parseISO(d.data_posicao), "yyyy-MM")))).sort();
     return months.filter(m => m.startsWith(selectedYear));
   }, [data, selectedYear]);
+
+  const latestMonth = useMemo(() => {
+    if (availableMonths.length === 0) return "";
+    return availableMonths[availableMonths.length - 1] || "";
+  }, [availableMonths]);
+
+  const tvSemesterType = useMemo<PeriodType>(() => {
+    if (!latestMonth) return "year";
+    const monthIdx = getMonth(parseISO(`${latestMonth}-01`));
+    return monthIdx < 6 ? "s1" : "s2";
+  }, [latestMonth]);
+
+  const tvTitle = useMemo(() => {
+    if (!isTv) return "";
+    if (effectiveTvMode === "year") return "Anual";
+    if (effectiveTvMode === "semester") return "Semestral";
+    return "Mensal";
+  }, [isTv, effectiveTvMode]);
+
+  useEffect(() => {
+    if (!isTv) return;
+    if (effectiveTvMode === "year") {
+      setPeriodType("year");
+      setSelectedMonth("all");
+      return;
+    }
+    if (effectiveTvMode === "semester") {
+      setPeriodType(tvSemesterType);
+      setSelectedMonth("all");
+      return;
+    }
+    if (!latestMonth) {
+      setPeriodType("year");
+      setSelectedMonth("all");
+      return;
+    }
+    setPeriodType("month");
+    setSelectedMonth(latestMonth);
+  }, [isTv, latestMonth, effectiveTvMode, tvSemesterType]);
 
   // Get available years from data, filtered >= 2026
   const availableYears = useMemo(() => {
@@ -213,9 +256,9 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     };
 
     const heights = {
-      1: "h-[450px]",
-      2: "h-[380px]",
-      3: "h-[320px]"
+      1: isTv ? "h-[770px]" : "h-[450px]",
+      2: isTv ? "h-[660px]" : "h-[380px]",
+      3: isTv ? "h-[600px]" : "h-[320px]"
     };
 
     const order = {
@@ -501,151 +544,162 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     </DialogContent>
   );
 
+  const tableCellPadding = isTv ? "py-3 px-4" : "p-4";
+
   return (
-    <div className="space-y-12">
+    <div className={cn(isTv ? "h-full flex flex-col" : "space-y-12")}>
       {/* HEADER & FILTERS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="flex items-center justify-between gap-4 w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-euro-gold/10 flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-euro-gold" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-display text-[#F5F5F0] tracking-wide flex items-center gap-2">
-                <span className="md:hidden">Super Ranking</span>
-                <span className="hidden md:inline">Super Ranking Eurostock</span>
-                
-                {/* Mobile Help Icon */}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button
-                      className="md:hidden w-7 h-7 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold flex items-center justify-center transition-colors ml-1"
-                      title="Regras do Ranking"
-                    >
-                      <HelpCircle className="w-3.5 h-3.5" />
-                    </button>
-                  </DialogTrigger>
-                  {rulesContent}
-                </Dialog>
-              </h2>
-              <p className="text-sm font-ui text-[#A0A090]">Elite de assessores e performance consolidada</p>
-            </div>
+      {isTv ? (
+        <div className="flex items-center justify-between pb-4 pl-8">
+          <div className="flex items-center gap-4">
+            <Trophy className="w-10 h-10 text-euro-gold" />
+            <h1 className="text-4xl font-data text-white tracking-[0.18em] uppercase whitespace-nowrap">
+              Consolidado <span className="text-euro-gold font-light">· {tvTitle}</span>
+            </h1>
           </div>
         </div>
+      ) : (
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-center justify-between gap-4 w-full">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-euro-gold/10 flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-euro-gold" />
+              </div>
+              <div>
+                <h2 className="text-xl md:text-2xl font-display text-[#F5F5F0] tracking-wide flex items-center gap-2">
+                  <span className="md:hidden">Super Ranking</span>
+                  <span className="hidden md:inline">Super Ranking Eurostock</span>
+                  
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <button
+                        className="md:hidden w-7 h-7 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold flex items-center justify-center transition-colors ml-1"
+                        title="Regras do Ranking"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </button>
+                    </DialogTrigger>
+                    {rulesContent}
+                  </Dialog>
+                </h2>
+                <p className="text-sm font-ui text-[#A0A090]">Elite de assessores e performance consolidada</p>
+              </div>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-2 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl p-2 rounded-lg border border-white/20">
-          {/* Desktop Help Icon */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <button className="hidden md:flex p-1.5 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold transition-colors" title="Regras do Ranking">
-                <HelpCircle className="w-4 h-4" />
-              </button>
-            </DialogTrigger>
-            {rulesContent}
-          </Dialog>
-          <div className="w-px h-6 bg-white/10 mx-1" />
+          <div className="flex items-center gap-2 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl p-2 rounded-lg border border-white/20">
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="hidden md:flex p-1.5 rounded-full bg-euro-gold/10 hover:bg-euro-gold/20 text-euro-gold transition-colors" title="Regras do Ranking">
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </DialogTrigger>
+              {rulesContent}
+            </Dialog>
+            <div className="w-px h-6 bg-white/10 mx-1" />
 
-          <Select 
-            value={selectedYear} 
-            onValueChange={(val) => {
-              onYearChange?.(val);
-              // Reset period to year or update month list if needed
-            }}
-          >
-            <SelectTrigger className="w-[120px] bg-euro-elevated/50 border-white/10 text-xs font-data">
-              <Calendar className="w-3 h-3 mr-2 text-euro-gold" />
-              <SelectValue>{selectedYear}</SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-euro-elevated border-white/10 text-white">
-              {availableYears.length > 0 ? (
-                availableYears.map(y => (
-                  <SelectItem key={y} value={y} className="text-xs">{y}</SelectItem>
-                ))
-              ) : (
-                <SelectItem value={new Date().getFullYear().toString()} className="text-xs">{new Date().getFullYear()}</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-
-          <div className="w-px h-6 bg-white/10 mx-1" />
-
-          <Select 
-            value={periodType} 
-            onValueChange={(val: PeriodType) => {
-              setPeriodType(val);
-              if (val !== "month") setSelectedMonth("all");
-            }}
-          >
-            <SelectTrigger className="w-[180px] md:w-[240px] bg-euro-elevated/50 border-white/10 text-xs font-data">
-              <Filter className="w-3 h-3 mr-2 text-euro-gold" />
-              <SelectValue>
-                {periodType === "year" && `Ano de ${selectedYear}`}
-                {periodType === "s1" && `1º Semestre de ${selectedYear}`}
-                {periodType === "s2" && `2º Semestre de ${selectedYear}`}
-                {periodType === "month" && "Por Mês"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-euro-elevated border-white/10 text-white">
-              <SelectItem value="year" className="text-xs">Ano Todo</SelectItem>
-              <SelectItem value="s1" className="text-xs">1º Semestre</SelectItem>
-              <SelectItem value="s2" className="text-xs">2º Semestre</SelectItem>
-              <SelectItem value="month" className="text-xs">Por Mês</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {periodType === "month" && (
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[220px] bg-euro-elevated/50 border-white/10 text-xs font-data">
+            <Select 
+              value={selectedYear} 
+              onValueChange={(val) => {
+                onYearChange?.(val);
+              }}
+            >
+              <SelectTrigger className="w-[120px] bg-euro-elevated/50 border-white/10 text-xs font-data">
                 <Calendar className="w-3 h-3 mr-2 text-euro-gold" />
-                <SelectValue placeholder="Selecione o mês" />
+                <SelectValue>{selectedYear}</SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-euro-elevated border-white/10 text-white">
-                {availableMonths.map(m => (
-                  <SelectItem key={m} value={m} className="text-xs">
-                    {format(parseISO(`${m}-01`), "MMMM yyyy", { locale: ptBR })}
-                  </SelectItem>
-                ))}
+                {availableYears.length > 0 ? (
+                  availableYears.map(y => (
+                    <SelectItem key={y} value={y} className="text-xs">{y}</SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value={new Date().getFullYear().toString()} className="text-xs">{new Date().getFullYear()}</SelectItem>
+                )}
               </SelectContent>
             </Select>
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
+            <div className="w-px h-6 bg-white/10 mx-1" />
+
+            <Select 
+              value={periodType} 
+              onValueChange={(val: PeriodType) => {
+                setPeriodType(val);
+                if (val !== "month") setSelectedMonth("all");
+              }}
+            >
+              <SelectTrigger className="w-[180px] md:w-[240px] bg-euro-elevated/50 border-white/10 text-xs font-data">
+                <Filter className="w-3 h-3 mr-2 text-euro-gold" />
+                <SelectValue>
+                  {periodType === "year" && `Ano de ${selectedYear}`}
+                  {periodType === "s1" && `1º Semestre de ${selectedYear}`}
+                  {periodType === "s2" && `2º Semestre de ${selectedYear}`}
+                  {periodType === "month" && "Por Mês"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-euro-elevated border-white/10 text-white">
+                <SelectItem value="year" className="text-xs">Ano Todo</SelectItem>
+                <SelectItem value="s1" className="text-xs">1º Semestre</SelectItem>
+                <SelectItem value="s2" className="text-xs">2º Semestre</SelectItem>
+                <SelectItem value="month" className="text-xs">Por Mês</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {periodType === "month" && (
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-[220px] bg-euro-elevated/50 border-white/10 text-xs font-data">
+                  <Calendar className="w-3 h-3 mr-2 text-euro-gold" />
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
+                <SelectContent className="bg-euro-elevated border-white/10 text-white">
+                  {availableMonths.map(m => (
+                    <SelectItem key={m} value={m} className="text-xs">
+                      {format(parseISO(`${m}-01`), "MMMM yyyy", { locale: ptBR })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className={cn("grid grid-cols-1 lg:grid-cols-12", isTv ? "gap-6 flex-1 min-h-0 items-stretch" : "gap-8 items-end")}>
         {/* PODIUM SECTION - escondido no mobile, visível a partir de md */}
-        <div className="hidden md:flex lg:col-span-5 gap-4 min-h-[600px] items-end px-4">
+        <div className={cn("hidden md:flex lg:col-span-5 gap-4 items-end", isTv ? "h-full min-h-0 px-0" : "min-h-[600px] px-4")}>
           {renderPodiumItem(top3[1], 2)}
           {renderPodiumItem(top3[0], 1)}
           {renderPodiumItem(top3[2], 3)}
         </div>
 
         {/* TABLE SECTION */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between px-2">
+        <div className={cn("lg:col-span-7", isTv ? "flex flex-col min-h-0 h-full pl-8" : "space-y-4")}>
+          <div className={cn("flex items-center justify-between", isTv ? "pb-1 px-0" : "px-2")}>
             <span className="text-xs font-data text-white uppercase tracking-widest flex items-center gap-2">
               <Users className="w-3 h-3 text-euro-gold" /> Ranking Completo
             </span>
             <span className="text-[10px] font-data text-euro-gold/60">{rankingData.length} {rankingData.length === 1 ? "assessor" : "assessores"}</span>
           </div>
           
-          <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 z-10 bg-euro-card/95 backdrop-blur-md border-b border-white/10">
-                  <tr className="text-xs font-data text-[#8A8A7A] uppercase tracking-wider">
-                    <th className="p-4 font-normal">#</th>
-                    <th className="p-4 font-normal">Assessor</th>
-                    <th className="p-4 font-normal text-right">Total</th>
-                    <th className="p-4 font-normal text-right hidden xl:table-cell">Captação</th>
-                    <th className="p-4 font-normal text-right hidden xl:table-cell">Invest</th>
-                    <th className="p-4 font-normal text-right hidden xl:table-cell">CS</th>
-                    <th className="p-4 font-normal text-right hidden xl:table-cell">Ativ.</th>
-                    <th className="p-4 font-normal text-right hidden xl:table-cell">Líder</th>
-                  </tr>
-                </thead>
-                {/* Mobile: tabela completa (inclui Top 3) com modal de detalhes */}
-                <tbody className="divide-y divide-white/[0.05] md:hidden">
-                  {rankingData.map((assessor: any, idx: number) => {
+          <div className={cn("bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden shadow-2xl", isTv && "flex-1 min-h-0")}>
+            <div className={cn("max-h-[500px] overflow-y-auto custom-scrollbar", isTv && "max-h-none flex-1 min-h-0")}>
+              <div className={cn(isTv && "pb-24")}>
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 z-10 bg-euro-card/95 backdrop-blur-md border-b border-white/10">
+                    <tr className="text-xs font-data text-[#8A8A7A] uppercase tracking-wider">
+                      <th className={cn(tableCellPadding, "font-normal")}>#</th>
+                      <th className={cn(tableCellPadding, "font-normal")}>Assessor</th>
+                      <th className={cn(tableCellPadding, "font-normal text-right")}>Total</th>
+                      <th className={cn(tableCellPadding, "font-normal text-right hidden xl:table-cell")}>Captação</th>
+                      <th className={cn(tableCellPadding, "font-normal text-right hidden xl:table-cell")}>Invest</th>
+                      <th className={cn(tableCellPadding, "font-normal text-right hidden xl:table-cell")}>CS</th>
+                      <th className={cn(tableCellPadding, "font-normal text-right hidden xl:table-cell")}>Ativ.</th>
+                      <th className={cn(tableCellPadding, "font-normal text-right hidden xl:table-cell")}>Líder</th>
+                    </tr>
+                  </thead>
+                  {/* Mobile: tabela completa (inclui Top 3) com modal de detalhes */}
+                  <tbody className="divide-y divide-white/[0.05] md:hidden">
+                    {rankingData.map((assessor: any, idx: number) => {
                     const isInelegivel = assessor.elegibilidade === false || assessor.elegibilidade === "false";
 
                     return (
@@ -710,8 +764,8 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                           isInelegivel && "opacity-70 grayscale-[0.8] hover:grayscale-0 hover:opacity-100 bg-red-500/[0.02]"
                         )}
                       >
-                        <td className="p-4 text-sm font-data text-[#FFFFFF]">{idx + 4}</td>
-                        <td className="p-4">
+                        <td className={cn(tableCellPadding, "text-sm font-data text-[#FFFFFF]")}>{idx + 4}</td>
+                        <td className={tableCellPadding}>
                           <div className="flex items-center gap-3 relative">
                             {isInelegivel && (
                               <div className="absolute -left-4 top-1/2 -translate-y-1/2 bg-red-500/20 p-1 rounded-full border border-red-500/50 animate-pulse">
@@ -733,24 +787,24 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                             </div>
                           </div>
                         </td>
-                        <td className="p-4 text-right">
+                        <td className={cn(tableCellPadding, "text-right")}>
                           <span className="text-sm font-data text-euro-gold font-bold">
                             {assessor.pontos_total.toLocaleString("pt-BR")}
                           </span>
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
+                        <td className={cn(tableCellPadding, "text-right text-xs font-data text-white hidden xl:table-cell")}>
                           {assessor.pontos_captacao > 0 ? assessor.pontos_captacao : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
+                        <td className={cn(tableCellPadding, "text-right text-xs font-data text-white hidden xl:table-cell")}>
                           {assessor.pontos_roa_invest > 0 ? assessor.pontos_roa_invest : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
+                        <td className={cn(tableCellPadding, "text-right text-xs font-data text-white hidden xl:table-cell")}>
                           {assessor.pontos_roa_cs > 0 ? assessor.pontos_roa_cs : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
+                        <td className={cn(tableCellPadding, "text-right text-xs font-data text-white hidden xl:table-cell")}>
                           {assessor.pontos_ativacoes > 0 ? assessor.pontos_ativacoes : "--"}
                         </td>
-                        <td className="p-4 text-right text-xs font-data text-white hidden xl:table-cell">
+                        <td className={cn(tableCellPadding, "text-right text-xs font-data text-white hidden xl:table-cell")}>
                           {assessor.pontos_lider > 0 ? assessor.pontos_lider : "--"}
                         </td>
                       </tr>
@@ -773,8 +827,14 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
 
                     return rowContent;
                   })}
+                  {isTv && (
+                    <tr aria-hidden="true">
+                      <td colSpan={8} className="h-24 p-0" />
+                    </tr>
+                  )}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
+import SuperRanking from "@/components/dashboard/SuperRanking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,10 @@ export default function WeeklyEffortsDash() {
   const [period, setPeriod] = useState<PeriodType>("currentWeek");
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedAssessor, setSelectedAssessor] = useState<string>("all");
+  const [rankingYear, setRankingYear] = useState<string>(() => {
+    const current = new Date().getFullYear();
+    return current < 2026 ? "2026" : current.toString();
+  });
   
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'realizadas',
@@ -116,7 +121,8 @@ export default function WeeklyEffortsDash() {
         photo: r.foto_url
       })).sort((a, b) => a.name.localeCompare(b.name));
 
-      return { teams, assessors };
+      const activeAssessorIds = new Set(assessors.map(a => a.cod).filter(Boolean));
+      return { teams, assessors, activeAssessorIds };
     }
   });
 
@@ -152,6 +158,31 @@ export default function WeeklyEffortsDash() {
 
       if (error) throw error;
       return reunioes as any[];
+    }
+  });
+
+  const { data: superRankingData, isLoading: isSuperRankingLoading } = useQuery({
+    queryKey: ["weekly-efforts-superranking", rankingYear],
+    enabled: !!metadata?.activeAssessorIds,
+    refetchInterval: 5 * 60 * 1000,
+    queryFn: async () => {
+      const startDate = `${rankingYear}-01-01`;
+      const endDate = `${rankingYear}-12-31`;
+
+      const { data, error } = await (supabase.from("mv_resumo_assessor" as any) as any)
+        .select("*")
+        .gte("data_posicao", startDate)
+        .lte("data_posicao", endDate)
+        .order("data_posicao", { ascending: true });
+
+      if (error) throw error;
+
+      const activeIds: Set<string> | undefined = (metadata as any)?.activeAssessorIds;
+      if (activeIds && activeIds.size > 0) {
+        return (data as any[]).filter(r => r.cod_assessor && activeIds.has(r.cod_assessor));
+      }
+
+      return (data as any[]) || [];
     }
   });
 
@@ -339,6 +370,10 @@ export default function WeeklyEffortsDash() {
     return (
       <TVPresentationMode 
         data={processedData} 
+        superRankingData={(superRankingData as any[]) || []}
+        superRankingYear={rankingYear}
+        onSuperRankingYearChange={setRankingYear}
+        isSuperRankingLoading={isSuperRankingLoading}
         onClose={isPublicTV ? undefined : () => {
           setShowPresentation(false);
           if (document.exitFullscreen && document.fullscreenElement) {
@@ -717,13 +752,30 @@ export default function WeeklyEffortsDash() {
 // ----------------------------------------------------------------------------
 // Componente de Apresentação TV (Tela Cheia, Slides Automáticos)
 // ----------------------------------------------------------------------------
-function TVPresentationMode({ data, onClose }: { data: any, onClose?: () => void }) {
+function TVPresentationMode({ 
+  data, 
+  superRankingData, 
+  superRankingYear, 
+  onSuperRankingYearChange, 
+  isSuperRankingLoading,
+  onClose 
+}: { 
+  data: any; 
+  superRankingData: any[]; 
+  superRankingYear: string; 
+  onSuperRankingYearChange: (year: string) => void; 
+  isSuperRankingLoading: boolean;
+  onClose?: () => void; 
+}) {
   const [slideIndex, setSlideIndex] = useState(0);
 
   const slides = useMemo(() => [
-    { title: "Semana Atual", data: data.comparative.currentWeek, accent: "#06B6D4" },
-    { title: "Semana Anterior", data: data.comparative.prevWeek, accent: "#A855F7" },
-    { title: "Acumulado do Mês", data: data.comparative.currentMonth, accent: "#EAB308" },
+    { kind: "effort" as const, title: "Semana Atual", data: data.comparative.currentWeek, accent: "#06B6D4" },
+    { kind: "effort" as const, title: "Semana Anterior", data: data.comparative.prevWeek, accent: "#A855F7" },
+    { kind: "effort" as const, title: "Acumulado do Mês", data: data.comparative.currentMonth, accent: "#EAB308" },
+    { kind: "superRanking" as const, title: "Mensal", accent: "#FAC017", tvMode: "month" as const },
+    { kind: "superRanking" as const, title: "Semestral", accent: "#FAC017", tvMode: "semester" as const },
+    { kind: "superRanking" as const, title: "Anual", accent: "#FAC017", tvMode: "year" as const },
   ], [data]);
 
   useEffect(() => {
@@ -735,10 +787,10 @@ function TVPresentationMode({ data, onClose }: { data: any, onClose?: () => void
 
   const currentSlide = slides[slideIndex];
   
-  // Pegar o top 5 assessores
-  const top5 = [...currentSlide.data.ranking]
-    .sort((a, b) => b.realizadas - a.realizadas)
-    .slice(0, 5);
+  const top5 = useMemo(() => {
+    if (currentSlide.kind !== "effort") return [];
+    return [...currentSlide.data.ranking].sort((a, b) => b.realizadas - a.realizadas).slice(0, 5);
+  }, [currentSlide]);
 
   return (
     <div className="fixed inset-0 z-[99999] bg-[#0A0A0A] flex flex-col p-8 lg:p-12 overflow-hidden animate-in fade-in duration-1000">
@@ -759,151 +811,181 @@ function TVPresentationMode({ data, onClose }: { data: any, onClose?: () => void
         `}</style>
       </div>
 
-      {/* Header Apresentação */}
-      <div className="relative z-10 flex items-center justify-between mb-12">
-        <div className="flex items-center gap-4">
-          <CalendarCheck className="w-10 h-10 text-euro-gold" />
-          <h1 className="text-4xl font-data text-white tracking-[0.2em] uppercase">
-            Esforço R1 <span className="text-euro-gold font-light">· {currentSlide.title}</span>
-          </h1>
+      {currentSlide.kind === "effort" ? (
+        <div className="relative z-10 flex items-center justify-between mb-12">
+          <div className="flex items-center gap-4">
+            <CalendarCheck className="w-10 h-10 text-euro-gold" />
+            <h1 className="text-4xl font-data text-white tracking-[0.2em] uppercase">
+              Esforço R1 <span className="text-euro-gold font-light">· {currentSlide.title}</span>
+            </h1>
+          </div>
+          {onClose && (
+            <Button 
+              variant="ghost" 
+              onClick={onClose}
+              className="text-white/50 hover:text-white hover:bg-white/10"
+            >
+              <X className="w-8 h-8" />
+            </Button>
+          )}
         </div>
-        {onClose && (
-          <Button 
-            variant="ghost" 
-            onClick={onClose}
-            className="text-white/50 hover:text-white hover:bg-white/10"
-          >
-            <X className="w-8 h-8" />
-          </Button>
-        )}
-      </div>
+      ) : (
+        <>
+          {onClose && (
+            <div className="absolute top-6 right-6 z-20">
+              <Button 
+                variant="ghost" 
+                onClick={onClose}
+                className="text-white/50 hover:text-white hover:bg-white/10"
+              >
+                <X className="w-8 h-8" />
+              </Button>
+            </div>
+          )}
+        </>
+      )}
 
       <div className="relative z-10 flex-1 flex flex-col justify-between">
-        {/* KPI Grid (4 Cards Grandes) */}
-        <div className="grid grid-cols-4 gap-8">
-          <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
-            <div className="p-8 flex flex-col items-center text-center">
-              <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">R1 Realizadas</span>
-              <span className="font-display text-white tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.realizadas}</span>
-            </div>
-          </Card>
-          <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
-            <div className="p-8 flex flex-col items-center text-center">
-              <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">Reuniões em Aberto</span>
-              <span className="font-display text-white tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.agendadas}</span>
-            </div>
-          </Card>
-          <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
-            <div className="p-8 flex flex-col items-center text-center">
-              <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">Indicação</span>
-              <span className="font-display text-white tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.indicacao}</span>
-            </div>
-          </Card>
-          <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
-            <div className="p-8 flex flex-col items-center text-center">
-              <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">Atingimento</span>
-              <span className="font-display text-green-400 tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.pctMeta.toFixed(0)}%</span>
-            </div>
-          </Card>
-        </div>
-
-        {/* Top 5 Assessores */}
-        <div className="flex-1 flex flex-col justify-center mt-12">
-          <h2 className="text-2xl font-data text-white/70 uppercase tracking-widest text-center mb-12">
-            🏆 Top 5 Assessores
-          </h2>
-          <div className="flex items-end justify-center gap-6">
-            {top5.map((assessor, idx) => {
-              const orderVal = [3, 2, 4, 1, 5][idx] || 99;
-              const widthVal = ["300px", "260px", "260px", "220px", "220px"][idx] || "200px";
-              const heightVal = ["420px", "340px", "280px", "220px", "200px"][idx] || "180px";
-
-              const colorClass = [
-                "border-euro-gold text-euro-gold shadow-[0_0_50px_rgba(212,175,55,0.25)]",
-                "border-[#C0C0C0] text-[#C0C0C0] shadow-[0_0_40px_rgba(192,192,192,0.15)]",
-                "border-[#CD7F32] text-[#CD7F32] shadow-[0_0_30px_rgba(205,127,50,0.15)]",
-                "border-white/20 text-white/50",
-                "border-white/10 text-white/30"
-              ][idx];
-              const ringColor = [
-                "border-euro-gold", "border-[#C0C0C0]", "border-[#CD7F32]", "border-white/20", "border-white/10"
-              ][idx];
-
-              return (
-                <div 
-                  key={assessor.cod} 
-                  className="flex flex-col items-center justify-end transition-all duration-1000 animate-in slide-in-from-bottom-10 fade-in group"
-                  style={{ 
-                    animationDelay: `${idx * 150}ms`,
-                    order: orderVal,
-                    width: widthVal,
-                    minWidth: widthVal
-                  }}
-                >
-                  {/* Name and Time */}
-                  <div className="text-center mb-4 w-full">
-                    <span className={cn(
-                      "text-xl font-data uppercase tracking-widest font-bold block truncate px-2 mb-1",
-                      idx === 0 ? "text-euro-gold" : idx === 1 ? "text-[#C0C0C0]" : idx === 2 ? "text-[#CD7F32]" : "text-white/70"
-                    )}>
-                      {assessor.nome}
-                    </span>
-                    <span className="text-xs text-white/50 uppercase tracking-wider block truncate px-2">
-                      {assessor.time}
-                    </span>
-                  </div>
-
-                  {/* Photo */}
-                  <div className={cn(
-                    "relative w-28 h-28 rounded-full bg-euro-inset border-4 overflow-hidden z-20 mb-[-28px] shadow-2xl",
-                    ringColor
-                  )}>
-                    {assessor.foto ? (
-                      <img src={assessor.foto} alt={assessor.nome} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-white/5 flex items-center justify-center text-4xl font-display text-white/50">
-                        {assessor.nome.substring(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Podium Base */}
-                  <div 
-                    className="w-full rounded-t-3xl bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border-x border-t border-white/20 flex flex-col items-center pt-10 pb-6 px-4 shadow-2xl relative"
-                    style={{ height: heightVal }}
-                  >
-                    {/* Numbers Grid */}
-                    <div className="w-full grid grid-cols-2 gap-2 bg-black/30 rounded-xl p-3 border border-white/5 mt-2">
-                      <div className="flex flex-col items-center justify-center text-center">
-                        <span className="text-4xl sm:text-5xl font-display text-white leading-none mb-1">{assessor.realizadas}</span>
-                        <span className="text-[9px] text-euro-gold uppercase tracking-widest font-bold">Realizadas</span>
-                      </div>
-                      <div className="flex flex-col items-center justify-center text-center border-l border-white/10">
-                        <span className="text-4xl sm:text-5xl font-display text-white/50 leading-none mb-1">{assessor.agendadas}</span>
-                        <span className="text-[9px] text-white/30 uppercase tracking-widest font-bold leading-[1.2]">Reuniões<br/>em Aberto</span>
-                      </div>
-                    </div>
-
-                    {/* Position Number at Bottom */}
-                    <div className="mt-auto">
-                      <div className={cn(
-                        "w-12 h-12 rounded-full border-2 flex items-center justify-center text-xl font-display shadow-lg bg-black/40",
-                        colorClass
-                      )}>
-                        {idx + 1}
-                      </div>
-                    </div>
-                  </div>
+        {currentSlide.kind === "effort" ? (
+          <>
+            <div className="grid grid-cols-4 gap-8">
+              <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-8 flex flex-col items-center text-center">
+                  <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">R1 Realizadas</span>
+                  <span className="font-display text-white tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.realizadas}</span>
                 </div>
-              );
-            })}
-            {top5.length === 0 && (
-              <div className="text-white/30 font-data text-2xl uppercase tracking-widest">
-                Nenhum assessor com R1 realizada
+              </Card>
+              <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-8 flex flex-col items-center text-center">
+                  <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">Reuniões em Aberto</span>
+                  <span className="font-display text-white tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.agendadas}</span>
+                </div>
+              </Card>
+              <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-8 flex flex-col items-center text-center">
+                  <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">Indicação</span>
+                  <span className="font-display text-white tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.indicacao}</span>
+                </div>
+              </Card>
+              <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-8 flex flex-col items-center text-center">
+                  <span className="text-sm font-data text-white/50 uppercase tracking-widest mb-4">Atingimento</span>
+                  <span className="font-display text-green-400 tracking-tighter" style={{ fontSize: "6rem", lineHeight: "1" }}>{currentSlide.data.pctMeta.toFixed(0)}%</span>
+                </div>
+              </Card>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center mt-12">
+              <h2 className="text-2xl font-data text-white/70 uppercase tracking-widest text-center mb-12">
+                🏆 Top 5 Assessores
+              </h2>
+              <div className="flex items-end justify-center gap-6">
+                {top5.map((assessor, idx) => {
+                  const orderVal = [3, 2, 4, 1, 5][idx] || 99;
+                  const widthVal = ["300px", "260px", "260px", "220px", "220px"][idx] || "200px";
+                  const heightVal = ["420px", "340px", "280px", "220px", "200px"][idx] || "180px";
+
+                  const colorClass = [
+                    "border-euro-gold text-euro-gold shadow-[0_0_50px_rgba(212,175,55,0.25)]",
+                    "border-[#C0C0C0] text-[#C0C0C0] shadow-[0_0_40px_rgba(192,192,192,0.15)]",
+                    "border-[#CD7F32] text-[#CD7F32] shadow-[0_0_30px_rgba(205,127,50,0.15)]",
+                    "border-white/20 text-white/50",
+                    "border-white/10 text-white/30"
+                  ][idx];
+                  const ringColor = [
+                    "border-euro-gold", "border-[#C0C0C0]", "border-[#CD7F32]", "border-white/20", "border-white/10"
+                  ][idx];
+
+                  return (
+                    <div 
+                      key={assessor.cod} 
+                      className="flex flex-col items-center justify-end transition-all duration-1000 animate-in slide-in-from-bottom-10 fade-in group"
+                      style={{ 
+                        animationDelay: `${idx * 150}ms`,
+                        order: orderVal,
+                        width: widthVal,
+                        minWidth: widthVal
+                      }}
+                    >
+                      <div className="text-center mb-4 w-full">
+                        <span className={cn(
+                          "text-xl font-data uppercase tracking-widest font-bold block truncate px-2 mb-1",
+                          idx === 0 ? "text-euro-gold" : idx === 1 ? "text-[#C0C0C0]" : idx === 2 ? "text-[#CD7F32]" : "text-white/70"
+                        )}>
+                          {assessor.nome}
+                        </span>
+                        <span className="text-xs text-white/50 uppercase tracking-wider block truncate px-2">
+                          {assessor.time}
+                        </span>
+                      </div>
+
+                      <div className={cn(
+                        "relative w-28 h-28 rounded-full bg-euro-inset border-4 overflow-hidden z-20 mb-[-28px] shadow-2xl",
+                        ringColor
+                      )}>
+                        {assessor.foto ? (
+                          <img src={assessor.foto} alt={assessor.nome} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-white/5 flex items-center justify-center text-4xl font-display text-white/50">
+                            {assessor.nome.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+
+                      <div 
+                        className="w-full rounded-t-3xl bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border-x border-t border-white/20 flex flex-col items-center pt-10 pb-6 px-4 shadow-2xl relative"
+                        style={{ height: heightVal }}
+                      >
+                        <div className="w-full grid grid-cols-2 gap-2 bg-black/30 rounded-xl p-3 border border-white/5 mt-2">
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <span className="text-4xl sm:text-5xl font-display text-white leading-none mb-1">{assessor.realizadas}</span>
+                            <span className="text-[9px] text-euro-gold uppercase tracking-widest font-bold">Realizadas</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center text-center border-l border-white/10">
+                            <span className="text-4xl sm:text-5xl font-display text-white/50 leading-none mb-1">{assessor.agendadas}</span>
+                            <span className="text-[9px] text-white/30 uppercase tracking-widest font-bold leading-[1.2]">Reuniões<br/>em Aberto</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-auto">
+                          <div className={cn(
+                            "w-12 h-12 rounded-full border-2 flex items-center justify-center text-xl font-display shadow-lg bg-black/40",
+                            colorClass
+                          )}>
+                            {idx + 1}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {top5.length === 0 && (
+                  <div className="text-white/30 font-data text-2xl uppercase tracking-widest">
+                    Nenhum assessor com R1 realizada
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 overflow-hidden pt-0">
+            <div className="max-w-[1900px] mx-auto h-full overflow-hidden">
+              {isSuperRankingLoading && superRankingData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-white/40 font-data text-3xl uppercase tracking-widest">
+                  Carregando Super Ranking...
+                </div>
+              ) : (
+                <SuperRanking
+                  data={superRankingData as any}
+                  selectedYear={superRankingYear}
+                  onYearChange={onSuperRankingYearChange}
+                  variant="tv"
+                  tvMode={(currentSlide as any).tvMode}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
