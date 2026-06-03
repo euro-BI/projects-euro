@@ -8,6 +8,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import SuperRanking from "@/components/dashboard/SuperRanking";
+import ClusterRankingTablesTv from "@/components/dashboard/ClusterRankingTablesTv";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -773,19 +774,20 @@ function TVPresentationMode({
     { kind: "effort" as const, title: "Semana Atual", data: data.comparative.currentWeek, accent: "#06B6D4" },
     { kind: "effort" as const, title: "Semana Anterior", data: data.comparative.prevWeek, accent: "#A855F7" },
     { kind: "effort" as const, title: "Acumulado do Mês", data: data.comparative.currentMonth, accent: "#EAB308" },
-    { kind: "superRanking" as const, title: "Mensal", accent: "#FAC017", tvMode: "month" as const },
     { kind: "superRanking" as const, title: "Semestral", accent: "#FAC017", tvMode: "semester" as const },
     { kind: "superRanking" as const, title: "Anual", accent: "#FAC017", tvMode: "year" as const },
+    { kind: "clusterTables" as const, title: "Por Cluster", accent: "#FAC017" },
   ], [data]);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSlideIndex((prev) => (prev + 1) % slides.length);
-    }, 15000); // 15 segundos por tela
-    return () => clearInterval(timer);
-  }, [slides.length]);
-
   const currentSlide = slides[slideIndex];
+  const slideDurationMs = currentSlide.kind === "clusterTables" ? 30000 : 15000;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSlideIndex((prev) => (prev + 1) % slides.length);
+    }, slideDurationMs);
+    return () => clearTimeout(timer);
+  }, [slideIndex, slideDurationMs, slides.length]);
   
   const top5 = useMemo(() => {
     if (currentSlide.kind !== "effort") return [];
@@ -799,9 +801,9 @@ function TVPresentationMode({
       {/* ProgressBar */}
       <div className="absolute top-0 left-0 w-full h-1 bg-white/5">
         <div 
-          className="h-full bg-euro-gold transition-all duration-[15000ms] ease-linear"
+          className="h-full bg-euro-gold ease-linear"
           key={slideIndex}
-          style={{ width: "100%", animation: "progress 15s linear" }}
+          style={{ width: "100%", animation: `progress ${slideDurationMs}ms linear` }}
         />
         <style>{`
           @keyframes progress {
@@ -975,13 +977,22 @@ function TVPresentationMode({
                   Carregando Super Ranking...
                 </div>
               ) : (
-                <SuperRanking
-                  data={superRankingData as any}
-                  selectedYear={superRankingYear}
-                  onYearChange={onSuperRankingYearChange}
-                  variant="tv"
-                  tvMode={(currentSlide as any).tvMode}
-                />
+                <>
+                  {currentSlide.kind === "superRanking" ? (
+                    <SuperRanking
+                      data={superRankingData as any}
+                      selectedYear={superRankingYear}
+                      onYearChange={onSuperRankingYearChange}
+                      variant="tv"
+                      tvMode={(currentSlide as any).tvMode}
+                    />
+                  ) : (
+                    <ClusterRankingTablesTv
+                      data={superRankingData as any}
+                      selectedYear={superRankingYear}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
