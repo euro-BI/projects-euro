@@ -776,7 +776,8 @@ function TVPresentationMode({
     { kind: "effort" as const, title: "Acumulado do Mês", data: data.comparative.currentMonth, accent: "#EAB308" },
     { kind: "superRanking" as const, title: "Semestral", accent: "#FAC017", tvMode: "semester" as const },
     { kind: "superRanking" as const, title: "Anual", accent: "#FAC017", tvMode: "year" as const },
-    { kind: "clusterTables" as const, title: "Por Cluster", accent: "#FAC017" },
+    { kind: "clusterTables" as const, title: "Clusters A/B", accent: "#FAC017", clusters: ["A", "B"] as const },
+    { kind: "clusterTables" as const, title: "Clusters C/D", accent: "#FAC017", clusters: ["C", "D"] as const },
   ], [data]);
 
   const currentSlide = slides[slideIndex];
@@ -990,6 +991,7 @@ function TVPresentationMode({
                     <ClusterRankingTablesTv
                       data={superRankingData as any}
                       selectedYear={superRankingYear}
+                      clusters={(currentSlide as any).clusters}
                     />
                   )}
                 </>

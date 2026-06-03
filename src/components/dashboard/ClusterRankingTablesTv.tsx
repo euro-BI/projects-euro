@@ -125,28 +125,34 @@ export default function ClusterRankingTablesTv({ data, selectedYear, clusters = 
     return Math.max(1, ...rankings.map(r => r.rows.length));
   }, [rankings]);
 
-  const density = maxRows >= 18 ? "dense" : "normal";
+  const isPair = clusters.length === 2;
+  const density = maxRows >= (isPair ? 22 : 18) ? "dense" : "normal";
   const headText = density === "dense" ? "text-[9px]" : "text-[10px]";
-  const clusterHeadText = density === "dense" ? "text-[10px]" : "text-xs";
-  const cellText = density === "dense" ? "text-[9px]" : "text-[10px]";
-  const cellPad = density === "dense" ? "py-1 px-2" : "py-1.5 px-2.5";
-  const headPad = density === "dense" ? "py-1.5 px-3" : "py-2 px-3";
+  const clusterHeadText = isPair ? (density === "dense" ? "text-xs" : "text-sm") : (density === "dense" ? "text-[10px]" : "text-xs");
+  const cellText = isPair ? (density === "dense" ? "text-[10px]" : "text-[11px]") : (density === "dense" ? "text-[9px]" : "text-[10px]");
+  const cellPad = isPair ? (density === "dense" ? "py-1.5 px-2.5" : "py-2 px-3") : (density === "dense" ? "py-1 px-2" : "py-1.5 px-2.5");
+  const headPad = isPair ? (density === "dense" ? "py-2 px-3" : "py-2.5 px-3.5") : (density === "dense" ? "py-1.5 px-3" : "py-2 px-3");
+  const stackRowsClass = clusters.length === 2 ? "grid-rows-2" : clusters.length === 3 ? "grid-rows-3" : "grid-rows-4";
+
+  const titleClusters = isPair ? `Clusters ${clusters[0]} e ${clusters[1]}` : "Por Cluster";
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex items-center gap-4 pb-2 pl-8">
+      <div className={cn("flex items-center gap-4 pl-8", isPair ? "pb-3" : "pb-1")}>
         <Trophy className="w-10 h-10 text-euro-gold" />
         <h1 className="text-4xl font-data text-white tracking-[0.18em] uppercase whitespace-nowrap">
-          Consolidado <span className="text-euro-gold font-light">· Por Cluster · Semestre Atual</span>
+          Consolidado <span className="text-euro-gold font-light">· {titleClusters} · Semestre Atual</span>
         </h1>
       </div>
 
-      <div className="flex flex-col gap-3 flex-1 min-h-0">
+      <div className={cn("grid gap-3 flex-1 min-h-0", stackRowsClass)}>
         {rankings.map(({ cluster, rows }) => (
           <div
             key={cluster}
-            style={{ flex: `${Math.max(1, rows.length)} 1 0%` }}
-            className="bg-gradient-to-b from-white/[0.06] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-0"
+            className={cn(
+              "bg-gradient-to-b from-white/[0.06] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-0",
+              isPair ? "rounded-3xl" : "rounded-2xl"
+            )}
           >
             <div className={cn("flex items-center justify-between bg-black/25 border-b border-white/10", headPad)}>
               <div className="flex items-center gap-2">
@@ -162,7 +168,7 @@ export default function ClusterRankingTablesTv({ data, selectedYear, clusters = 
               </span>
             </div>
 
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <table className="w-full text-left border-collapse table-fixed">
                 <thead>
                   <tr className={cn("font-data uppercase tracking-widest text-white/45 bg-black/20 leading-tight", headText)}>
