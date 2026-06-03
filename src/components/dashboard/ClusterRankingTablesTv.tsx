@@ -126,15 +126,54 @@ export default function ClusterRankingTablesTv({ data, selectedYear, clusters = 
   }, [rankings]);
 
   const isPair = clusters.length === 2;
-  const density = maxRows >= (isPair ? 22 : 18) ? "dense" : "normal";
-  const headText = density === "dense" ? "text-[9px]" : "text-[10px]";
-  const clusterHeadText = isPair ? (density === "dense" ? "text-xs" : "text-sm") : (density === "dense" ? "text-[10px]" : "text-xs");
-  const cellText = isPair ? (density === "dense" ? "text-[10px]" : "text-[11px]") : (density === "dense" ? "text-[9px]" : "text-[10px]");
-  const cellPad = isPair ? (density === "dense" ? "py-1.5 px-2.5" : "py-2 px-3") : (density === "dense" ? "py-1 px-2" : "py-1.5 px-2.5");
-  const headPad = isPair ? (density === "dense" ? "py-2 px-3" : "py-2.5 px-3.5") : (density === "dense" ? "py-1.5 px-3" : "py-2 px-3");
+  const density = maxRows >= (isPair ? 18 : 18) ? "dense" : "normal";
+
+  const headText = isPair ? (density === "dense" ? "text-[13px]" : "text-[15px]") : (density === "dense" ? "text-[9px]" : "text-[10px]");
+  const clusterHeadText = isPair ? (density === "dense" ? "text-[18px]" : "text-[20px]") : (density === "dense" ? "text-[10px]" : "text-xs");
+  const cellText = isPair ? (density === "dense" ? "text-[15px]" : "text-[16px]") : (density === "dense" ? "text-[9px]" : "text-[10px]");
+  const cellPad = isPair ? (density === "dense" ? "py-2 px-4" : "py-2.5 px-4") : (density === "dense" ? "py-1 px-2" : "py-1.5 px-2.5");
+  const headPad = isPair ? (density === "dense" ? "py-2.5 px-4" : "py-3 px-5") : (density === "dense" ? "py-1.5 px-3" : "py-2 px-3");
   const stackRowsClass = clusters.length === 2 ? "grid-rows-2" : clusters.length === 3 ? "grid-rows-3" : "grid-rows-4";
 
   const titleClusters = isPair ? `Clusters ${clusters[0]} e ${clusters[1]}` : "Por Cluster";
+
+  const colWidths = useMemo(() => {
+    if (!isPair) {
+      return {
+        rank: "w-10",
+        assessor: "w-[260px]",
+        net: "w-20",
+        pontosTotal: "w-24",
+        pontosCaptacao: "w-20",
+        captacaoLiq: "w-24",
+        roaInvest: "w-20",
+        roaCs: "w-16",
+        ativ: "w-14",
+        ativ300: "w-16",
+        ativ1m: "w-14",
+        lider: "w-16"
+      };
+    }
+
+    return {
+      rank: "w-12",
+      assessor: "w-[220px]",
+      net: "w-[120px]",
+      pontosTotal: "w-[150px]",
+      pontosCaptacao: "w-[120px]",
+      captacaoLiq: "w-[160px]",
+      roaInvest: "w-[140px]",
+      roaCs: "w-[120px]",
+      ativ: "w-[90px]",
+      ativ300: "w-[140px]",
+      ativ1m: "w-[120px]",
+      lider: "w-[120px]"
+    };
+  }, [isPair]);
+
+  const avatarSizeClass = isPair ? "w-9 h-9" : "w-6 h-6";
+  const avatarFallbackText = isPair ? "text-[14px]" : "text-[9px]";
+  const assessorGap = isPair ? "gap-2" : "gap-2";
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -172,18 +211,18 @@ export default function ClusterRankingTablesTv({ data, selectedYear, clusters = 
               <table className="w-full text-left border-collapse table-fixed">
                 <thead>
                   <tr className={cn("font-data uppercase tracking-widest text-white/45 bg-black/20 leading-tight", headText)}>
-                    <th className={cn(cellPad, "font-normal w-10")}>#</th>
-                    <th className={cn(cellPad, "font-normal w-[260px]")}>Assessor</th>
-                    <th className={cn(cellPad, "font-normal text-right w-20")}>Net</th>
-                    <th className={cn(cellPad, "font-normal text-right w-24")}>Pontos Totais</th>
-                    <th className={cn(cellPad, "font-normal text-right w-20")}>P. Captação</th>
-                    <th className={cn(cellPad, "font-normal text-right w-24")}>Captação Liq.</th>
-                    <th className={cn(cellPad, "font-normal text-right w-20")}>P. ROA Invest</th>
-                    <th className={cn(cellPad, "font-normal text-right w-16")}>P. ROA CS</th>
-                    <th className={cn(cellPad, "font-normal text-right w-14")}>Ativ.</th>
-                    <th className={cn(cellPad, "font-normal text-right w-16")}>Ativ 300k+</th>
-                    <th className={cn(cellPad, "font-normal text-right w-14")}>Ativ 1M</th>
-                    <th className={cn(cellPad, "font-normal text-right w-16")}>P. Líder</th>
+                    <th className={cn(cellPad, "font-normal whitespace-nowrap", colWidths.rank)}>#</th>
+                    <th className={cn(cellPad, "font-normal whitespace-nowrap", colWidths.assessor)}>Assessor</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.net)}>Net</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.pontosTotal)}>Pontos Totais</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.pontosCaptacao)}>P. Captação</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.captacaoLiq)}>Captação Liq.</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.roaInvest)}>P. ROA Invest</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.roaCs)}>P. ROA CS</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.ativ)}>Ativ.</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.ativ300)}>Ativ 300k+</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.ativ1m)}>Ativ 1M</th>
+                    <th className={cn(cellPad, "font-normal text-right whitespace-nowrap", colWidths.lider)}>P. Líder</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.06]">
@@ -191,12 +230,12 @@ export default function ClusterRankingTablesTv({ data, selectedYear, clusters = 
                     <tr key={assessor.cod_assessor} className="hover:bg-white/[0.04] transition-colors leading-tight">
                       <td className={cn(cellPad, "font-data text-white/80 tabular-nums", cellText)}>{idx + 1}</td>
                       <td className={cn(cellPad, "min-w-0", cellText)}>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-full bg-euro-inset border border-white/10 overflow-hidden flex-shrink-0">
+                        <div className={cn("flex items-center min-w-0", assessorGap)}>
+                          <div className={cn("rounded-full bg-euro-inset border border-white/10 overflow-hidden flex-shrink-0", avatarSizeClass)}>
                             {assessor.foto_url ? (
                               <img src={assessor.foto_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[9px] font-data text-white/40">
+                              <div className={cn("w-full h-full flex items-center justify-center font-data text-white/40", avatarFallbackText)}>
                                 {String(assessor.nome_assessor || "A").trim().slice(0, 1).toUpperCase()}
                               </div>
                             )}
@@ -205,7 +244,7 @@ export default function ClusterRankingTablesTv({ data, selectedYear, clusters = 
                             <span className="font-ui text-white truncate">
                               {assessor.nome_assessor}
                             </span>
-                            <span className="font-data text-white/40 uppercase tracking-widest whitespace-nowrap">
+                            <span className={cn("font-data text-white/40 uppercase tracking-widest whitespace-nowrap", headText)}>
                               {assessor.cod_assessor}
                             </span>
                           </div>
