@@ -3,22 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { AssessorResumo } from "@/types/dashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  XCircle
-} from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { addMonths, format } from "date-fns";
 
 type ProductKey = "renda_variavel" | "allocation" | "banco" | "seguros";
@@ -136,6 +128,13 @@ const PRODUCTS: ProductConfig[] = [
   },
 ];
 
+const PRODUCT_CARD_OWNERS: Record<ProductKey, string> = {
+  renda_variavel: "Nicolas Gotz e Jose Colling",
+  allocation: "Milena Portela",
+  banco: "Gabriel Berte",
+  seguros: "Caio Soares",
+};
+
 const COLORS = {
   success: "#1D9E75",
   warn: "#BA7517",
@@ -168,25 +167,9 @@ function fmtPct(n: number) {
   return `${Math.round(n)}%`;
 }
 
-function initials(name: string) {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
 function scoreTone(score: number) {
   if (score >= 70) return "success";
   if (score >= 50) return "warn";
-  return "danger";
-}
-
-function teamTone(score: number) {
-  if (score >= 70) return "success";
-  if (score >= 55) return "warn";
   return "danger";
 }
 
@@ -328,35 +311,6 @@ function Donut({
         </span>
       </div>
     </div>
-  );
-}
-
-function Chip({
-  label,
-  value,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-}) {
-  const tone = scoreTone(value);
-  const Icon = tone === "success" ? CheckCircle2 : tone === "warn" ? AlertCircle : XCircle;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-data uppercase tracking-widest hover:brightness-110 transition-[filter] duration-150 ease-out"
-      style={{
-        borderColor: `${toneColor(tone)}55`,
-        background: `${toneColor(tone)}18`,
-        color: toneColor(tone),
-      }}
-    >
-      <Icon className="w-3.5 h-3.5" aria-label={label} />
-      <span className="whitespace-nowrap">{label}</span>
-      <span className="font-semibold">{fmtPct(value)}</span>
-    </button>
   );
 }
 
@@ -934,9 +888,6 @@ export default function RankingGerencialDash({
     segurosByAssessor,
   ]);
 
-  const [expandedTopProduct, setExpandedTopProduct] = useState<ProductKey | null>(null);
-  const [expandedAssessorId, setExpandedAssessorId] = useState<string | null>(null);
-  const [expandedProduct, setExpandedProduct] = useState<{ assessorId: string; product: ProductKey } | null>(null);
   const [kpiModal, setKpiModal] = useState<{ product: ProductKey; kpi: string } | null>(null);
 
   const productsSummary = useMemo(() => {
@@ -1269,22 +1220,6 @@ export default function RankingGerencialDash({
       .sort((a, b) => b.qtdMes - a.qtdMes || a.nome_assessor.localeCompare(b.nome_assessor));
   }, [data, segurosByAssessor]);
 
-  const groupedByTeam = useMemo(() => {
-    const map = new Map<string, AssessorRanking[]>();
-    for (const r of ranking) {
-      const key = r.team || "Sem time";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(r);
-    }
-    const teams = Array.from(map.entries())
-      .map(([team, list]) => {
-        const avg = list.reduce((s, a) => s + a.overall, 0) / (list.length || 1);
-        return { team, avg, list: list.sort((a, b) => b.overall - a.overall) };
-      })
-      .sort((a, b) => b.avg - a.avg);
-    return teams;
-  }, [ranking]);
-
   const titleMonth = selectedMonthKey
     ? ` • ${new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(monthStartFromKey(selectedMonthKey))}`
     : selectedMonthLabel
@@ -1304,73 +1239,51 @@ export default function RankingGerencialDash({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {productsSummary.map((p) => (
-          <Card
-            key={p.key}
-            className={cn(
-              "bg-[#0F1218]/70 backdrop-blur-xl border-white/10 p-0 overflow-hidden",
-              expandedTopProduct === p.key && "border-white/25"
-            )}
-          >
-            <button
-              type="button"
-              className="w-full text-left p-4 hover:bg-white/5 transition-colors duration-150 ease-out"
-              onClick={() => setExpandedTopProduct((prev) => (prev === p.key ? null : p.key))}
-              aria-label={`Detalhar ${p.label}`}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {productsSummary.map((p) => {
+          const tone = p.status;
+          return (
+            <Card
+              key={p.key}
+              className="bg-[#0F1218]/70 backdrop-blur-xl border-white/10 p-6 overflow-hidden min-h-[360px]"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
-                    {p.label}
-                  </div>
-                  <div className="text-white font-display text-2xl mt-1">
-                    {fmtPct(p.avg)}
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Donut value={p.avg} tone={p.status} label={p.label} />
-                  <BadgePill
-                    label={p.status === "success" ? "No alvo" : p.status === "warn" ? "Atenção" : "Crítico"}
-                    tone={p.status}
-                  />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-[10px] font-data uppercase tracking-widest text-white/55">
-                <span>Assessores</span>
-                <span className="text-white/80">{p.hit}/{p.total}</span>
-              </div>
-            </button>
-          </Card>
-        ))}
-      </div>
-
-      {expandedTopProduct && (
-        <Card className="bg-[#0F1218]/60 backdrop-blur-xl border-white/10 p-5">
-          {(() => {
-            const p = productsSummary.find((x) => x.key === expandedTopProduct);
-            if (!p) return null;
-            const tone = p.status;
-            return (
-              <div className="space-y-4">
+              <div className="flex h-full flex-col">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">Detalhamento</div>
-                    <div className="text-white font-display text-lg tracking-wide">{p.label}</div>
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <div className="text-white/55 font-data text-[11px] uppercase tracking-widest">
+                        {p.label}
+                      </div>
+                      <div className="text-white/50 font-data text-[11px] tracking-wide">
+                        ({PRODUCT_CARD_OWNERS[p.key]})
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <div className="text-white font-display text-4xl leading-none">
+                        {fmtPct(p.avg)}
+                      </div>
                       <BadgePill
                         label={tone === "success" ? "No alvo" : tone === "warn" ? "Atenção" : "Crítico"}
                         tone={tone}
                       />
-                      <span className="text-white/55 font-data text-[10px] uppercase tracking-widest">
-                        Score médio {fmtPct(p.avg)}
-                      </span>
+                    </div>
+                    <div className="mt-3 text-white/50 font-data text-[11px] uppercase tracking-widest">
+                      Percentual médio de atingimento
                     </div>
                   </div>
-                  <Donut value={p.avg} tone={tone} label={`Score médio ${p.label}`} />
+
+                  <div className="flex shrink-0 flex-col items-end gap-3">
+                    <Donut value={p.avg} tone={tone} label={`Score médio ${p.label}`} />
+                    <div className="text-right">
+                      <div className="text-white font-display text-lg">{p.hit}/{p.total}</div>
+                      <div className="text-white/45 font-data text-[10px] uppercase tracking-widest">
+                        Assessores no alvo
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="mt-5 flex-1 space-y-3">
                   {p.kpis.map((k) => {
                     const ktone = scoreTone(k.avgValue);
                     const isClickable =
@@ -1386,7 +1299,7 @@ export default function RankingGerencialDash({
                             ? `${k.label} (meta: ${formatCurrency(SEGUROS_RECEITA_MENSAL_TARGET)})`
                             : p.key === "seguros" && k.key === "apolices"
                               ? `${k.label} (meta: ${formatCount(SEGUROS_APOLICES_MENSAL_TARGET)})`
-                        : k.label;
+                              : k.label;
                     return (
                       <button
                         key={k.key}
@@ -1394,202 +1307,41 @@ export default function RankingGerencialDash({
                         disabled={!isClickable}
                         onClick={() => setKpiModal({ product: p.key, kpi: k.key })}
                         className={cn(
-                          "w-full grid grid-cols-1 sm:grid-cols-[1fr_64px] gap-2 items-center text-left rounded-lg p-2 -m-2",
+                          "w-full rounded-xl border border-white/10 bg-black/20 p-4 text-left",
+                          "grid grid-cols-[1fr_auto] gap-4 items-center",
                           isClickable ? "hover:bg-white/5 transition-colors duration-150 ease-out" : ""
                         )}
                         aria-label={isClickable ? `Detalhar ${k.label}` : undefined}
                       >
-                        <div className="space-y-1">
-                          <div className="flex items-baseline justify-between gap-3">
-                            <div className="text-white/80 font-data text-xs">{labelText}</div>
-                            <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
+                        <div className="space-y-2 min-w-0">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="text-white/85 font-data text-sm leading-snug">{labelText}</div>
+                            <div className="text-white/45 font-data text-[10px] uppercase tracking-widest whitespace-nowrap">
                               Peso {Math.round(k.weight * 100)}%
                             </div>
                           </div>
                           <ProgressBar value={k.avgValue} tone={ktone} />
                         </div>
-                        <div className="text-right text-white font-display text-base" style={{ color: toneColor(ktone) }}>
-                          {fmtPct(k.avgValue)}
+                        <div className="text-right">
+                          <div className="text-white font-display text-xl" style={{ color: toneColor(ktone) }}>
+                            {fmtPct(k.avgValue)}
+                          </div>
+                          {isClickable && (
+                            <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-data uppercase tracking-widest text-white/35">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Ver base
+                            </div>
+                          )}
                         </div>
                       </button>
                     );
                   })}
                 </div>
-              </div>
-            );
-          })()}
-        </Card>
-      )}
 
-      <div className="space-y-3">
-        {groupedByTeam.map((team) => {
-          const tone = teamTone(team.avg);
-          return (
-            <Card key={team.team} className="bg-[#0F1218]/60 backdrop-blur-xl border-white/10 overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="text-white font-display text-base tracking-wide truncate">{team.team}</div>
-                  <BadgePill label={`Média ${fmtPct(team.avg)}`} tone={tone} />
+                <div className="mt-5 flex items-center justify-between text-[10px] font-data uppercase tracking-widest text-white/45">
+                  <span>{p.kpis.length} indicadores no card</span>
+                  <span>Detalhamento sempre visível</span>
                 </div>
-                <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                  {team.list.length} assessores
-                </div>
-              </div>
-
-              <div className="divide-y divide-white/10">
-                {team.list.map((a) => {
-                  const isOpen = expandedAssessorId === a.id;
-                  const badgeTone = a.badge === "Elegível" ? "success" : a.badge === "Em risco" ? "warn" : "danger";
-                  return (
-                    <div key={a.id} className="px-5 py-4">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="w-full text-left cursor-pointer"
-                        onClick={() => setExpandedAssessorId((prev) => (prev === a.id ? null : a.id))}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setExpandedAssessorId((prev) => (prev === a.id ? null : a.id));
-                          }
-                        }}
-                      >
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Avatar className="h-10 w-10 border border-white/10">
-                              {a.fotoUrl ? <AvatarImage src={a.fotoUrl} alt={a.name} /> : null}
-                              <AvatarFallback
-                                className="text-[10px] font-data uppercase tracking-widest"
-                                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.8)" }}
-                              >
-                                {initials(a.name)}
-                              </AvatarFallback>
-                            </Avatar>
-
-                            <div className="min-w-0">
-                              <div className="text-white font-display text-sm truncate">{a.name}</div>
-                              <div className="text-white/45 font-data text-[10px] uppercase tracking-widest">
-                                AAI-{a.id} • E‑NPS {fmtPct(a.enps)} • Pontos válidos {Math.round(a.pontosValidos)}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                            {PRODUCTS.map((p) => (
-                              <Chip
-                                key={p.key}
-                                label={p.short}
-                                value={a.products[p.key].score}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedAssessorId(a.id);
-                                  setExpandedProduct((prev) =>
-                                    prev?.assessorId === a.id && prev.product === p.key
-                                      ? null
-                                      : { assessorId: a.id, product: p.key }
-                                  );
-                                }}
-                              />
-                            ))}
-                            <Badge
-                              className="rounded-full px-3 py-1 text-[10px] font-data uppercase tracking-widest border"
-                              style={{
-                                borderColor: `${toneColor(badgeTone)}55`,
-                                background: `${toneColor(badgeTone)}18`,
-                                color: toneColor(badgeTone),
-                              }}
-                            >
-                              {a.badge}
-                            </Badge>
-                            <span className="text-white/35">
-                              {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {isOpen && (
-                        <div className="mt-4 space-y-3">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                            {PRODUCTS.map((p) => {
-                              const s = a.products[p.key].score;
-                              const tone = scoreTone(s);
-                              const isProductOpen = expandedProduct?.assessorId === a.id && expandedProduct.product === p.key;
-                              return (
-                                <button
-                                  key={p.key}
-                                  type="button"
-                                  className={cn(
-                                    "rounded-xl border p-4 text-left transition-colors duration-150 ease-out",
-                                    isProductOpen ? "bg-white/5" : "bg-black/20 hover:bg-white/5"
-                                  )}
-                                  style={{ borderColor: "rgba(255,255,255,0.10)" }}
-                                  onClick={() =>
-                                    setExpandedProduct((prev) =>
-                                      prev?.assessorId === a.id && prev.product === p.key
-                                        ? null
-                                        : { assessorId: a.id, product: p.key }
-                                    )
-                                  }
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">{p.label}</div>
-                                      <div className="text-white font-display text-xl mt-1">{fmtPct(s)}</div>
-                                    </div>
-                                    <BadgePill label={tone === "success" ? "No alvo" : tone === "warn" ? "Atenção" : "Crítico"} tone={tone} />
-                                  </div>
-                                  <div className="mt-3">
-                                    <ProgressBar value={s} tone={tone} />
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {expandedProduct?.assessorId === a.id && (
-                            <Card className="bg-black/20 border-white/10 p-5">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="text-white font-display text-sm tracking-wide">
-                                  {PRODUCTS.find((p) => p.key === expandedProduct.product)?.label}
-                                </div>
-                                <div className="text-white/45 font-data text-[10px] uppercase tracking-widest">
-                                  KPIs e pesos
-                                </div>
-                              </div>
-
-                              <div className="mt-4 space-y-3">
-                                {a.products[expandedProduct.product].kpis.map((k) => {
-                                  const displayValue = (k as any).displayValue ?? k.value;
-                                  const tone = scoreTone(displayValue);
-                                  return (
-                                    <div key={k.key} className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-center">
-                                      <div className="space-y-1">
-                                        <div className="flex items-baseline justify-between gap-3">
-                                          <div className="text-white/80 font-data text-xs">{k.label}</div>
-                                          <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
-                                            Peso {Math.round(k.weight * 100)}%
-                                          </div>
-                                        </div>
-                                        <ProgressBar value={displayValue} tone={tone} />
-                                      </div>
-                                      <div
-                                        className="text-right text-white font-display text-base"
-                                        style={{ color: toneColor(tone) }}
-                                      >
-                                        {fmtPct(displayValue)}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </Card>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             </Card>
           );
