@@ -405,6 +405,21 @@ export function NpsDetailsDialog({
                               </span>
                             </td>
 
+                            {/* Tipo Convite */}
+                            <td className="py-3 px-4">
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-data px-2 py-0.5 rounded-full border whitespace-nowrap"
+                                style={{
+                                  color: item.tipo_convite === "Lembrete" ? "#818CF8" : "#94A3B8",
+                                  borderColor: item.tipo_convite === "Lembrete" ? "#818CF840" : "#94A3B840",
+                                  background: item.tipo_convite === "Lembrete" ? "#818CF810" : "#94A3B810",
+                                }}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
+                                {item.tipo_convite ?? "—"}
+                              </span>
+                            </td>
+
                             {/* Nota */}
                             <td className="py-3 px-4 text-center">
                               {item.nota_score !== null ? (
@@ -435,21 +450,6 @@ export function NpsDetailsDialog({
                               >
                                 <span className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
                                 {statusCfg.label}
-                              </span>
-                            </td>
-
-                            {/* Tipo Convite */}
-                            <td className="py-3 px-4">
-                              <span
-                                className="inline-flex items-center gap-1 text-[10px] font-data px-2 py-0.5 rounded-full border whitespace-nowrap"
-                                style={{
-                                  color: item.tipo_convite === "Lembrete" ? "#818CF8" : "#94A3B8",
-                                  borderColor: item.tipo_convite === "Lembrete" ? "#818CF840" : "#94A3B840",
-                                  background: item.tipo_convite === "Lembrete" ? "#818CF810" : "#94A3B810",
-                                }}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
-                                {item.tipo_convite ?? "—"}
                               </span>
                             </td>
 

@@ -612,7 +612,8 @@ export default function NpsDash({
                       <td className="p-4 text-center">
                         <span className={cn(
                           "text-lg font-display font-bold",
-                          !r.suficiente ? "text-amber-400" : r.atingido ? "text-emerald-400" : "text-rose-400"
+                          r.score >= 70 ? "text-emerald-400" : r.score >= 50 ? "text-amber-400" : "text-rose-400",
+                          !r.suficiente && "opacity-60"
                         )}>
                           {r.score}
                         </span>
