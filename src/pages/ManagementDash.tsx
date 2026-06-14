@@ -25,6 +25,7 @@ import {
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import CockpitDash from "@/components/dashboard/CockpitDash";
 import RankingGerencialDash from "@/components/dashboard/RankingGerencialDash";
+import CarteiraDistributionDash from "@/components/dashboard/CarteiraDistributionDash";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 
@@ -274,6 +275,12 @@ export default function ManagementDash() {
                 >
                   Ranking Gerencial
                 </TabsTrigger>
+                <TabsTrigger
+                  value="distribuicao-carteira"
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white transition-all whitespace-nowrap flex-1 sm:flex-initial"
+                >
+                  Distribuição Carteira
+                </TabsTrigger>
               </TabsList>
 
               <div className="hidden sm:block w-px h-4 bg-white/10 mx-1" />
@@ -307,6 +314,13 @@ export default function ManagementDash() {
 
           <TabsContent value="ranking-gerencial" className="space-y-6 mt-0 border-none p-0 outline-none">
             <RankingGerencialDash data={dashData || []} selectedMonthLabel={selectedMonth} />
+          </TabsContent>
+
+          <TabsContent value="distribuicao-carteira" className="space-y-6 mt-0 border-none p-0 outline-none">
+            <CarteiraDistributionDash
+              selectedMonth={selectedMonth}
+              assessors={dashData || []}
+            />
           </TabsContent>
         </Tabs>
       </div>

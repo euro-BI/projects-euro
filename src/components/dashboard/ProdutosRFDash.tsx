@@ -73,7 +73,7 @@ export default function ProdutosRFDash({
     queryKey: ["produtos-rf-data", selectedMonthKey, selectedTeam, selectedAssessorId],
     queryFn: async () => {
       // If we have assessor filters, we first get their codes/names from mv_resumo_assessor
-      // to map them properly since dados_diversificador_full has 'assessor' which might be name or code.
+      // to map them properly since vw_diversificador_rf has 'assessor' which might be name or code.
       let validAssessors = new Set<string>();
       const assessorMap = new Map<string, any>();
       
@@ -104,7 +104,7 @@ export default function ProdutosRFDash({
       const endDate = selectedMonthEndDate;
 
       let query = supabase
-        .from("dados_diversificador_full" as any)
+        .from("vw_diversificador_rf" as any)
         .select("produto, net, data_posicao, assessor, cliente, subproduto, cnpj, fator_risco, ativo, data_vencimento")
         .lte("data_posicao", endDate);
 
