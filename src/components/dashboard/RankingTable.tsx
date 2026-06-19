@@ -39,6 +39,9 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
   const [selectedCluster, setSelectedCluster] = useState<string | null>("A");
   const [openClusterCombobox, setOpenClusterCombobox] = useState(false);
 
+  const isAssessorInelegivel = (elegibilidade: AssessorResumo["elegibilidade"]) =>
+    elegibilidade === false || elegibilidade === "false";
+
   // Extract clusters list
   const clustersList = useMemo(() => {
     const clusters = new Set<string>();
@@ -77,7 +80,8 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
           ativacao_300k: 0,
           ativacao_1kk: 0,
           latest_date: curr.data_posicao,
-          latest_custodia: curr.custodia_net
+          latest_custodia: curr.custodia_net,
+          elegibilidade: curr.elegibilidade
         };
       }
       
@@ -95,6 +99,7 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
       if (curr.data_posicao > acc[key].latest_date) {
         acc[key].latest_date = curr.data_posicao;
         acc[key].latest_custodia = curr.custodia_net;
+        acc[key].elegibilidade = curr.elegibilidade;
       }
       
       return acc;
@@ -212,7 +217,7 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
           </thead>
           <tbody className="divide-y divide-white/[0.05]">
             {rankingData.map((assessor: any, idx) => {
-              const isInelegivel = assessor.elegibilidade === false || assessor.elegibilidade === "false";
+              const isInelegivel = isAssessorInelegivel(assessor.elegibilidade);
 
               return (
                 <tr 

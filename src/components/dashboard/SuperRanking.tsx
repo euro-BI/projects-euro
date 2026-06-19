@@ -69,6 +69,9 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
   const [mobileDetailAssessor, setMobileDetailAssessor] = useState<any | null>(null);
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
 
+  const isAssessorInelegivel = (elegibilidade: AssessorResumo["elegibilidade"]) =>
+    elegibilidade === false || elegibilidade === "false";
+
   // Get available months for the selectedYear
   const availableMonths = useMemo(() => {
     const validData = data.filter(d => d.data_posicao);
@@ -199,7 +202,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
   }, [data, selectedYear, periodType, selectedMonth]);
 
   const getInelegibilityReason = (assessor: any) => {
-    if (assessor.elegibilidade !== false) return null;
+    if (!isAssessorInelegivel(assessor.elegibilidade)) return null;
 
     const reasons: string[] = [];
     
@@ -241,7 +244,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     if (!assessor) return null;
 
     // Robust check for eligibility (handles boolean false, string "false", and 0/null if needed)
-    const isInelegivel = assessor.elegibilidade === false || assessor.elegibilidade === "false";
+    const isInelegivel = isAssessorInelegivel(assessor.elegibilidade);
 
     const colors = {
       1: "border-euro-gold text-euro-gold shadow-[0_0_50px_rgba(250,192,23,0.25)]",
@@ -700,7 +703,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                   {/* Mobile: tabela completa (inclui Top 3) com modal de detalhes */}
                   <tbody className="divide-y divide-white/[0.05] md:hidden">
                     {rankingData.map((assessor: any, idx: number) => {
-                    const isInelegivel = assessor.elegibilidade === false || assessor.elegibilidade === "false";
+                    const isInelegivel = isAssessorInelegivel(assessor.elegibilidade);
 
                     return (
                       <tr 
@@ -752,7 +755,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                 {/* Desktop: mantém tabela de "próximos" (sem Top 3) */}
                 <tbody className="divide-y divide-white/[0.05] hidden md:table-row-group">
                   {others.map((assessor, idx) => {
-                    const isInelegivel = assessor.elegibilidade === false || assessor.elegibilidade === "false";
+                    const isInelegivel = isAssessorInelegivel(assessor.elegibilidade);
 
                     const rowContent = (
                       <tr 
@@ -925,7 +928,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
 
               {/* Elegibilidade */}
               {(() => {
-                const isInelegivel = mobileDetailAssessor.elegibilidade === false || mobileDetailAssessor.elegibilidade === "false";
+                const isInelegivel = isAssessorInelegivel(mobileDetailAssessor.elegibilidade);
                 const percFP = (mobileDetailAssessor.total_fp_300k && mobileDetailAssessor.meta_fp300k)
                   ? (mobileDetailAssessor.total_fp_300k / mobileDetailAssessor.meta_fp300k) * 100
                   : 0;

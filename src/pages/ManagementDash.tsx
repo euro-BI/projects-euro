@@ -26,6 +26,7 @@ import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import CockpitDash from "@/components/dashboard/CockpitDash";
 import RankingGerencialDash from "@/components/dashboard/RankingGerencialDash";
 import CarteiraDistributionDash from "@/components/dashboard/CarteiraDistributionDash";
+import ParetoClientes12mDash from "@/components/dashboard/ParetoClientes12mDash";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 
@@ -281,6 +282,12 @@ export default function ManagementDash() {
                 >
                   Distribuição Carteira
                 </TabsTrigger>
+                <TabsTrigger
+                  value="pareto-clientes-12m"
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white transition-all whitespace-nowrap flex-1 sm:flex-initial"
+                >
+                  Pareto Clientes
+                </TabsTrigger>
               </TabsList>
 
               <div className="hidden sm:block w-px h-4 bg-white/10 mx-1" />
@@ -321,6 +328,10 @@ export default function ManagementDash() {
               selectedMonth={selectedMonth}
               assessors={dashData || []}
             />
+          </TabsContent>
+
+          <TabsContent value="pareto-clientes-12m" className="space-y-6 mt-0 border-none p-0 outline-none">
+            <ParetoClientes12mDash />
           </TabsContent>
         </Tabs>
       </div>

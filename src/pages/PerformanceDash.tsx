@@ -93,7 +93,6 @@ import RevenueEvolution from "@/components/dashboard/RevenueEvolution";
 import FundingEvolution from "@/components/dashboard/FundingEvolution";
 import RankingEvolution from "@/components/dashboard/RankingEvolution";
 import RankingTable from "@/components/dashboard/RankingTable";
-import RevenueAuditDash from "@/components/dashboard/RevenueAuditDash";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { ActivationDetailsDialog } from "@/components/dashboard/ActivationDetailsDialog";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
@@ -125,7 +124,8 @@ export default function PerformanceDash() {
     if (
       persisted?.activeTab === "esforcos" ||
       persisted?.activeTab === "forecast" ||
-      persisted?.activeTab === "comparativo"
+      persisted?.activeTab === "comparativo" ||
+      persisted?.activeTab === "auditoria-receita"
     ) {
       return "geral";
     }
@@ -168,7 +168,6 @@ export default function PerformanceDash() {
 
   const navigate = useNavigate();
   const { userRole, userCode } = useAuth();
-  const canAccessRevenueAudit = userRole === "admin" || userRole === "admin_master";
 
   // Determine effective assessor ID based on role and active tab
   const effectiveAssessorId = useMemo(() => {
@@ -310,12 +309,6 @@ export default function PerformanceDash() {
     }
     return [];
   }, [effectiveAssessorId, effectiveTeam, filtersData]);
-
-  React.useEffect(() => {
-    if (!canAccessRevenueAudit && activeTab === "auditoria-receita") {
-      setActiveTab("geral");
-    }
-  }, [canAccessRevenueAudit, activeTab]);
 
   React.useEffect(() => {
     const role = userRole?.toLowerCase();
@@ -800,14 +793,6 @@ export default function PerformanceDash() {
                 >
                   NPS
                 </TabsTrigger>
-                {canAccessRevenueAudit && (
-                  <TabsTrigger
-                    value="auditoria-receita"
-                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none whitespace-nowrap"
-                  >
-                    Auditoria Receita
-                  </TabsTrigger>
-                )}
               </TabsList>
 
               <div className="w-px h-4 bg-white/10 mx-1" />
@@ -1250,16 +1235,6 @@ export default function PerformanceDash() {
               teamPhotos={dashData.teamPhotos}
             />
           </TabsContent>
-
-          {canAccessRevenueAudit && (
-            <TabsContent value="auditoria-receita" className="space-y-12 mt-0 border-none p-0 outline-none">
-              <RevenueAuditDash
-                selectedMonth={selectedMonth}
-                assessors={dashData.current}
-              />
-            </TabsContent>
-          )}
-
 
         </Tabs>
       </div>
