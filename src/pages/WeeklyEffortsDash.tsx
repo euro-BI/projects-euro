@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parseISO, isBefore, startOfDay, differenceInCalendarWeeks, addMonths } from "date-fns";
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parseISO, startOfDay, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
@@ -21,6 +21,7 @@ import * as XLSX from "xlsx";
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from "recharts";
 
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth";
+const FIXED_MONTH_WEEKS = 4;
 
 function ProgressStrip({
   value,
@@ -300,9 +301,10 @@ export default function WeeklyEffortsDash() {
     const processRange = (start: string, end: string) => {
       const startDate = parseISO(start);
       const endDate = parseISO(end);
-      const effectiveEnd = isBefore(endDate, today) ? endDate : today;
-      let weeks = differenceInCalendarWeeks(effectiveEnd, startDate, { weekStartsOn: 1 }) + 1;
-      if (weeks < 1) weeks = 1;
+      const isMonthlyRange =
+        format(startDate, "yyyy-MM-dd") === format(startOfMonth(startDate), "yyyy-MM-dd") &&
+        format(endDate, "yyyy-MM-dd") === format(endOfMonth(startDate), "yyyy-MM-dd");
+      const weeks = isMonthlyRange ? FIXED_MONTH_WEEKS : 1;
 
       const topPerformerTarget = 2 * weeks;
       const metaTarget = 1 * weeks;
@@ -465,7 +467,7 @@ export default function WeeklyEffortsDash() {
     const totalMonthDays = monthEnd.getDate();
     const elapsedMonthDays = Math.min(today.getDate(), totalMonthDays);
     const monthProgressRatio = totalMonthDays > 0 ? elapsedMonthDays / totalMonthDays : 0;
-    const fullMonthWeeks = differenceInCalendarWeeks(monthEnd, monthStart, { weekStartsOn: 1 }) + 1;
+    const fullMonthWeeks = FIXED_MONTH_WEEKS;
     const monthlyMetaTotal = month.totalAssessores * fullMonthWeeks;
     const monthlyPaceTarget = monthlyMetaTotal * monthProgressRatio;
     const monthlyAchievementPct = monthlyMetaTotal > 0 ? (month.realizadas / monthlyMetaTotal) * 100 : 0;
@@ -511,9 +513,7 @@ export default function WeeklyEffortsDash() {
       const monthEnd = endOfMonth(date);
       const startStr = format(monthStart, "yyyy-MM-dd");
       const endStr = format(monthEnd, "yyyy-MM-dd");
-      const effectiveEnd = isBefore(monthEnd, today) ? monthEnd : today;
-      let weeks = differenceInCalendarWeeks(effectiveEnd, monthStart, { weekStartsOn: 1 }) + 1;
-      if (weeks < 1) weeks = 1;
+      const weeks = FIXED_MONTH_WEEKS;
 
       const assessorStats = new Map<string, { realizadas: number; agendadas: number; indicacao: number }>();
       activeAssessors.forEach((a) => assessorStats.set(a.cod, { realizadas: 0, agendadas: 0, indicacao: 0 }));
@@ -1239,13 +1239,13 @@ export default function WeeklyEffortsDash() {
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                           <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">Meta individual</p>
                           <p className="text-sm text-white/70 leading-relaxed">
-                            A meta individual é {dashboardStory.current.metaTarget} R1 por assessor no recorte atual. Ela cresce conforme o número de semanas consideradas no período.
+                            A meta individual é {dashboardStory.current.metaTarget} R1 por assessor no recorte atual. Nos recortes mensais, a régua considera 4 semanas fixas para não penalizar a quinta semana quebrada.
                           </p>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                           <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">Top performer</p>
                           <p className="text-sm text-white/70 leading-relaxed">
-                            A faixa de destaque usa 2x a meta semanal do período. Hoje isso pede {dashboardStory.current.topPerformerTarget} R1 por assessor.
+                            A faixa de destaque usa 2x a régua individual do período. Hoje isso pede {dashboardStory.current.topPerformerTarget} R1 por assessor.
                           </p>
                         </div>
                       </div>
