@@ -4,7 +4,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Briefcase, ShoppingBag, ArrowRight, Settings, BarChart3, User, TrendingUp, CalendarCheck } from "lucide-react";
+import { Briefcase, ShoppingBag, ArrowRight, Settings, User, TrendingUp, CalendarCheck, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useReducedMotion } from "framer-motion";
@@ -109,26 +109,26 @@ export default function DashboardHome() {
 
           {/* Card Meu Cockpit */}
           {(!isMarketing && !isProdutosOnly && userRole !== "consorcio" && userRole !== "seguros") && (
-            <div 
+            <div
               onClick={() => navigate("/dash/meu-cockpit")}
               className="cursor-pointer"
             >
               <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
                 <CardContent className="h-full flex flex-col items-center p-8 pt-10 relative">
-                  <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent" />
-                  
+                  <div className="absolute inset-0 bg-gradient-to-b from-euro-gold/10 via-cyan-400/5 to-transparent" />
+
                   <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mb-6 shadow-lg shrink-0">
                     <User className="w-10 h-10 text-white" />
                   </div>
-                  
+
                   <h2 className="text-3xl font-display text-white mb-3 tracking-wide">
                     Meu Cockpit
                   </h2>
-                  
+
                   <p className="text-[#A0A090] text-center font-light mb-auto max-w-xs line-clamp-3 min-h-[4.5rem]">
                     Sua performance individual, receitas, gap e posição no Super Ranking.
                   </p>
-                  
+
                   <div className="flex items-center gap-2 text-blue-400 font-data text-xs uppercase tracking-widest mt-4">
                     Acessar Meu Cockpit <ArrowRight className="w-4 h-4" />
                   </div>

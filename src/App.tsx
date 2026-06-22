@@ -2,12 +2,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Header } from "@/components/Header";
 import { ReportBugButton } from "@/components/ReportBugButton";
+import AssessorCockpitV2 from "./pages/AssessorCockpitV2";
 const Auth = lazy(() => import("./pages/Auth"));
 const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Welcome = lazy(() => import("./pages/Welcome"));
@@ -29,7 +30,6 @@ const ProductsDashboard = lazy(() => import("./pages/ProductsDashboard"));
 const MarketingDash = lazy(() => import("./pages/MarketingDash"));
 const WeeklyEffortsDash = lazy(() => import("./pages/WeeklyEffortsDash"));
 const ManagementDash = lazy(() => import("./pages/ManagementDash"));
-const AssessorCockpit = lazy(() => import("./pages/AssessorCockpit"));
 const AdvisorsDash = lazy(() => import("./pages/AdvisorsDash"));
 const Seguros = lazy(() => import("./pages/Seguros"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -239,7 +239,15 @@ const App = () => (
                 path="/dash/meu-cockpit"
                 element={
                   <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "produtos"]}>
-                    <AssessorCockpit />
+                    <AssessorCockpitV2 />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dash/meu-cockpit-v2"
+                element={
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "produtos"]}>
+                    <Navigate to="/dash/meu-cockpit" replace />
                   </ProtectedRoute>
                 }
               />

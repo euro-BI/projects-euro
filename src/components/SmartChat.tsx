@@ -308,7 +308,11 @@ const formatText = (text: string) => {
 };
 
 // --- Main Chat Component ---
-export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) => {
+export const SmartChat: React.FC<{ fullHeight?: boolean; embedded?: boolean; onRequestClose?: () => void }> = ({
+  fullHeight,
+  embedded,
+  onRequestClose,
+}) => {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string>('');
@@ -690,12 +694,22 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
     }
   };
 
+  const handleBackAction = () => {
+    if (embedded && onRequestClose) {
+      onRequestClose();
+      return;
+    }
+    navigate("/");
+  };
+
   return (
     <div className={cn(
       "flex flex-col bg-background/20 border-border overflow-hidden glass-card backdrop-blur-sm",
       fullHeight 
         ? "h-screen w-full border-0 rounded-none" 
-        : "h-[calc(100vh-120px)] max-w-4xl mx-auto border rounded-xl shadow-xl"
+        : embedded
+          ? "h-full w-full border-0 rounded-[28px] shadow-none bg-[#0B111A]"
+          : "h-[calc(100vh-120px)] max-w-4xl mx-auto border rounded-xl shadow-xl"
     )}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5">
@@ -729,9 +743,9 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
             <HelpCircle size={20} />
           </button>
           <button 
-            onClick={() => navigate("/")}
+            onClick={handleBackAction}
             className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
-            title="Voltar para o início"
+            title={embedded ? "Fechar chat" : "Voltar para o início"}
           >
             <ArrowLeft size={20} />
           </button>
@@ -913,7 +927,10 @@ export const SmartChat: React.FC<{ fullHeight?: boolean }> = ({ fullHeight }) =>
           fullHeight ? "max-w-6xl" : "max-w-4xl"
         )}>
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-[calc(100vh-250px)] text-center space-y-6 opacity-90">
+            <div className={cn(
+              "flex flex-col items-center justify-center text-center space-y-6 opacity-90",
+              embedded ? "min-h-[420px]" : "h-[calc(100vh-250px)]"
+            )}>
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse">
               <Bot size={32} />
             </div>

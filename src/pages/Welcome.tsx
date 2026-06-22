@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
@@ -130,6 +131,12 @@ export default function Welcome() {
   const filteredItems = menuItems.filter(item =>
     item.roles?.includes(userRole || "")
   );
+
+  useEffect(() => {
+    if (userRole === "user" || userRole === "lider" || userRole === "admin") {
+      navigate("/dash", { replace: true });
+    }
+  }, [navigate, userRole]);
 
   return (
     <PageLayout className="relative overflow-hidden bg-transparent">

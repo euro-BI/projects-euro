@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Maximize2, Minimize2, CalendarCheck, Clock, ThumbsUp, Target, Users, ArrowUpDown, ArrowUp, ArrowDown, Play, X, Download, BarChart3, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from "recharts";
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, ReferenceLine } from "recharts";
 
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth";
 const FIXED_MONTH_WEEKS = 4;
@@ -1483,6 +1483,13 @@ export default function WeeklyEffortsDash() {
                         <Legend wrapperStyle={{ fontFamily: "var(--font-data, monospace)", fontSize: "11px" }} />
                         <Bar yAxisId="left" dataKey="realizadas" name="Realizadas" fill="#FAC017" radius={[6, 6, 0, 0]} maxBarSize={34} />
                         <Bar yAxisId="left" dataKey="agendadas" name="Agendadas" fill="#A855F7" radius={[6, 6, 0, 0]} maxBarSize={34} />
+                        <ReferenceLine
+                          yAxisId="right"
+                          y={100}
+                          stroke="rgba(34,197,94,0.75)"
+                          strokeDasharray="6 6"
+                          ifOverflow="extendDomain"
+                        />
                         <Line yAxisId="right" type="monotone" dataKey="pctMetaTime" name="% Meta Time" stroke="#22C55E" strokeWidth={3} dot={{ r: 4, fill: "#22C55E" }} activeDot={{ r: 6 }} />
                       </ComposedChart>
                     </ResponsiveContainer>
