@@ -67,8 +67,8 @@ const PRODUCT_CONFIGS: ProductConfig[] = [
     eligibility: "Atingir 70% do número de pontos válidos + 80% de E-NPS",
     criteria: [
       { key: "penetracao_aai_credito", label: "Penetração AAI/Crédito", weight: 0.3, objective: 1, kind: "percent" },
-      { key: "receita_credito", label: "Receita em Crédito", weight: 0.5, objective: 1_000_000, kind: "currency" },
-      { key: "abertura_contas_pj", label: "Abertura Contas PJ", weight: 0.2, objective: 50, kind: "count" },
+      { key: "receita_credito", label: "Receita em Crédito", weight: 0.5, objective: 1_200_000, kind: "currency" },
+      { key: "abertura_contas_pj", label: "Abertura Contas PJ", weight: 0.2, objective: 48, kind: "count" },
     ],
   },
   {
@@ -79,8 +79,8 @@ const PRODUCT_CONFIGS: ProductConfig[] = [
     eligibility: "Atingir 70% do número de pontos válidos + 80% de E-NPS",
     criteria: [
       { key: "penetracao_aai_seguros", label: "Penetração AAI/Seguros", weight: 0.3, objective: 1, kind: "percent" },
-      { key: "receita_seguros", label: "Receita", weight: 0.5, objective: 1_000_000, kind: "currency" },
-      { key: "qtd_apolices", label: "Qtd Apólices vendidas", weight: 0.2, objective: 150, kind: "count" },
+      { key: "receita_seguros", label: "Receita", weight: 0.5, objective: 960_000, kind: "currency" },
+      { key: "qtd_apolices", label: "Qtd Apólices vendidas", weight: 0.2, objective: 144, kind: "count" },
     ],
   },
 ];
@@ -724,4 +724,3 @@ export default function ManagementSuperRanking({
     </div>
   );
 }
-

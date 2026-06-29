@@ -15,16 +15,14 @@ import { addMonths, format } from "date-fns";
 
 type ProductKey = "renda_variavel" | "allocation" | "banco" | "seguros";
 
-const BLOCKED_TEAMS = new Set(["OPERACIONAIS", "ADVISORS", "ANYWHERE"]);
-const BLOCKED_ASSESSORS = new Set(["A1607", "A26969"]);
 const ROA_RV_TARGET = 0.0055;
-const CREDITO_ANUAL_TARGET = 1_000_000;
+const CREDITO_ANUAL_TARGET = 1_200_000;
 const CREDITO_MENSAL_TARGET = CREDITO_ANUAL_TARGET / 12;
-const ABERTURA_PJ_ANUAL_TARGET = 50;
+const ABERTURA_PJ_ANUAL_TARGET = 48;
 const ABERTURA_PJ_MENSAL_TARGET = ABERTURA_PJ_ANUAL_TARGET / 12;
-const SEGUROS_RECEITA_ANUAL_TARGET = 1_000_000;
+const SEGUROS_RECEITA_ANUAL_TARGET = 960_000;
 const SEGUROS_RECEITA_MENSAL_TARGET = SEGUROS_RECEITA_ANUAL_TARGET / 12;
-const SEGUROS_APOLICES_ANUAL_TARGET = 150;
+const SEGUROS_APOLICES_ANUAL_TARGET = 144;
 const SEGUROS_APOLICES_MENSAL_TARGET = SEGUROS_APOLICES_ANUAL_TARGET / 12;
 
 type KPI = {
@@ -112,7 +110,7 @@ const PRODUCTS: ProductConfig[] = [
     short: "BK",
     kpis: [
       { key: "pen_credito", label: "Penetração AAI Crédito", weight: 0.3 },
-      { key: "receita_credito", label: "Receita em Crédito", weight: 0.5 },
+      { key: "receita_credito", label: "Receita", weight: 0.5 },
       { key: "abertura_pj", label: "Abertura Contas PJ", weight: 0.2 },
     ],
   },
@@ -322,6 +320,10 @@ export default function RankingGerencialDash({
   selectedMonthLabel?: string;
 }) {
   const salt = selectedMonthLabel ?? "all";
+  const selectedMonthDate = useMemo(() => {
+    if (!selectedMonthLabel) return "";
+    return String(selectedMonthLabel).slice(0, 10);
+  }, [selectedMonthLabel]);
   const selectedMonthKey = useMemo(() => {
     if (!selectedMonthLabel) return "";
     return selectedMonthLabel.substring(0, 7);
@@ -336,16 +338,8 @@ export default function RankingGerencialDash({
   }, [selectedMonthKey]);
 
   const assessorCodes = useMemo(() => {
-    const isAllowed = (d: AssessorResumo) => {
-      const cod = String(d.cod_assessor ?? "").trim();
-      const team = String(d.time ?? "").trim().toUpperCase();
-      if (!cod) return false;
-      if (BLOCKED_ASSESSORS.has(cod)) return false;
-      if (team && BLOCKED_TEAMS.has(team)) return false;
-      return true;
-    };
     return Array.from(
-      new Set((data || []).filter(isAllowed).map((d) => String(d.cod_assessor).trim()).filter(Boolean))
+      new Set((data || []).map((d) => String(d.cod_assessor ?? "").trim()).filter(Boolean))
     );
   }, [data]);
 
@@ -363,6 +357,21 @@ export default function RankingGerencialDash({
         .in("cod_assessor", assessorCodes);
 
       const { data, error } = await query;
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: clientesPosicaoRvBase, isLoading: isLoadingClientesPosicaoRvBase } = useQuery({
+    queryKey: ["ranking-gerencial-rv-clientes-base", selectedMonthDate, assessorCodes.join("|")],
+    enabled: !!selectedMonthDate && assessorCodes.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vw_resumo_clientes_posicao" as any)
+        .select("cod_cliente, cod_assessor, data_ultima_posicao, codigo_ultima_operacao")
+        .eq("data_ultima_posicao", selectedMonthDate)
+        .in("cod_assessor", assessorCodes);
+
       if (error) throw error;
       return data as any[];
     },
@@ -413,14 +422,32 @@ export default function RankingGerencialDash({
     enabled: !!selectedYearKey && assessorCodes.length > 0,
     queryFn: async () => {
       const start = `${selectedYearKey}-01-01`;
-      const end = `${selectedYearKey}-12-31`;
+      const endExclusive = format(addMonths(new Date(`${selectedMonthKey}-01T00:00:00`), 1), "yyyy-MM-01");
 
       const { data, error } = await supabase
-        .from("dados_consorcio" as any)
-        .select("cod_assessor, data_venda, valor_carta, data_cancelamento")
-        .gte("data_venda", start)
-        .lte("data_venda", end)
-        .is("data_cancelamento", null)
+        .from("vw_dados_consorcio_comissoes" as any)
+        .select("cod_assessor, data_vencimento, valor_comissao_mensal")
+        .gte("data_vencimento", start)
+        .lt("data_vencimento", endExclusive)
+        .in("cod_assessor", assessorCodes);
+
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: cambioReceitaYear, isLoading: isLoadingCambioReceitaYear } = useQuery({
+    queryKey: ["ranking-gerencial-banco-cambio-year", selectedYearKey, selectedMonthKey, assessorCodes.join("|")],
+    enabled: !!selectedYearKey && !!selectedMonthKey && assessorCodes.length > 0,
+    queryFn: async () => {
+      const start = `${selectedYearKey}-01-01`;
+      const endExclusive = format(addMonths(new Date(`${selectedMonthKey}-01T00:00:00`), 1), "yyyy-MM-01");
+
+      const { data, error } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("cod_assessor, data_posicao, receita_cambio")
+        .gte("data_posicao", start)
+        .lt("data_posicao", endExclusive)
         .in("cod_assessor", assessorCodes);
 
       if (error) throw error;
@@ -575,24 +602,43 @@ export default function RankingGerencialDash({
     return map;
   }, [consorciosCreditoSales]);
 
-  const creditoValorCartaByAssessor = useMemo(() => {
+  const creditoReceitaByAssessor = useMemo(() => {
     const byYear = new Map<string, number>();
     const byMonth = new Map<string, number>();
 
     (consorciosCreditoSalesYear || []).forEach((row: any) => {
       const cod = String(row?.cod_assessor ?? "").trim();
       if (!cod) return;
-      const valor = Number(row?.valor_carta ?? 0) || 0;
+      const valor = Number(row?.valor_comissao_mensal ?? 0) || 0;
       byYear.set(cod, (byYear.get(cod) || 0) + valor);
 
-      const vendaKey = String(row?.data_venda ?? "").slice(0, 7);
-      if (vendaKey && vendaKey === selectedMonthKey) {
+      const competenciaKey = String(row?.data_vencimento ?? "").slice(0, 7);
+      if (competenciaKey && competenciaKey === selectedMonthKey) {
         byMonth.set(cod, (byMonth.get(cod) || 0) + valor);
       }
     });
 
     return { byYear, byMonth };
   }, [consorciosCreditoSalesYear, selectedMonthKey]);
+
+  const cambioReceitaByAssessor = useMemo(() => {
+    const byYear = new Map<string, number>();
+    const byMonth = new Map<string, number>();
+
+    (cambioReceitaYear || []).forEach((row: any) => {
+      const cod = String(row?.cod_assessor ?? "").trim();
+      if (!cod) return;
+      const valor = Number(row?.receita_cambio ?? 0) || 0;
+      byYear.set(cod, (byYear.get(cod) || 0) + valor);
+
+      const competenciaKey = String(row?.data_posicao ?? "").slice(0, 7);
+      if (competenciaKey && competenciaKey === selectedMonthKey) {
+        byMonth.set(cod, (byMonth.get(cod) || 0) + valor);
+      }
+    });
+
+    return { byYear, byMonth };
+  }, [cambioReceitaYear, selectedMonthKey]);
 
   const ativacoesPjByAssessor = useMemo(() => {
     const byYear = new Map<string, number>();
@@ -741,8 +787,6 @@ export default function RankingGerencialDash({
       const cod = String(d.cod_assessor ?? "").trim();
       const time = String(d.time ?? "").trim();
       if (!cod) return;
-      if (BLOCKED_ASSESSORS.has(cod)) return;
-      if (time && BLOCKED_TEAMS.has(time.toUpperCase())) return;
       map.set(cod, { nome: String(d.nome_assessor ?? "").trim(), time });
     });
     return map;
@@ -760,6 +804,18 @@ export default function RankingGerencialDash({
     });
     return map;
   }, [clientesPosicaoRv]);
+
+  const clientesBasePorAssessor = useMemo(() => {
+    if (!clientesPosicaoRvBase) return null;
+    const map = new Map<string, number>();
+    (clientesPosicaoRvBase || []).forEach((row: any) => {
+      const codAssessor = String(row?.cod_assessor ?? "").trim();
+      const codigoUltimaOperacao = row?.codigo_ultima_operacao;
+      if (!codAssessor || codigoUltimaOperacao == null) return;
+      map.set(codAssessor, (map.get(codAssessor) || 0) + 1);
+    });
+    return map;
+  }, [clientesPosicaoRvBase]);
 
   const clientesRvList = useMemo(() => {
     if (!clientesPosicaoRv) return [];
@@ -796,25 +852,29 @@ export default function RankingGerencialDash({
         d.cod_assessor &&
         d.nome_assessor &&
         d.nome_assessor.toLowerCase() !== "null" &&
-        d.nome_assessor.toLowerCase() !== "undefined" &&
-        !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-        !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+        d.nome_assessor.toLowerCase() !== "undefined"
     );
     return valid.map((a) => {
       const computed = computeAssessorRanking(a, salt);
       const codAssessor = String(a.cod_assessor ?? "").trim();
-      const totalClientesMv = a.total_clientes || 0;
+      const totalClientesBase = clientesBasePorAssessor?.get(codAssessor) || 0;
       const clientesCount = clientesPorAssessor?.get(codAssessor)?.size || 0;
       const penAaiPe = clientesCount > 0 ? 100 : 0;
-      const penClientes = totalClientesMv > 0 ? clamp((clientesCount / totalClientesMv) * 100, 0, 100) : 0;
+      const penClientes = totalClientesBase > 0 ? clamp((clientesCount / totalClientesBase) * 100, 0, 100) : 0;
       const receitaRv = (a.receitas_estruturadas || 0) + (a.receita_b3 || 0);
       const metaRv = ((a.custodia_net || 0) * ROA_RV_TARGET) / 12;
       const roaRv = metaRv > 0 ? clamp((receitaRv / metaRv) * 100, 0, 100) : 0;
       const penCredito = assessoresComCredito.has(codAssessor) ? 100 : 0;
-      const creditoMes = creditoValorCartaByAssessor.byMonth.get(codAssessor) || 0;
-      const creditoAno = creditoValorCartaByAssessor.byYear.get(codAssessor) || 0;
-      const receitaCreditoAnnual = CREDITO_ANUAL_TARGET > 0 ? clamp((creditoAno / CREDITO_ANUAL_TARGET) * 100, 0, 100) : 0;
-      const receitaCreditoMonth = CREDITO_MENSAL_TARGET > 0 ? clamp((creditoMes / CREDITO_MENSAL_TARGET) * 100, 0, 100) : 0;
+      const consorcioMes = creditoReceitaByAssessor.byMonth.get(codAssessor) || 0;
+      const consorcioAno = creditoReceitaByAssessor.byYear.get(codAssessor) || 0;
+      const cambioMes = cambioReceitaByAssessor.byMonth.get(codAssessor) || 0;
+      const cambioAno = cambioReceitaByAssessor.byYear.get(codAssessor) || 0;
+      const receitaBancoMes = consorcioMes + cambioMes;
+      const receitaBancoAno = consorcioAno + cambioAno;
+      const receitaCreditoAnnual =
+        CREDITO_ANUAL_TARGET > 0 ? clamp((receitaBancoAno / CREDITO_ANUAL_TARGET) * 100, 0, 100) : 0;
+      const receitaCreditoMonth =
+        CREDITO_MENSAL_TARGET > 0 ? clamp((receitaBancoMes / CREDITO_MENSAL_TARGET) * 100, 0, 100) : 0;
       const aberturaPjMesCount = ativacoesPjByAssessor.byMonth.get(codAssessor) || 0;
       const aberturaPjAnoCount = ativacoesPjByAssessor.byYear.get(codAssessor) || 0;
       const aberturaPjAnnual =
@@ -881,13 +941,16 @@ export default function RankingGerencialDash({
     data,
     salt,
     clientesPorAssessor,
+    clientesBasePorAssessor,
     assessoresComCredito,
-    creditoValorCartaByAssessor,
+    creditoReceitaByAssessor,
+    cambioReceitaByAssessor,
     ativacoesPjByAssessor,
     assessoresComSeguros,
     segurosByAssessor,
   ]);
 
+  const [productModal, setProductModal] = useState<ProductKey | null>(null);
   const [kpiModal, setKpiModal] = useState<{ product: ProductKey; kpi: string } | null>(null);
 
   const productsSummary = useMemo(() => {
@@ -913,12 +976,12 @@ export default function RankingGerencialDash({
             d.cod_assessor &&
             d.nome_assessor &&
             d.nome_assessor.toLowerCase() !== "null" &&
-            d.nome_assessor.toLowerCase() !== "undefined" &&
-            !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-            !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+            d.nome_assessor.toLowerCase() !== "undefined"
         );
 
-        const totalClientes = allowedData.reduce((acc, d) => acc + (d.total_clientes || 0), 0);
+        const totalClientes = (clientesPosicaoRvBase || []).reduce((acc, row: any) => {
+          return row?.codigo_ultima_operacao == null ? acc : acc + 1;
+        }, 0);
         const uniqueClientes = new Set(
           (clientesPosicaoRv || [])
             .map((row: any) => String(row?.cod_cliente ?? "").trim())
@@ -961,9 +1024,7 @@ export default function RankingGerencialDash({
             d.cod_assessor &&
             d.nome_assessor &&
             d.nome_assessor.toLowerCase() !== "null" &&
-            d.nome_assessor.toLowerCase() !== "undefined" &&
-            !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-            !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+            d.nome_assessor.toLowerCase() !== "undefined"
         );
 
         const validCreditoCount = allowedData.reduce((acc, d) => {
@@ -974,14 +1035,14 @@ export default function RankingGerencialDash({
 
         const totalCreditoMes = allowedData.reduce((acc, d) => {
           const cod = String(d.cod_assessor ?? "").trim();
-          return acc + (creditoValorCartaByAssessor.byMonth.get(cod) || 0);
+          return acc + (creditoReceitaByAssessor.byMonth.get(cod) || 0) + (cambioReceitaByAssessor.byMonth.get(cod) || 0);
         }, 0);
         const receitaCreditoMesGlobal =
           CREDITO_MENSAL_TARGET > 0 ? clamp((totalCreditoMes / CREDITO_MENSAL_TARGET) * 100, 0, 100) : 0;
 
         const totalCreditoAno = allowedData.reduce((acc, d) => {
           const cod = String(d.cod_assessor ?? "").trim();
-          return acc + (creditoValorCartaByAssessor.byYear.get(cod) || 0);
+          return acc + (creditoReceitaByAssessor.byYear.get(cod) || 0) + (cambioReceitaByAssessor.byYear.get(cod) || 0);
         }, 0);
         const receitaCreditoAnoGlobal =
           CREDITO_ANUAL_TARGET > 0 ? clamp((totalCreditoAno / CREDITO_ANUAL_TARGET) * 100, 0, 100) : 0;
@@ -1031,9 +1092,7 @@ export default function RankingGerencialDash({
             d.cod_assessor &&
             d.nome_assessor &&
             d.nome_assessor.toLowerCase() !== "null" &&
-            d.nome_assessor.toLowerCase() !== "undefined" &&
-            !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-            !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+            d.nome_assessor.toLowerCase() !== "undefined"
         );
 
         const validSegurosCount = allowedData.reduce((acc, d) => {
@@ -1105,12 +1164,46 @@ export default function RankingGerencialDash({
     ranking,
     data,
     clientesPosicaoRv,
-    creditoValorCartaByAssessor,
+    clientesPosicaoRvBase,
+    creditoReceitaByAssessor,
+    cambioReceitaByAssessor,
     assessoresComCredito,
     ativacoesPjByAssessor,
     assessoresComSeguros,
     segurosByAssessor,
   ]);
+
+  const selectedProductSummary = useMemo(() => {
+    if (!productModal) return null;
+    return productsSummary.find((product) => product.key === productModal) ?? null;
+  }, [productModal, productsSummary]);
+
+  const productDetailRows = useMemo(() => {
+    if (!productModal) return [];
+
+    return ranking
+      .map((assessor) => {
+        const product = assessor.products[productModal];
+        return {
+          cod_assessor: assessor.id,
+          nome_assessor: assessor.name,
+          time: assessor.team,
+          score: product.score,
+          isHit: product.score >= 70,
+          tone: scoreTone(product.score),
+          kpis: product.kpis.map((kpi) => ({
+            ...kpi,
+            metricValue: (kpi as KPI & { displayValue?: number }).displayValue ?? kpi.value,
+          })),
+        };
+      })
+      .sort(
+        (a, b) =>
+          Number(b.isHit) - Number(a.isHit) ||
+          b.score - a.score ||
+          a.nome_assessor.localeCompare(b.nome_assessor)
+      );
+  }, [productModal, ranking]);
 
   const penAaiAssessorRows = useMemo(() => {
     const base = (data || []).filter(
@@ -1118,9 +1211,7 @@ export default function RankingGerencialDash({
         d.cod_assessor &&
         d.nome_assessor &&
         d.nome_assessor.toLowerCase() !== "null" &&
-        d.nome_assessor.toLowerCase() !== "undefined" &&
-        !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-        !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+        d.nome_assessor.toLowerCase() !== "undefined"
     );
     const rows = base.map((d) => {
       const cod = String(d.cod_assessor).trim();
@@ -1142,15 +1233,13 @@ export default function RankingGerencialDash({
         d.cod_assessor &&
         d.nome_assessor &&
         d.nome_assessor.toLowerCase() !== "null" &&
-        d.nome_assessor.toLowerCase() !== "undefined" &&
-        !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-        !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+        d.nome_assessor.toLowerCase() !== "undefined"
     );
     return base
       .map((d) => {
         const cod = String(d.cod_assessor).trim();
-        const valorMes = creditoValorCartaByAssessor.byMonth.get(cod) || 0;
-        const valorAno = creditoValorCartaByAssessor.byYear.get(cod) || 0;
+        const valorMes = (creditoReceitaByAssessor.byMonth.get(cod) || 0) + (cambioReceitaByAssessor.byMonth.get(cod) || 0);
+        const valorAno = (creditoReceitaByAssessor.byYear.get(cod) || 0) + (cambioReceitaByAssessor.byYear.get(cod) || 0);
         const pctMes = CREDITO_MENSAL_TARGET > 0 ? clamp((valorMes / CREDITO_MENSAL_TARGET) * 100, 0, 100) : 0;
         return {
           cod_assessor: cod,
@@ -1162,7 +1251,7 @@ export default function RankingGerencialDash({
         };
       })
       .sort((a, b) => b.valorMes - a.valorMes || a.nome_assessor.localeCompare(b.nome_assessor));
-  }, [data, creditoValorCartaByAssessor]);
+  }, [data, creditoReceitaByAssessor, cambioReceitaByAssessor]);
 
   const segurosReceitaRows = useMemo(() => {
     const base = (data || []).filter(
@@ -1170,9 +1259,7 @@ export default function RankingGerencialDash({
         d.cod_assessor &&
         d.nome_assessor &&
         d.nome_assessor.toLowerCase() !== "null" &&
-        d.nome_assessor.toLowerCase() !== "undefined" &&
-        !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-        !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+        d.nome_assessor.toLowerCase() !== "undefined"
     );
     return base
       .map((d) => {
@@ -1198,9 +1285,7 @@ export default function RankingGerencialDash({
         d.cod_assessor &&
         d.nome_assessor &&
         d.nome_assessor.toLowerCase() !== "null" &&
-        d.nome_assessor.toLowerCase() !== "undefined" &&
-        !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-        !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+        d.nome_assessor.toLowerCase() !== "undefined"
     );
     return base
       .map((d) => {
@@ -1276,8 +1361,16 @@ export default function RankingGerencialDash({
                     <Donut value={p.avg} tone={tone} label={`Score médio ${p.label}`} />
                     <div className="text-right">
                       <div className="text-white font-display text-lg">{p.hit}/{p.total}</div>
-                      <div className="text-white/45 font-data text-[10px] uppercase tracking-widest">
-                        Assessores no alvo
+                      <div className="flex items-center justify-end gap-2 text-white/45 font-data text-[10px] uppercase tracking-widest">
+                        <span>Assessores no alvo</span>
+                        <button
+                          type="button"
+                          onClick={() => setProductModal(p.key)}
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-white/12 text-[11px] font-semibold text-white/70 transition-colors hover:border-white/25 hover:bg-white/5 hover:text-white"
+                          aria-label={`Explicar assessores no alvo de ${p.label}`}
+                        >
+                          ?
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1340,7 +1433,7 @@ export default function RankingGerencialDash({
 
                 <div className="mt-5 flex items-center justify-between text-[10px] font-data uppercase tracking-widest text-white/45">
                   <span>{p.kpis.length} indicadores no card</span>
-                  <span>Detalhamento sempre visível</span>
+                  <span>Leitura por assessor</span>
                 </div>
               </div>
             </Card>
@@ -1356,7 +1449,7 @@ export default function RankingGerencialDash({
         </Card>
       )}
 
-      {isLoadingClientesPosicaoRv && (
+      {(isLoadingClientesPosicaoRv || isLoadingClientesPosicaoRvBase) && (
         <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
           Carregando Penetrações RV…
         </div>
@@ -1366,9 +1459,9 @@ export default function RankingGerencialDash({
           Carregando Penetração Crédito…
         </div>
       )}
-      {isLoadingConsorciosCreditoSalesYear && (
+      {(isLoadingConsorciosCreditoSalesYear || isLoadingCambioReceitaYear) && (
         <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-          Carregando Receita em Crédito…
+          Carregando Receita Banco…
         </div>
       )}
       {(isLoadingAtivacoesPjMonth || isLoadingAtivacoesPjYear) && (
@@ -1382,6 +1475,102 @@ export default function RankingGerencialDash({
         </div>
       )}
 
+      <Dialog open={!!productModal} onOpenChange={(open) => (!open ? setProductModal(null) : null)}>
+        <DialogContent className="bg-[#0A0A0B] border-white/10 text-white sm:max-w-[1180px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white font-display text-lg tracking-wide">
+              {selectedProductSummary ? `${selectedProductSummary.label} — Assessores no alvo` : "Detalhamento"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedProductSummary && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-white font-data text-[11px] uppercase tracking-widest">
+                  O que significa assessores no alvo
+                </div>
+                <div className="mt-2 text-sm leading-6 text-white/72">
+                  Esse número mostra quantos assessores ficaram com score final do card em pelo menos 70%. O score é
+                  formado pela combinação ponderada dos subindicadores do produto, então alguém pode estar abaixo do alvo
+                  mesmo indo bem em um KPI isolado.
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <BadgePill label={`No alvo ${selectedProductSummary.hit}/${selectedProductSummary.total}`} tone="success" />
+                <BadgePill label={`Meta mínima ${fmtPct(70)}`} tone="warn" />
+                <BadgePill label={`Média do card ${fmtPct(selectedProductSummary.avg)}`} tone={selectedProductSummary.status} />
+              </div>
+
+              <div className="rounded-xl border border-white/10 overflow-hidden">
+                <div className="max-h-[60vh] overflow-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 z-10 bg-[#0A0A0B]">
+                      <tr className="text-[10px] font-data uppercase tracking-widest text-white/55 border-b border-white/10">
+                        <th className="py-3 px-4 font-medium">Assessor</th>
+                        <th className="py-3 px-4 font-medium">Time</th>
+                        <th className="py-3 px-4 font-medium text-right">Score</th>
+                        <th className="py-3 px-4 font-medium">Status</th>
+                        {selectedProductSummary.kpis.map((kpi) => (
+                          <th key={kpi.key} className="py-3 px-4 font-medium text-right">
+                            {kpi.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.06]">
+                      {productDetailRows.map((row) => (
+                        <tr key={`${selectedProductSummary.key}-${row.cod_assessor}`} className="text-sm">
+                          <td className="py-3 px-4">
+                            <div className="text-white/85 font-data text-xs">{row.nome_assessor}</div>
+                            <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
+                              AAI-{row.cod_assessor}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-white/70 font-data text-xs">{row.time}</td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="text-white font-display text-sm" style={{ color: toneColor(row.tone) }}>
+                              {fmtPct(row.score)}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-data uppercase tracking-widest"
+                              style={{
+                                borderColor: `${toneColor(row.isHit ? "success" : row.tone)}55`,
+                                background: `${toneColor(row.isHit ? "success" : row.tone)}18`,
+                                color: toneColor(row.isHit ? "success" : row.tone),
+                              }}
+                            >
+                              {row.isHit ? "No alvo" : "Abaixo do alvo"}
+                            </span>
+                          </td>
+                          {row.kpis.map((kpi) => (
+                            <td key={`${row.cod_assessor}-${kpi.key}`} className="py-3 px-4 text-right text-white/80 font-data text-xs">
+                              {fmtPct(kpi.metricValue)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      {productDetailRows.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={4 + (selectedProductSummary.kpis?.length ?? 0)}
+                            className="py-10 px-4 text-center text-white/45 font-data text-sm"
+                          >
+                            Nenhum assessor encontrado para os filtros atuais.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!kpiModal} onOpenChange={(open) => (!open ? setKpiModal(null) : null)}>
         <DialogContent className="bg-[#0A0A0B] border-white/10 text-white sm:max-w-[980px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -1393,7 +1582,7 @@ export default function RankingGerencialDash({
                   : kpiModal?.kpi === "pen_credito"
                     ? "Penetração AAI Crédito — Detalhamento"
                     : kpiModal?.kpi === "receita_credito"
-                      ? "Receita em Crédito — Detalhamento"
+                      ? "Receita Banco — Detalhamento"
                       : kpiModal?.kpi === "abertura_pj"
                         ? "Abertura Contas PJ — Detalhamento"
                         : kpiModal?.product === "seguros" && kpiModal?.kpi === "pen_seguros"
@@ -1409,7 +1598,7 @@ export default function RankingGerencialDash({
           {kpiModal?.kpi === "pen_clientes" && (
             <div className="space-y-3">
               <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
-                Clientes com boleta no mês (data_ultima_operacao)
+                Clientes com boleta no mês
               </div>
               <div className="rounded-xl border border-white/10 overflow-hidden">
                 <div className="max-h-[60vh] overflow-auto">
@@ -1538,9 +1727,7 @@ export default function RankingGerencialDash({
                     d.cod_assessor &&
                     d.nome_assessor &&
                     d.nome_assessor.toLowerCase() !== "null" &&
-                    d.nome_assessor.toLowerCase() !== "undefined" &&
-                    !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-                    !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+                    d.nome_assessor.toLowerCase() !== "undefined"
                 );
 
                 const monthStart = selectedMonthStart;
@@ -1705,9 +1892,7 @@ export default function RankingGerencialDash({
                     d.cod_assessor &&
                     d.nome_assessor &&
                     d.nome_assessor.toLowerCase() !== "null" &&
-                    d.nome_assessor.toLowerCase() !== "undefined" &&
-                    !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-                    !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+                    d.nome_assessor.toLowerCase() !== "undefined"
                 );
                 const assessoresSemPj = baseAssessores
                   .filter((d) => {
@@ -1872,9 +2057,7 @@ export default function RankingGerencialDash({
                     d.cod_assessor &&
                     d.nome_assessor &&
                     d.nome_assessor.toLowerCase() !== "null" &&
-                    d.nome_assessor.toLowerCase() !== "undefined" &&
-                    !BLOCKED_ASSESSORS.has(String(d.cod_assessor).trim()) &&
-                    !BLOCKED_TEAMS.has(String(d.time ?? "").trim().toUpperCase())
+                    d.nome_assessor.toLowerCase() !== "undefined"
                 );
 
                 const monthStart = selectedMonthStart;
