@@ -849,7 +849,7 @@ export default function RendaVariavelDash({
         foto_url: assessorMv?.foto_url || null,
         comissao_num: comissaoNum,
       };
-    });
+    }).filter((row) => row.comissao_num !== 0);
 
     // Sort
     enriched.sort((a: any, b: any) => {

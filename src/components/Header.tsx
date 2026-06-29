@@ -250,90 +250,92 @@ export const Header = () => {
           {/* Desktop actions */}
           <div className="hidden md:flex items-center gap-4">
             {/* Dropdown de Navegação */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5 hover:text-white"
-                >
-                  {(() => {
-                    const IconComponent = getCurrentPageIcon();
-                    return <IconComponent className="w-4 h-4 mr-2" />;
-                  })()}
-                  {getCurrentPageName()}
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Navegar para</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/')}>
-                  <Home className="w-4 h-4 mr-2" />
-                  Início
-                </DropdownMenuItem>
-                {canAccessEuroIntelligence && (
-                  <DropdownMenuItem onClick={() => navigate('/dash')}>
-                    <BrainCircuit className="w-4 h-4 mr-2" />
-                    Euro Intelligence
+            {isAdminMaster && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="glass border-primary/30 hover:border-primary/50 hover:bg-primary/5 hover:text-white"
+                  >
+                    {(() => {
+                      const IconComponent = getCurrentPageIcon();
+                      return <IconComponent className="w-4 h-4 mr-2" />;
+                    })()}
+                    {getCurrentPageName()}
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Navegar para</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/')}>
+                    <Home className="w-4 h-4 mr-2" />
+                    Início
                   </DropdownMenuItem>
-                )}
-                {isAdminMaster && (
-                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                    <LayoutDashboard className="w-4 h-4 mr-2" />
-                    Dashboard
-                  </DropdownMenuItem>
-                )}
-                {isAdminMaster && (
-                  <DropdownMenuItem onClick={() => navigate('/projects')}>
-                    <FolderKanban className="w-4 h-4 mr-2" />
-                    Projetos
-                  </DropdownMenuItem>
-                )}
-                {isAdminMaster && (
-                  <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Atualizações BD
-                  </DropdownMenuItem>
-                )}
-                {(isAdminMaster || isConsorcio) && (
-                  <DropdownMenuItem onClick={() => navigate('/consorcios')}>
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    Consórcios
-                  </DropdownMenuItem>
-                )}
-                {(isAdminMaster || isSeguros) && (
-                  <DropdownMenuItem onClick={() => navigate('/seguros')}>
-                    <Shield className="w-4 h-4 mr-2" />
-                    Seguros
-                  </DropdownMenuItem>
-                )}
-                {canAccessPowerBI && (
-                  <DropdownMenuItem onClick={() => navigate('/powerbi')}>
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Power BI
-                  </DropdownMenuItem>
-                )}
-                {canAccessIAChat && (
-                  <DropdownMenuItem onClick={() => navigate('/chat')}>
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    IA Chat
-                  </DropdownMenuItem>
-                )}
-                {isAdminMaster && (
-                  <DropdownMenuItem onClick={() => navigate('/tv-published')}>
-                    <Tv className="w-4 h-4 mr-2" />
-                    TV Dashboards
-                  </DropdownMenuItem>
-                )}
-                {isAdminMaster && (
-                  <DropdownMenuItem onClick={() => navigate('/tv-presentations')}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Gestão TV
-                  </DropdownMenuItem>
-                )}
+                  {canAccessEuroIntelligence && (
+                    <DropdownMenuItem onClick={() => navigate('/dash')}>
+                      <BrainCircuit className="w-4 h-4 mr-2" />
+                      Euro Intelligence
+                    </DropdownMenuItem>
+                  )}
+                  {isAdminMaster && (
+                    <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                      <LayoutDashboard className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </DropdownMenuItem>
+                  )}
+                  {isAdminMaster && (
+                    <DropdownMenuItem onClick={() => navigate('/projects')}>
+                      <FolderKanban className="w-4 h-4 mr-2" />
+                      Projetos
+                    </DropdownMenuItem>
+                  )}
+                  {isAdminMaster && (
+                    <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Atualizações BD
+                    </DropdownMenuItem>
+                  )}
+                  {(isAdminMaster || isConsorcio) && (
+                    <DropdownMenuItem onClick={() => navigate('/consorcios')}>
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Consórcios
+                    </DropdownMenuItem>
+                  )}
+                  {(isAdminMaster || isSeguros) && (
+                    <DropdownMenuItem onClick={() => navigate('/seguros')}>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Seguros
+                    </DropdownMenuItem>
+                  )}
+                  {canAccessPowerBI && (
+                    <DropdownMenuItem onClick={() => navigate('/powerbi')}>
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Power BI
+                    </DropdownMenuItem>
+                  )}
+                  {canAccessIAChat && (
+                    <DropdownMenuItem onClick={() => navigate('/chat')}>
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      IA Chat
+                    </DropdownMenuItem>
+                  )}
+                  {isAdminMaster && (
+                    <DropdownMenuItem onClick={() => navigate('/tv-published')}>
+                      <Tv className="w-4 h-4 mr-2" />
+                      TV Dashboards
+                    </DropdownMenuItem>
+                  )}
+                  {isAdminMaster && (
+                    <DropdownMenuItem onClick={() => navigate('/tv-presentations')}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Gestão TV
+                    </DropdownMenuItem>
+                  )}
 
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
