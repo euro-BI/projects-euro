@@ -10,8 +10,8 @@ type SidebarItem = {
 const items: SidebarItem[] = [
   { id: "top", label: "Abertura", icon: Gauge },
   { id: "kpis", label: "Indicadores", icon: BarChart3 },
+  { id: "funding-focus", label: "Captação", icon: CandlestickChart },
   { id: "performance", label: "Performance", icon: Trophy },
-  { id: "funding-analysis", label: "Captação", icon: CandlestickChart },
   { id: "revenue", label: "Receita", icon: Wallet },
   { id: "table", label: "Tabela", icon: Table2 },
 ];

@@ -11,6 +11,7 @@ import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import { SmartChat } from "@/components/SmartChat";
 import { CockpitV2Sidebar } from "@/components/cockpit-v2/CockpitV2Sidebar";
 import { CockpitV2Hero } from "@/components/cockpit-v2/CockpitV2Hero";
+import { CockpitV2FundingPulse } from "@/components/cockpit-v2/CockpitV2FundingPulse";
 import { CockpitV2KpiRail } from "@/components/cockpit-v2/CockpitV2KpiRail";
 import { CockpitV2PerformanceSection } from "@/components/cockpit-v2/CockpitV2PerformanceSection";
 import { CockpitV2CaptureAnalysis } from "@/components/cockpit-v2/CockpitV2CaptureAnalysis";
@@ -208,9 +209,12 @@ export default function AssessorCockpitV2() {
           </div>
 
           <CockpitV2Hero hero={hero} rankingSummary={rankingSummary} selectedYear={selectedYear} />
+          <div id="funding-focus" className="space-y-6 scroll-mt-28">
+            <CockpitV2FundingPulse kpis={kpis} />
+            <CockpitV2CaptureAnalysis data={captureAnalysisData} />
+          </div>
           <CockpitV2KpiRail metrics={topMetrics} />
           <CockpitV2PerformanceSection kpis={kpis} />
-          <CockpitV2CaptureAnalysis data={captureAnalysisData} />
           <CockpitV2RevenueChart data={chartData} selectedView={selectedRevenueView} onChangeView={setSelectedRevenueView} />
           <CockpitV2IndicatorsTable rows={tableRows} onExport={handleExport} />
         </div>
