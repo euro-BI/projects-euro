@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { useQuery } from "@tanstack/react-query";
 import { AssessorResumo } from "@/types/dashboard";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,7 @@ import { addMonths, format } from "date-fns";
 type ProductKey = "renda_variavel" | "allocation" | "banco" | "seguros";
 
 const ROA_RV_TARGET = 0.0055;
+const ROA_ALOCACAO_TARGET = 0.0035;
 const CREDITO_ANUAL_TARGET = 1_200_000;
 const CREDITO_MENSAL_TARGET = CREDITO_ANUAL_TARGET / 12;
 const ABERTURA_PJ_ANUAL_TARGET = 48;
@@ -96,7 +98,7 @@ const PRODUCTS: ProductConfig[] = [
   },
   {
     key: "allocation",
-    label: "Alocação (dados fictícios)",
+    label: "Alocação",
     short: "AL",
     kpis: [
       { key: "pen_ai_3s", label: "% Penetração AIs 3★", weight: 0.3 },
@@ -313,12 +315,27 @@ function Donut({
 }
 
 export default function RankingGerencialDash({
-  data,
+  data: rawData,
   selectedMonthLabel,
 }: {
   data: AssessorResumo[];
   selectedMonthLabel?: string;
 }) {
+  const data = useMemo(() => {
+    return (rawData || []).filter((d) => {
+      const time = String(d.time || "").trim().toUpperCase();
+      const cod = String(d.cod_assessor || "").trim().toUpperCase();
+      return (
+        time !== "OPERACIONAIS" &&
+        cod !== "A11111" &&
+        cod !== "11111" &&
+        cod !== "A1607" &&
+        cod !== "1607"
+      );
+    });
+  }, [rawData]);
+
+  const [clientes3sPage, setClientes3sPage] = useState(1);
   const salt = selectedMonthLabel ?? "all";
   const selectedMonthDate = useMemo(() => {
     if (!selectedMonthLabel) return "";
@@ -369,7 +386,6 @@ export default function RankingGerencialDash({
       const { data, error } = await supabase
         .from("vw_resumo_clientes_posicao" as any)
         .select("cod_cliente, cod_assessor, data_ultima_posicao, codigo_ultima_operacao")
-        .eq("data_ultima_posicao", selectedMonthDate)
         .in("cod_assessor", assessorCodes);
 
       if (error) throw error;
@@ -553,6 +569,27 @@ export default function RankingGerencialDash({
     },
   });
 
+  const { data: estrelasClienteRows, isLoading: isLoadingEstrelasCliente } = useQuery({
+    queryKey: ["ranking-gerencial-estrelas-cliente", selectedMonthKey, assessorCodes.join("|")],
+    enabled: !!selectedMonthKey && assessorCodes.length > 0,
+    queryFn: async () => {
+      const monthStart = monthStartFromKey(selectedMonthKey);
+      const startStr = format(monthStart, "yyyy-MM-01");
+      const nextStr = format(addMonths(monthStart, 1), "yyyy-MM-01");
+      const formattedCodes = assessorCodes.map(c => c.startsWith("A") ? c : `A${c}`);
+
+      const { data, error } = await supabase
+        .from("vw_estrelas_cliente" as any)
+        .select("assessor, cliente, data_posicao, qtd_categorias, categorias_json, elegivel_3_estrelas")
+        .gte("data_posicao", startStr)
+        .lt("data_posicao", nextStr)
+        .in("assessor", formattedCodes);
+
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const assessoresComCredito = useMemo(() => {
     const set = new Set<string>();
     (consorciosCreditoPen || []).forEach((row: any) => {
@@ -668,6 +705,34 @@ export default function RankingGerencialDash({
     });
     return set;
   }, [segurosWindowRows]);
+
+  const assessoresCom3Estrelas = useMemo(() => {
+    const set = new Set<string>();
+    (estrelasClienteRows || []).forEach((row: any) => {
+      const cod = String(row?.assessor ?? "").trim();
+      if (!cod) return;
+      if (row.elegivel_3_estrelas) {
+        set.add(cod);
+      }
+    });
+    return set;
+  }, [estrelasClienteRows]);
+
+  const clientes3EstrelasPorAssessor = useMemo(() => {
+    const map = new Map<string, { total: number; elegiveis: number }>();
+    (estrelasClienteRows || []).forEach((row: any) => {
+      const cod = String(row?.assessor ?? "").trim();
+      if (!cod) return;
+      if (!map.has(cod)) map.set(cod, { total: 0, elegiveis: 0 });
+      
+      const counts = map.get(cod)!;
+      counts.total += 1;
+      if (row.elegivel_3_estrelas) {
+        counts.elegiveis += 1;
+      }
+    });
+    return map;
+  }, [estrelasClienteRows]);
 
   const segurosByAssessor = useMemo(() => {
     const receitaByYear = new Map<string, number>();
@@ -899,6 +964,23 @@ export default function RankingGerencialDash({
       });
       const nextScore = nextKpis.reduce((s, k) => s + k.value * k.weight, 0);
 
+      const penAi3s = assessoresCom3Estrelas.has(codAssessor) ? 100 : 0;
+      const estrelasStats = clientes3EstrelasPorAssessor.get(codAssessor) || { total: 0, elegiveis: 0 };
+      const penClientes3s = estrelasStats.total > 0 ? clamp((estrelasStats.elegiveis / estrelasStats.total) * 100, 0, 100) : 0;
+
+      const receitaAlocacao = (a.receita_renda_fixa || 0) + (a.asset_m_1 || 0) + (a.receita_previdencia || 0) + (a.receita_cetipados || 0) + (a.receitas_ofertas_fundos || 0) + (a.receitas_ofertas_rf || 0) + (a.receitas_offshore || 0);
+      const metaAlocacao = ((a.custodia_net || 0) * ROA_ALOCACAO_TARGET) / 12;
+      const roaAlocacao = metaAlocacao > 0 ? clamp((receitaAlocacao / metaAlocacao) * 100, 0, 100) : 0;
+
+      const al = computed.products.allocation;
+      const nextAlKpis = al.kpis.map((k) => {
+        if (k.key === "pen_ai_3s") return { ...k, value: penAi3s };
+        if (k.key === "pen_clientes_3s") return { ...k, value: penClientes3s };
+        if (k.key === "roa_geral") return { ...k, value: roaAlocacao };
+        return k;
+      });
+      const nextAlScore = nextAlKpis.reduce((s, k) => s + k.value * k.weight, 0);
+
       const bk = computed.products.banco;
       const nextBkKpis = bk.kpis.map((k) => {
         if (k.key === "pen_credito") return { ...k, value: penCredito };
@@ -918,7 +1000,7 @@ export default function RankingGerencialDash({
       const nextSgScore = nextSgKpis.reduce((s, k) => s + k.value * k.weight, 0);
 
       const pontosValidos =
-        (nextScore + computed.products.allocation.score + nextBkScore + nextSgScore) / 4;
+        (nextScore + nextAlScore + nextBkScore + nextSgScore) / 4;
       const overall = computed.enps < 80 ? pontosValidos * 0.8 : pontosValidos;
       let badge: AssessorRanking["badge"] = "Não elegível";
       if (pontosValidos >= 70 && computed.enps >= 80) badge = "Elegível";
@@ -929,6 +1011,7 @@ export default function RankingGerencialDash({
         products: {
           ...computed.products,
           renda_variavel: { score: nextScore, kpis: nextKpis },
+          allocation: { score: nextAlScore, kpis: nextAlKpis },
           banco: { score: nextBkScore, kpis: nextBkKpis },
           seguros: { score: nextSgScore, kpis: nextSgKpis },
         },
@@ -948,6 +1031,8 @@ export default function RankingGerencialDash({
     ativacoesPjByAssessor,
     assessoresComSeguros,
     segurosByAssessor,
+    assessoresCom3Estrelas,
+    clientes3EstrelasPorAssessor,
   ]);
 
   const [productModal, setProductModal] = useState<ProductKey | null>(null);
@@ -1012,6 +1097,60 @@ export default function RankingGerencialDash({
           short: p.short,
           avg,
           status: scoreTone(avg),
+          hit,
+          total,
+          kpis: kpisPatched,
+        };
+      }
+
+      if (p.key === "allocation") {
+        const allowedData = (data || []).filter(
+          (d) =>
+            d.cod_assessor &&
+            d.nome_assessor &&
+            d.nome_assessor.toLowerCase() !== "null" &&
+            d.nome_assessor.toLowerCase() !== "undefined"
+        );
+
+        const valid3EstrelasCount = allowedData.reduce((acc, d) => {
+          const cod = String(d.cod_assessor ?? "").trim();
+          return acc + (assessoresCom3Estrelas.has(cod) ? 1 : 0);
+        }, 0);
+        const penAi3sGlobal = allowedData.length > 0 ? clamp((valid3EstrelasCount / allowedData.length) * 100, 0, 100) : 0;
+
+        const totalClientesAlocacao = (estrelasClienteRows || []).length;
+        const elegiveisAlocacao = (estrelasClienteRows || []).filter((r: any) => r.elegivel_3_estrelas).length;
+        const penClientes3sGlobal = totalClientesAlocacao > 0 ? clamp((elegiveisAlocacao / totalClientesAlocacao) * 100, 0, 100) : 0;
+
+        const receitaAlocacaoTotal = allowedData.reduce(
+          (acc, d) => acc + ((d.receita_renda_fixa || 0) + (d.asset_m_1 || 0) + (d.receita_previdencia || 0) + (d.receita_cetipados || 0) + (d.receitas_ofertas_fundos || 0) + (d.receitas_ofertas_rf || 0) + (d.receitas_offshore || 0)),
+          0
+        );
+        const metaAlocacaoTotal = allowedData.reduce(
+          (acc, d) => acc + (((d.custodia_net || 0) * ROA_ALOCACAO_TARGET) / 12),
+          0
+        );
+        const roaGeralGlobal = metaAlocacaoTotal > 0 ? clamp((receitaAlocacaoTotal / metaAlocacaoTotal) * 100, 0, 100) : 0;
+
+        const alocacaoAvg = clamp(
+          penAi3sGlobal * 0.3 + penClientes3sGlobal * 0.2 + roaGeralGlobal * 0.5,
+          0,
+          100
+        );
+
+        const kpisPatched = kpis.map((k) => {
+          if (k.key === "pen_ai_3s") return { ...k, avgValue: penAi3sGlobal };
+          if (k.key === "pen_clientes_3s") return { ...k, avgValue: penClientes3sGlobal };
+          if (k.key === "roa_geral") return { ...k, avgValue: roaGeralGlobal };
+          return k;
+        });
+
+        return {
+          key: p.key,
+          label: p.label,
+          short: p.short,
+          avg: alocacaoAvg,
+          status: scoreTone(alocacaoAvg),
           hit,
           total,
           kpis: kpisPatched,
@@ -1171,6 +1310,8 @@ export default function RankingGerencialDash({
     ativacoesPjByAssessor,
     assessoresComSeguros,
     segurosByAssessor,
+    estrelasClienteRows,
+    assessoresCom3Estrelas,
   ]);
 
   const selectedProductSummary = useMemo(() => {
@@ -1381,6 +1522,7 @@ export default function RankingGerencialDash({
                     const ktone = scoreTone(k.avgValue);
                     const isClickable =
                       (p.key === "renda_variavel" && (k.key === "pen_aai_pe" || k.key === "pen_clientes")) ||
+                      (p.key === "allocation" && (k.key === "pen_ai_3s" || k.key === "pen_clientes_3s")) ||
                       (p.key === "banco" && (k.key === "pen_credito" || k.key === "receita_credito" || k.key === "abertura_pj")) ||
                       (p.key === "seguros" && (k.key === "pen_seguros" || k.key === "receita" || k.key === "apolices"));
                     const labelText =
@@ -1472,6 +1614,11 @@ export default function RankingGerencialDash({
       {(isLoadingSegurosWindow || isLoadingSegurosYear || isLoadingSegurosHistory) && (
         <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
           Carregando Seguros…
+        </div>
+      )}
+      {isLoadingEstrelasCliente && (
+        <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
+          Carregando Estrelas de Clientes…
         </div>
       )}
 
@@ -1591,6 +1738,10 @@ export default function RankingGerencialDash({
                             ? "Receita Seguros — Detalhamento"
                             : kpiModal?.product === "seguros" && kpiModal?.kpi === "apolices"
                               ? "Qtd Apólices vendidas — Detalhamento"
+                              : kpiModal?.product === "allocation" && kpiModal?.kpi === "pen_clientes_3s"
+                                ? "Penetração Clientes 3★ — Detalhamento"
+                                : kpiModal?.product === "allocation" && kpiModal?.kpi === "pen_ai_3s"
+                                  ? "Penetração AIs 3★ — Detalhamento"
                         : "Detalhamento"}
             </DialogTitle>
           </DialogHeader>
@@ -2732,6 +2883,197 @@ export default function RankingGerencialDash({
               </div>
             </div>
           )}
+
+          {kpiModal?.product === "allocation" && kpiModal?.kpi === "pen_clientes_3s" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
+                  Clientes 3 Estrelas
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ws = XLSX.utils.json_to_sheet(
+                      (estrelasClienteRows || []).map((c: any) => ({
+                        Cliente: c.cliente,
+                        Assessor: c.assessor,
+                        "Elegível 3 Estrelas": c.elegivel_3_estrelas ? "Sim" : "Não",
+                        "Qtd Categorias": c.qtd_categorias,
+                        "Categorias e Produtos": JSON.stringify(c.categorias_json || {})
+                      }))
+                    );
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Clientes 3 Estrelas");
+                    XLSX.writeFile(wb, `clientes_3_estrelas_${selectedMonthKey || "periodo"}.xlsx`);
+                  }}
+                  className="flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-data uppercase tracking-widest text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  Baixar XLSX
+                </button>
+              </div>
+              <div className="rounded-xl border border-white/10 overflow-hidden">
+                <div className="max-h-[60vh] overflow-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 z-10 bg-[#0A0A0B]">
+                      <tr className="text-[10px] font-data uppercase tracking-widest text-white/55 border-b border-white/10">
+                        <th className="py-3 px-4 font-medium">Cliente</th>
+                        <th className="py-3 px-4 font-medium">Assessor</th>
+                        <th className="py-3 px-4 font-medium text-center">Status</th>
+                        <th className="py-3 px-4 font-medium text-center">Qtd. Categorias</th>
+                        <th className="py-3 px-4 font-medium">Categorias e Produtos</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.06]">
+                      {(estrelasClienteRows || [])
+                        .filter((c: any) => c.elegivel_3_estrelas)
+                        .slice((clientes3sPage - 1) * 10, clientes3sPage * 10)
+                        .map((c: any) => {
+                        const info = assessorInfoByCode.get(String(c.assessor).trim());
+                        return (
+                          <tr key={`${c.cliente}-${c.assessor}`} className="text-sm">
+                            <td className="py-3 px-4 text-white/85 font-data text-xs">{c.cliente}</td>
+                            <td className="py-3 px-4">
+                              <div className="text-white/85 font-data text-xs">{info?.nome || `AAI-${c.assessor}`}</div>
+                              <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
+                                AAI-{c.assessor}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span
+                                className="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-data uppercase tracking-widest"
+                                style={{
+                                  borderColor: `${toneColor("success")}55`,
+                                  background: `${toneColor("success")}18`,
+                                  color: toneColor("success"),
+                                }}
+                              >
+                                3 Estrelas
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center text-white/80 font-data text-xs">
+                              {c.qtd_categorias}
+                            </td>
+                            <td className="py-3 px-4 text-white/70 font-data text-xs">
+                              <div className="space-y-1">
+                                {Object.entries(typeof c.categorias_json === 'string' ? JSON.parse(c.categorias_json) : (c.categorias_json || {})).map(([cat, items]: any) => (
+                                  <div key={cat}>
+                                    <span className="font-semibold text-white/90">{cat}:</span>{" "}
+                                    {items.map((i: any) => i.produto).join(", ")}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {(estrelasClienteRows || []).filter((c: any) => c.elegivel_3_estrelas).length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-10 px-4 text-center text-white/45 font-data text-sm">
+                            Nenhum cliente encontrado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-2 px-1">
+                <div className="text-white/45 text-xs font-data uppercase tracking-widest">
+                  Página {clientes3sPage} de {Math.ceil(((estrelasClienteRows || []).filter((c: any) => c.elegivel_3_estrelas)).length / 10) || 1} ({((estrelasClienteRows || []).filter((c: any) => c.elegivel_3_estrelas)).length} total)
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={clientes3sPage === 1}
+                    onClick={() => setClientes3sPage((p) => Math.max(1, p - 1))}
+                    className="rounded border border-white/10 px-3 py-1 text-xs text-white/70 hover:bg-white/5 disabled:opacity-50 transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    type="button"
+                    disabled={clientes3sPage >= Math.ceil(((estrelasClienteRows || []).filter((c: any) => c.elegivel_3_estrelas)).length / 10)}
+                    onClick={() => setClientes3sPage((p) => Math.min(Math.ceil(((estrelasClienteRows || []).filter((c: any) => c.elegivel_3_estrelas)).length / 10), p + 1))}
+                    className="rounded border border-white/10 px-3 py-1 text-xs text-white/70 hover:bg-white/5 disabled:opacity-50 transition-colors"
+                  >
+                    Próximo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {kpiModal?.product === "allocation" && kpiModal?.kpi === "pen_ai_3s" && (
+            <div className="space-y-3">
+              <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
+                Assessores com Clientes 3 Estrelas
+              </div>
+              <div className="rounded-xl border border-white/10 overflow-hidden">
+                <div className="max-h-[60vh] overflow-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 z-10 bg-[#0A0A0B]">
+                      <tr className="text-[10px] font-data uppercase tracking-widest text-white/55 border-b border-white/10">
+                        <th className="py-3 px-4 font-medium">Assessor</th>
+                        <th className="py-3 px-4 font-medium">Time</th>
+                        <th className="py-3 px-4 font-medium text-right">Clientes Elegíveis</th>
+                        <th className="py-3 px-4 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.06]">
+                      {(data || [])
+                        .filter(
+                          (d) =>
+                            d.cod_assessor &&
+                            d.nome_assessor &&
+                            d.nome_assessor.toLowerCase() !== "null" &&
+                            d.nome_assessor.toLowerCase() !== "undefined"
+                        )
+                        .map((r) => {
+                          const cod = String(r.cod_assessor).trim();
+                          const elegiveis = clientes3EstrelasPorAssessor.get(cod)?.elegiveis || 0;
+                          return { ...r, elegiveis, isHit: assessoresCom3Estrelas.has(cod) };
+                        })
+                        .sort((a, b) => Number(b.isHit) - Number(a.isHit) || a.nome_assessor.localeCompare(b.nome_assessor))
+                        .map((r) => (
+                          <tr key={r.cod_assessor} className="text-sm">
+                            <td className="py-3 px-4">
+                              <div className="text-white/85 font-data text-xs">{r.nome_assessor}</div>
+                              <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
+                                AAI-{r.cod_assessor}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-white/70 font-data text-xs">{r.time}</td>
+                            <td className="py-3 px-4 text-right text-white/80 font-data text-xs">
+                              {r.elegiveis}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-data uppercase tracking-widest"
+                                style={{
+                                  borderColor: `${toneColor(r.isHit ? "success" : "danger")}55`,
+                                  background: `${toneColor(r.isHit ? "success" : "danger")}18`,
+                                  color: toneColor(r.isHit ? "success" : "danger"),
+                                }}
+                              >
+                                {r.isHit ? "Elegível" : "Sem clientes 3★"}
+                              </span>
+                            </td>
+                          </tr>
+                      ))}
+                      {(data || []).length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-10 px-4 text-center text-white/45 font-data text-sm">
+                            Nenhum assessor encontrado para os filtros atuais.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
         </DialogContent>
       </Dialog>
     </div>
