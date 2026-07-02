@@ -1746,66 +1746,108 @@ export default function RankingGerencialDash({
             </DialogTitle>
           </DialogHeader>
 
-          {kpiModal?.kpi === "pen_clientes" && (
-            <div className="space-y-3">
-              <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
-                Clientes com boleta no mês
+          {kpiModal?.kpi === "pen_clientes" && (() => {
+            const totalClientes = (clientesPosicaoRvBase || []).reduce((acc: number, row: any) => {
+              return row?.codigo_ultima_operacao == null ? acc : acc + 1;
+            }, 0);
+            const uniqueClientes = new Set(
+              (clientesPosicaoRv || [])
+                .map((row: any) => String(row?.cod_cliente ?? "").trim())
+                .filter(Boolean)
+            );
+            const clientesComBoleta = uniqueClientes.size;
+            const pct = totalClientes > 0 ? clamp((clientesComBoleta / totalClientes) * 100, 0, 100) : 0;
+
+            return (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-[200px] rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
+                    Total Base de Clientes
+                  </div>
+                  <div className="mt-2 text-white font-display text-2xl">
+                    {formatCount(totalClientes, 0)}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-[200px] rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
+                    Clientes com Boleta
+                  </div>
+                  <div className="mt-2 text-white font-display text-2xl">
+                    {formatCount(clientesComBoleta, 0)}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-[200px] rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
+                    Penetração Global
+                  </div>
+                  <div className="mt-2 font-display text-2xl" style={{ color: toneColor(scoreTone(pct)) }}>
+                    {fmtPct(pct)}
+                  </div>
+                </div>
               </div>
-              <div className="rounded-xl border border-white/10 overflow-hidden">
-                <div className="max-h-[60vh] overflow-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 z-10 bg-[#0A0A0B]">
-                      <tr className="text-[10px] font-data uppercase tracking-widest text-white/55 border-b border-white/10">
-                        <th className="py-3 px-4 font-medium">Cliente</th>
-                        <th className="py-3 px-4 font-medium text-right">Net</th>
-                        <th className="py-3 px-4 font-medium text-right">Valor</th>
-                        <th className="py-3 px-4 font-medium">Última Op.</th>
-                        <th className="py-3 px-4 font-medium">Assessor</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/[0.06]">
-                      {clientesRvList.map((c) => (
-                        <tr key={`${c.cod_cliente}-${c.cod_assessor}`} className="text-sm">
-                          <td className="py-3 px-4">
-                            <div className="text-white/85 font-data text-xs">
-                              {c.nome_cliente || c.cod_cliente}
-                            </div>
-                            <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                              {c.cod_cliente}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right text-white/80 font-data text-xs">
-                            {formatCurrency(c.net_em_m)}
-                          </td>
-                          <td className="py-3 px-4 text-right text-white/80 font-data text-xs">
-                            {formatCurrency(c.comissao_ultima_operacao)}
-                          </td>
-                          <td className="py-3 px-4 text-white/70 font-data text-xs">
-                            {formatDate(c.data_ultima_operacao)}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="text-white/85 font-data text-xs">
-                              {c.nome_assessor || `AAI-${c.cod_assessor}`}
-                            </div>
-                            <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                              AAI-{c.cod_assessor}
-                            </div>
-                          </td>
+
+              <div className="space-y-3">
+                <div className="text-white/55 font-data text-[10px] uppercase tracking-widest">
+                  Clientes com boleta no mês
+                </div>
+                <div className="rounded-xl border border-white/10 overflow-hidden">
+                  <div className="max-h-[60vh] overflow-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 z-10 bg-[#0A0A0B]">
+                        <tr className="text-[10px] font-data uppercase tracking-widest text-white/55 border-b border-white/10">
+                          <th className="py-3 px-4 font-medium">Cliente</th>
+                          <th className="py-3 px-4 font-medium text-right">Net</th>
+                          <th className="py-3 px-4 font-medium text-right">Valor</th>
+                          <th className="py-3 px-4 font-medium">Última Op.</th>
+                          <th className="py-3 px-4 font-medium">Assessor</th>
                         </tr>
-                      ))}
-                      {clientesRvList.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="py-10 px-4 text-center text-white/45 font-data text-sm">
-                            Nenhum cliente encontrado para o mês e filtros atuais.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.06]">
+                        {clientesRvList.map((c) => (
+                          <tr key={`${c.cod_cliente}-${c.cod_assessor}`} className="text-sm">
+                            <td className="py-3 px-4">
+                              <div className="text-white/85 font-data text-xs">
+                                {c.nome_cliente || c.cod_cliente}
+                              </div>
+                              <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
+                                {c.cod_cliente}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right text-white/80 font-data text-xs">
+                              {formatCurrency(c.net_em_m)}
+                            </td>
+                            <td className="py-3 px-4 text-right text-white/80 font-data text-xs">
+                              {formatCurrency(c.comissao_ultima_operacao)}
+                            </td>
+                            <td className="py-3 px-4 text-white/70 font-data text-xs">
+                              {formatDate(c.data_ultima_operacao)}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-white/85 font-data text-xs">
+                                {c.nome_assessor || `AAI-${c.cod_assessor}`}
+                              </div>
+                              <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
+                                AAI-{c.cod_assessor}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {clientesRvList.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="py-10 px-4 text-center text-white/45 font-data text-sm">
+                              Nenhum cliente encontrado para o mês e filtros atuais.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {kpiModal?.kpi === "pen_aai_pe" && (
             <div className="space-y-3">
