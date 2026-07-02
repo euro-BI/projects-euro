@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Maximize2, Minimize2, CalendarCheck, Clock, ThumbsUp, Target, Users, ArrowUpDown, ArrowUp, ArrowDown, Play, X, Download, BarChart3, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, ReferenceLine } from "recharts";
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, ReferenceLine, LabelList } from "recharts";
 
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth";
 const FIXED_MONTH_WEEKS = 4;
@@ -891,7 +891,16 @@ export default function WeeklyEffortsDash() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-data uppercase tracking-[0.2em] text-white/45">Total da Agenda</span>
+                            <CalendarCheck className="w-4 h-4 text-blue-400" />
+                          </div>
+                          <div className="text-3xl font-display text-white leading-none">{dashboardStory.current.agendadas + dashboardStory.current.realizadas}</div>
+                          <p className="mt-2 text-xs text-white/50">Volume total de R1 (realizadas + futuras).</p>
+                        </div>
+
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                           <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] font-data uppercase tracking-[0.2em] text-white/45">Agendadas</span>
@@ -1457,16 +1466,6 @@ export default function WeeklyEffortsDash() {
                           tickLine={false}
                           width={44}
                         />
-                        <YAxis
-                          yAxisId="right"
-                          orientation="right"
-                          domain={[0, 100]}
-                          tickFormatter={(value) => `${value}%`}
-                          tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10, fontFamily: "var(--font-data, monospace)" }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={44}
-                        />
                         <Tooltip
                           contentStyle={{
                             backgroundColor: "rgba(15,18,24,0.96)",
@@ -1475,22 +1474,26 @@ export default function WeeklyEffortsDash() {
                             color: "#fff",
                           }}
                           labelFormatter={(label) => label}
-                          formatter={(value: number, name: string) => {
-                            if (name === "% Meta Time") return [`${value.toFixed(0)}%`, name];
-                            return [value, name];
-                          }}
                         />
                         <Legend wrapperStyle={{ fontFamily: "var(--font-data, monospace)", fontSize: "11px" }} />
-                        <Bar yAxisId="left" dataKey="realizadas" name="Realizadas" fill="#FAC017" radius={[6, 6, 0, 0]} maxBarSize={34} />
+                        
+                        <Bar yAxisId="left" dataKey="realizadas" name="Realizadas" fill="#FAC017" radius={[6, 6, 0, 0]} maxBarSize={34}>
+                          <LabelList 
+                            dataKey="realizadas"
+                            content={(props: any) => {
+                              const { x, y, width, value, payload } = props;
+                              if (!payload || payload.realizadas < payload.totalMeta) return null;
+                              return (
+                                <g transform={`translate(${x + width / 2},${y - 12})`}>
+                                  <text x={0} y={0} textAnchor="middle" fill="#22C55E" fontSize="16">⭐</text>
+                                </g>
+                              );
+                            }}
+                          />
+                        </Bar>
                         <Bar yAxisId="left" dataKey="agendadas" name="Agendadas" fill="#A855F7" radius={[6, 6, 0, 0]} maxBarSize={34} />
-                        <ReferenceLine
-                          yAxisId="right"
-                          y={100}
-                          stroke="rgba(34,197,94,0.75)"
-                          strokeDasharray="6 6"
-                          ifOverflow="extendDomain"
-                        />
-                        <Line yAxisId="right" type="monotone" dataKey="pctMetaTime" name="% Meta Time" stroke="#22C55E" strokeWidth={3} dot={{ r: 4, fill: "#22C55E" }} activeDot={{ r: 6 }} />
+                        
+                        <Line yAxisId="left" type="step" dataKey="totalMeta" name="Meta do Mês" stroke="#22C55E" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={false} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </CardContent>
@@ -1725,7 +1728,11 @@ export default function WeeklyEffortsDash() {
                           ? `O mês fechou acima da meta do time, com ${selectedMonthlyChartDetail.pctMetaTime.toFixed(0)}% de atingimento e ${selectedMonthlyChartDetail.assessoresMeta} assessores entregando a régua mínima.`
                           : `O mês fechou com ${selectedMonthlyChartDetail.pctMetaTime.toFixed(0)}% da meta geral. ${selectedMonthlyChartDetail.assessoresMeta} assessores bateram a régua individual e o foco agora é destravar o miolo do time.`}
                       </p>
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                          <p className="text-[10px] font-data uppercase tracking-[0.2em] text-white/40">Realizadas</p>
+                          <p className="font-display text-3xl text-[#FAC017]">{selectedMonthlyChartDetail.realizadas}</p>
+                        </div>
                         <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                           <p className="text-[10px] font-data uppercase tracking-[0.2em] text-white/40">Meta geral</p>
                           <p className="font-display text-3xl text-euro-gold">{selectedMonthlyChartDetail.totalMeta}</p>
