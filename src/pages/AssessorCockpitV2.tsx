@@ -221,9 +221,9 @@ export default function AssessorCockpitV2() {
       </div>
 
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent hideCloseButton className="border-white/10 bg-[#08101A] p-0 sm:max-w-[min(96vw,1400px)] h-[90vh] overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
+        <DialogContent hideCloseButton className="flex flex-col border-white/10 bg-[#08101A] p-0 sm:max-w-[min(96vw,1400px)] h-[90vh] max-h-[90vh] overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
           <DialogTitle className="sr-only">Euro Inteligente</DialogTitle>
-          <div className="h-full bg-[#0B111A] p-4">
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#0B111A] p-2 sm:p-4">
             <SmartChat embedded onRequestClose={() => setIsChatOpen(false)} />
           </div>
         </DialogContent>
