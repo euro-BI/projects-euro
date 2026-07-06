@@ -105,6 +105,7 @@ export default function ManagementDash() {
       const { data, error } = await supabase
         .from("mv_resumo_assessor" as any)
         .select("data_posicao, time, cod_assessor, nome_assessor")
+        .eq("status_assessor", true)
         .order("data_posicao", { ascending: false });
       
       if (error) throw error;
@@ -162,6 +163,7 @@ export default function ManagementDash() {
       let query = supabase
         .from("mv_resumo_assessor" as any)
         .select("*")
+        .eq("status_assessor", true)
         .eq("data_posicao", selectedMonth);
       
       if (selectedTeam.length > 0) query = query.in("time", selectedTeam);
@@ -184,6 +186,7 @@ export default function ManagementDash() {
       let query = supabase
         .from("mv_resumo_assessor" as any)
         .select("*")
+        .eq("status_assessor", true)
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
       

@@ -194,6 +194,7 @@ export default function WeeklyEffortsDash() {
       
       const { data: mvRows } = await (supabase.from("mv_resumo_assessor" as any) as any)
         .select("cod_assessor, nome_assessor, time, foto_url")
+        .eq("status_assessor", true)
         .eq("data_posicao", latestDate || format(today, "yyyy-MM-dd"));
 
       const validRows = (mvRows as any[] || []).filter(r => {
@@ -275,6 +276,7 @@ export default function WeeklyEffortsDash() {
 
       const { data, error } = await (supabase.from("mv_resumo_assessor" as any) as any)
         .select("*")
+        .eq("status_assessor", true)
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate)
         .order("data_posicao", { ascending: true });
