@@ -359,7 +359,7 @@ export default function RendaFixaDash({
 
       let rfQuery = supabase
         .from("dados_rf_fluxo" as any)
-        .select("data, cod_assessor, cod_conta, indexador, tipo_operacao, receita_a_dividir")
+        .select("data, cod_assessor, cod_conta, indexador, tipo_operacao, receita_a_dividir, vencimento, tipo_ativo")
         .gte("data", startDate)
         .lte("data", endDate);
 
@@ -1247,6 +1247,8 @@ export default function RendaFixaDash({
                 "Cód. Conta": r.cod_conta || "",
                 "Indexador": r.indexador || "",
                 "Tipo Operação": r.tipo_operacao || "",
+                "Vencimento": r.vencimento || "",
+                "Tipo Ativo": r.tipo_ativo || "",
                 "Receita": r.receita || 0,
               }));
               XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rfRows.length ? rfRows : [{}]), "Renda Fixa");
@@ -1784,7 +1786,8 @@ function RFFluxoDetailTable({
           (r.cod_assessor || "").toLowerCase().includes(term) ||
           (r.cod_conta || "").toLowerCase().includes(term) ||
           (r.indexador || "").toLowerCase().includes(term) ||
-          (r.tipo_operacao || "").toLowerCase().includes(term)
+          (r.tipo_operacao || "").toLowerCase().includes(term) ||
+          (r.tipo_ativo || "").toLowerCase().includes(term)
         );
       })
       .sort((a, b) => {
@@ -1807,6 +1810,8 @@ function RFFluxoDetailTable({
     { key: "cod_conta", label: "Cód. Conta", align: "left" as const },
     { key: "indexador", label: "Indexador", align: "left" as const },
     { key: "tipo_operacao", label: "Tipo Operação", align: "left" as const },
+    { key: "vencimento", label: "Vencimento", align: "left" as const },
+    { key: "tipo_ativo", label: "Tipo Ativo", align: "left" as const },
     { key: "receita", label: "Receita", align: "right" as const },
   ];
 
@@ -1951,6 +1956,14 @@ function RFFluxoDetailTable({
                   <td className="py-3 px-4 text-white border-r border-white/5">
                     {item.tipo_operacao || "—"}
                   </td>
+                  {/* Vencimento */}
+                  <td className="py-3 px-4 text-white/80 border-r border-white/5">
+                    {item.vencimento ? format(parseISO(item.vencimento), "dd/MM/yyyy") : "—"}
+                  </td>
+                  {/* Tipo Ativo */}
+                  <td className="py-3 px-4 text-white border-r border-white/5">
+                    {item.tipo_ativo || "—"}
+                  </td>
                   {/* Receita (÷2) */}
                   <td className="py-3 px-4 text-right">
                     <span className={cn(
@@ -1964,7 +1977,7 @@ function RFFluxoDetailTable({
               ))}
               {tableData.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-20 text-center opacity-20">
+                  <td colSpan={9} className="py-20 text-center opacity-20">
                     <div className="flex flex-col items-center gap-4">
                       <Search className="w-10 h-10" />
                       <p className="text-sm font-data uppercase tracking-widest">Nenhum registro encontrado</p>
@@ -1978,6 +1991,8 @@ function RFFluxoDetailTable({
               <tr className="bg-black/80 backdrop-blur-md text-xs font-bold font-data border-t-2 border-euro-gold">
                 <td className="py-4 px-4 text-euro-gold uppercase tracking-widest sticky left-0 bg-black/90 z-40 border-r border-white/10 w-[80px] min-w-[80px] max-w-[80px]">Total</td>
                 <td className="sticky left-[80px] bg-black/90 z-40 border-r border-white/10"></td>
+                <td className="py-4 px-4 bg-black/80 border-r border-white/5"></td>
+                <td className="py-4 px-4 bg-black/80 border-r border-white/5"></td>
                 <td className="py-4 px-4 bg-black/80 border-r border-white/5"></td>
                 <td className="py-4 px-4 bg-black/80 border-r border-white/5"></td>
                 <td className="py-4 px-4 bg-black/80 border-r border-white/5"></td>
