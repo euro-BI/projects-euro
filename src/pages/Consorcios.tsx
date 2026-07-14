@@ -15,16 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+
 import {
   Table,
   TableBody,
@@ -34,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowLeft, Edit, Trash2, FileSpreadsheet, Download, Eye, Settings, Plus } from "lucide-react";
+import { ArrowLeft, Edit, Ban, FileSpreadsheet, Download, Eye, Settings, Plus } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
@@ -55,6 +46,7 @@ type DadosConsorcio = {
   valor_comissao_mensal_6m: number | null;
   valor_comissao_13m: number | null;
   valor_comissao_total: number | null;
+  data_cancelamento: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -66,7 +58,8 @@ const Consorcios = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DadosConsorcio | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [cancellingRecord, setCancellingRecord] = useState<DadosConsorcio | null>(null);
+  const [cancelForm, setCancelForm] = useState<{ data_cancelamento: string; observacao: string }>({ data_cancelamento: "", observacao: "" });
   const [form, setForm] = useState<Partial<DadosConsorcio>>({});
   type AssessorOption = { code: string; name: string };
   const [assessorOptions, setAssessorOptions] = useState<AssessorOption[]>([]);
@@ -415,23 +408,32 @@ const Consorcios = () => {
     loadRegistros();
   };
 
-  const confirmDelete = (id: number) => {
-    setConfirmDeleteId(id);
+  const openCancelamento = (r: DadosConsorcio) => {
+    setCancellingRecord(r);
+    setCancelForm({ data_cancelamento: "", observacao: "" });
   };
 
-  const doDelete = async () => {
-    if (!confirmDeleteId) return;
+  const doCancelamento = async () => {
+    if (!cancellingRecord) return;
+    if (!cancelForm.data_cancelamento) {
+      toast.error("Informe a data do cancelamento");
+      return;
+    }
     const { error } = await supabase
       .from("dados_consorcio")
-      .delete()
-      .eq("id", confirmDeleteId);
+      .update({
+        data_cancelamento: cancelForm.data_cancelamento,
+        observacao: cancelForm.observacao || null,
+      })
+      .eq("id", cancellingRecord.id);
     if (error) {
-      toast.error("Erro ao excluir registro");
+      toast.error("Erro ao cancelar consórcio");
     } else {
-      toast.success("Registro excluído");
+      toast.success("Consórcio cancelado com sucesso");
       loadRegistros();
     }
-    setConfirmDeleteId(null);
+    setCancellingRecord(null);
+    setCancelForm({ data_cancelamento: "", observacao: "" });
   };
 
   const exportXlsx = () => {
@@ -510,6 +512,7 @@ const Consorcios = () => {
                 <TableHead>Produto</TableHead>
                 <TableHead>Data Venda</TableHead>
                 <TableHead>Comissão Total</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -535,6 +538,17 @@ const Consorcios = () => {
                     <TableCell>{r.produto || "-"}</TableCell>
                     <TableCell>{formatDateBR(r.data_venda)}</TableCell>
                     <TableCell>{formatCurrency(r.valor_comissao_total)}</TableCell>
+                    <TableCell>
+                      {r.data_cancelamento ? (
+                        <Badge className="bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30">
+                          Cancelado
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30">
+                          Ativo
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button variant="ghost" size="icon" onClick={() => setViewing(r)}>
                         <Eye className="w-4 h-4" />
@@ -542,8 +556,15 @@ const Consorcios = () => {
                       <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-500/10" onClick={() => confirmDelete(r.id)}>
-                        <Trash2 className="w-4 h-4" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:bg-red-500/10"
+                        onClick={() => openCancelamento(r)}
+                        disabled={!!r.data_cancelamento}
+                        title={r.data_cancelamento ? "Já cancelado" : "Cancelar consórcio"}
+                      >
+                        <Ban className="w-4 h-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -743,18 +764,35 @@ const Consorcios = () => {
           </DialogContent>
         </Dialog>
 
-        <AlertDialog open={!!confirmDeleteId} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
-              <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={doDelete}>Excluir</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Dialog open={!!cancellingRecord} onOpenChange={(open) => !open && setCancellingRecord(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cancelar Consórcio</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label>Data do Cancelamento *</Label>
+                <Input
+                  type="date"
+                  value={cancelForm.data_cancelamento}
+                  onChange={(e) => setCancelForm((f) => ({ ...f, data_cancelamento: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Motivo do Cancelamento</Label>
+                <Input
+                  placeholder="Informe o motivo do cancelamento"
+                  value={cancelForm.observacao}
+                  onChange={(e) => setCancelForm((f) => ({ ...f, observacao: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCancellingRecord(null)}>Voltar</Button>
+              <Button variant="destructive" onClick={doCancelamento}>Confirmar Cancelamento</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
           <DialogContent className="max-w-4xl">
