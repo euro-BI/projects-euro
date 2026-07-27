@@ -41,7 +41,8 @@ import * as XLSX from "xlsx";
 import { addMonths, addYears, format, parseISO } from "date-fns";
 
 type Periodicidade = "MENSAL" | "ANUAL";
-type Seguradora = "MAG" | "ICATU" | "METLIFE" | "OMINT" | "PRUDENTIAL";
+type Seguradora = "MAG" | "ICATU" | "METLIFE" | "OMINT" | "PRUDENTIAL" | "N/A";
+type Produto = "PLANO DE SAÚDE" | "SEGURO DE VEÍCULOS" | "SEGURO RC" | "HOLDING" | "OFFSHORE";
 
 type DadosSeguroNovo = {
   id: number;
@@ -51,6 +52,7 @@ type DadosSeguroNovo = {
   cod_assessor: string | null;
   periodicidade: Periodicidade | null;
   seguradora: Seguradora | null;
+  produto: Produto | null;
   valor_parcela: number | null;
   percent_comissao: number | null;
   valor_comissao: number | null;
@@ -271,6 +273,7 @@ const Seguros = () => {
           r.cliente,
           r.cod_assessor,
           r.seguradora,
+          r.produto,
           r.periodicidade,
           r.data_inicial,
         ]
@@ -391,6 +394,7 @@ const Seguros = () => {
     const codAssessor = String(form.cod_assessor || "").trim();
     const periodicidade = form.periodicidade as Periodicidade | undefined;
     const seguradora = form.seguradora as Seguradora | undefined;
+    const produto = form.produto as Produto | undefined;
     const dataInicial = String(form.data_inicial || "").trim();
     const parcela = form.valor_parcela;
     const pct = form.percent_comissao;
@@ -400,7 +404,7 @@ const Seguros = () => {
     if (!cliente) return "Cliente é obrigatório";
     if (!codAssessor) return "Assessor é obrigatório";
     if (!periodicidade) return "Periodicidade é obrigatória";
-    if (!seguradora) return "Seguradora é obrigatória";
+    if (!produto) return "Produto é obrigatório";
     if (!dataInicial) return "Data inicial é obrigatória";
     if (typeof parcela !== "number" || isNaN(parcela)) return "Valor da parcela é obrigatório";
     if (typeof pct !== "number" || isNaN(pct)) return "% de comissão é obrigatório";
@@ -424,7 +428,8 @@ const Seguros = () => {
       cliente: String(form.cliente || "").trim().toUpperCase(),
       cod_assessor: form.cod_assessor || null,
       periodicidade: form.periodicidade || null,
-      seguradora: form.seguradora || null,
+      seguradora: form.seguradora || "N/A",
+      produto: form.produto || null,
       valor_parcela: form.valor_parcela ?? null,
       percent_comissao: form.percent_comissao ?? null,
       valor_comissao: form.valor_comissao ?? null,
@@ -498,6 +503,7 @@ const Seguros = () => {
       Cliente: r.cliente || "",
       "Código Assessor": r.cod_assessor || "",
       Periodicidade: r.periodicidade || "",
+      Produto: r.produto || "",
       Seguradora: r.seguradora || "",
       "Valor Parcela": r.valor_parcela ?? "",
       "% Comissão": r.percent_comissao ?? "",
@@ -515,7 +521,8 @@ const Seguros = () => {
     { value: "ANUAL", label: "Anual" },
   ];
 
-  const seguradoraOptions: Seguradora[] = ["MAG", "ICATU", "METLIFE", "OMINT", "PRUDENTIAL"];
+  const seguradoraOptions: Seguradora[] = ["MAG", "ICATU", "METLIFE", "OMINT", "PRUDENTIAL", "N/A"];
+  const produtoOptions: Produto[] = ["PLANO DE SAÚDE", "SEGURO DE VEÍCULOS", "SEGURO RC", "HOLDING", "OFFSHORE"];
 
   return (
     <PageLayout>
@@ -686,6 +693,7 @@ const Seguros = () => {
                 <TableHead className="w-[160px] whitespace-nowrap">Inscrição</TableHead>
                 <TableHead className="w-[320px] whitespace-nowrap">Cliente</TableHead>
                 <TableHead className="w-[280px] whitespace-nowrap">Assessor</TableHead>
+                <TableHead className="w-[180px] whitespace-nowrap">Produto</TableHead>
                 <TableHead className="w-[140px] whitespace-nowrap">Seguradora</TableHead>
                 <TableHead className="w-[150px] whitespace-nowrap text-right">Parcela</TableHead>
                 <TableHead className="w-[150px] whitespace-nowrap text-right">Comissão</TableHead>
@@ -696,11 +704,11 @@ const Seguros = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8">Carregando...</TableCell>
+                  <TableCell colSpan={9} className="text-center py-8">Carregando...</TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8">Nenhum registro encontrado</TableCell>
+                  <TableCell colSpan={9} className="text-center py-8">Nenhum registro encontrado</TableCell>
                 </TableRow>
               ) : (
                 pageItems.map((r) => (
@@ -716,6 +724,7 @@ const Seguros = () => {
                         {r.cod_assessor ? (assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor) : "-"}
                       </div>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap">{r.produto || "-"}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.seguradora || "-"}</TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(r.valor_parcela)}</TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(r.valor_comissao)}</TableCell>
@@ -810,6 +819,21 @@ const Seguros = () => {
                     {periodicidadeOptions.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Produto</Label>
+                <Select value={String(form.produto ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, produto: v as Produto }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {produtoOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
                       </SelectItem>
                     ))}
                   </SelectContent>
