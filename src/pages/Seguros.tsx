@@ -693,7 +693,6 @@ const Seguros = () => {
                 <TableHead className="w-[160px] whitespace-nowrap">Inscrição</TableHead>
                 <TableHead className="w-[320px] whitespace-nowrap">Cliente</TableHead>
                 <TableHead className="w-[280px] whitespace-nowrap">Assessor</TableHead>
-                <TableHead className="w-[180px] whitespace-nowrap">Produto</TableHead>
                 <TableHead className="w-[140px] whitespace-nowrap">Seguradora</TableHead>
                 <TableHead className="w-[150px] whitespace-nowrap text-right">Parcela</TableHead>
                 <TableHead className="w-[150px] whitespace-nowrap text-right">Comissão</TableHead>
@@ -704,11 +703,11 @@ const Seguros = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">Carregando...</TableCell>
+                  <TableCell colSpan={8} className="text-center py-8">Carregando...</TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">Nenhum registro encontrado</TableCell>
+                  <TableCell colSpan={8} className="text-center py-8">Nenhum registro encontrado</TableCell>
                 </TableRow>
               ) : (
                 pageItems.map((r) => (
@@ -724,7 +723,6 @@ const Seguros = () => {
                         {r.cod_assessor ? (assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor) : "-"}
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{r.produto || "-"}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.seguradora || "-"}</TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(r.valor_parcela)}</TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(r.valor_comissao)}</TableCell>
