@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -90,10 +91,65 @@ export function NpsDetailsDialog({
   metaNps,
   minAmostras,
 }: NpsDetailsDialogProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   type FilterKey = "todos" | "promotor" | "passivo" | "detrator" | "sem_nota";
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("todos");
-  const [search, setSearch] = useState("");
+  const searchParamFilter = searchParams.get("nps_filter") as FilterKey | null;
+  const activeFilter = searchParamFilter ?? "todos";
+
+  const searchParamQuery = searchParams.get("nps_search") || "";
+  const search = searchParamQuery;
+
+  const searchParamPage = searchParams.get("nps_page");
+  const currentPage = searchParamPage ? parseInt(searchParamPage, 10) : 1;
+
+  const onFilterChange = (filter: FilterKey) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (filter === "todos") {
+      nextParams.delete("nps_filter");
+    } else {
+      nextParams.set("nps_filter", filter);
+    }
+    nextParams.delete("nps_page"); // Reset page when filter changes
+    setSearchParams(nextParams, { replace: true, preventScrollReset: true });
+  };
+
+  const onSearchChange = (query: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (!query) {
+      nextParams.delete("nps_search");
+    } else {
+      nextParams.set("nps_search", query);
+    }
+    nextParams.delete("nps_page"); // Reset page when search changes
+    setSearchParams(nextParams, { replace: true, preventScrollReset: true });
+  };
+
+  const onPageChange = (page: number) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (page === 1) {
+      nextParams.delete("nps_page");
+    } else {
+      nextParams.set("nps_page", page.toString());
+    }
+    setSearchParams(nextParams, { replace: true, preventScrollReset: true });
+  };
+
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+  
+  const isOpen = searchParams.get("nps_modal") === "true";
+
+  const onOpenChange = (open: boolean) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (open) {
+      nextParams.set("nps_modal", "true");
+    } else {
+      nextParams.delete("nps_modal");
+      nextParams.delete("nps_filter");
+      nextParams.delete("nps_search");
+      nextParams.delete("nps_page");
+    }
+    setSearchParams(nextParams, { replace: true, preventScrollReset: true });
+  };
 
   const baseData = React.useMemo(() => {
     const isCaducou = (v: any) => {
@@ -166,6 +222,12 @@ export function NpsDetailsDialog({
     return result;
   }, [sorted, activeFilter, search, sortConfig]);
 
+  // --- PAGINAÇÃO ---
+  const PAGE_SIZE = 15;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, currentPage), pageCount);
+  const pagedData = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   const semRespostaCount = baseData.filter(r => r.nota_score === null).length;
 
   const mesLabel = (() => {
@@ -206,7 +268,7 @@ export function NpsDetailsDialog({
   };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
 
       <DialogContent className="bg-[#0a0e14] border-white/10 text-[#E8E8E0] max-w-5xl w-full p-0 overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.6)]">
@@ -303,7 +365,7 @@ export function NpsDetailsDialog({
               ] as { key: FilterKey; label: string; activeClass?: string }[]).map((f) => (
                 <button
                   key={f.key}
-                  onClick={() => setActiveFilter(f.key)}
+                  onClick={() => onFilterChange(f.key)}
                   className={cn(
                     "px-3 py-1 rounded-md text-[11px] font-data uppercase tracking-widest transition-all whitespace-nowrap",
                     activeFilter === f.key
@@ -322,7 +384,7 @@ export function NpsDetailsDialog({
                 type="text"
                 placeholder="Buscar por conta ou assessor..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full pl-8 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[12px] font-data text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
               />
             </div>
