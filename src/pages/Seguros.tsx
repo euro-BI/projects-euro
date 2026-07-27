@@ -42,7 +42,7 @@ import { addMonths, addYears, format, parseISO } from "date-fns";
 
 type Periodicidade = "MENSAL" | "ANUAL";
 type Seguradora = "MAG" | "ICATU" | "METLIFE" | "OMINT" | "PRUDENTIAL" | "N/A";
-type Produto = "PLANO DE SAÚDE" | "SEGURO DE VEÍCULOS" | "SEGURO RC" | "HOLDING" | "OFFSHORE";
+type Produto = "PLANO DE SAÚDE" | "SEGURO DE VEÍCULOS" | "SEGURO RC" | "HOLDING" | "OFFSHORE" | "SEGURO DE VIDA";
 
 type DadosSeguroNovo = {
   id: number;
@@ -522,7 +522,7 @@ const Seguros = () => {
   ];
 
   const seguradoraOptions: Seguradora[] = ["MAG", "ICATU", "METLIFE", "OMINT", "PRUDENTIAL", "N/A"];
-  const produtoOptions: Produto[] = ["PLANO DE SAÚDE", "SEGURO DE VEÍCULOS", "SEGURO RC", "HOLDING", "OFFSHORE"];
+  const produtoOptions: Produto[] = ["PLANO DE SAÚDE", "SEGURO DE VEÍCULOS", "SEGURO RC", "HOLDING", "OFFSHORE", "SEGURO DE VIDA"];
 
   return (
     <PageLayout>
