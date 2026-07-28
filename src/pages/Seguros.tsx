@@ -40,7 +40,7 @@ import { ArrowLeft, Download, Edit, FileSpreadsheet, Plus, Search, SlidersHorizo
 import * as XLSX from "xlsx";
 import { addMonths, addYears, format, parseISO } from "date-fns";
 
-type Periodicidade = "MENSAL" | "ANUAL";
+type Periodicidade = "MENSAL" | "ANUAL" | "1 MÊS" | "2 MESES" | "3 MESES";
 type Seguradora = "MAG" | "ICATU" | "METLIFE" | "OMINT" | "PRUDENTIAL" | "N/A";
 type Produto = "PLANO DE SAÚDE" | "SEGURO DE VEÍCULOS" | "SEGURO RC" | "HOLDING" | "OFFSHORE" | "SEGURO DE VIDA";
 
@@ -455,10 +455,21 @@ const Seguros = () => {
 
     const periodicidade = payload.periodicidade as Periodicidade;
     const baseDate = parseISO(String(payload.data_inicial));
-    const dates =
-      periodicidade === "MENSAL"
-        ? Array.from({ length: 24 }, (_, i) => format(addMonths(baseDate, i), "yyyy-MM-dd"))
-        : [0, 1, 2].map((y) => format(addYears(baseDate, y), "yyyy-MM-dd"));
+    
+    let dates: string[] = [];
+    if (periodicidade === "MENSAL") {
+      dates = Array.from({ length: 24 }, (_, i) => format(addMonths(baseDate, i), "yyyy-MM-dd"));
+    } else if (periodicidade === "ANUAL") {
+      dates = [0, 1, 2].map((y) => format(addYears(baseDate, y), "yyyy-MM-dd"));
+    } else if (periodicidade === "1 MÊS") {
+      dates = [format(baseDate, "yyyy-MM-dd")];
+    } else if (periodicidade === "2 MESES") {
+      dates = Array.from({ length: 2 }, (_, i) => format(addMonths(baseDate, i), "yyyy-MM-dd"));
+    } else if (periodicidade === "3 MESES") {
+      dates = Array.from({ length: 3 }, (_, i) => format(addMonths(baseDate, i), "yyyy-MM-dd"));
+    } else {
+      dates = [format(baseDate, "yyyy-MM-dd")];
+    }
 
     const insertRows = dates.map((d) => ({
       ...payload,
@@ -519,6 +530,9 @@ const Seguros = () => {
   const periodicidadeOptions: { value: Periodicidade; label: string }[] = [
     { value: "MENSAL", label: "Mensal" },
     { value: "ANUAL", label: "Anual" },
+    { value: "1 MÊS", label: "1 Mês" },
+    { value: "2 MESES", label: "2 Meses" },
+    { value: "3 MESES", label: "3 Meses" },
   ];
 
   const seguradoraOptions: Seguradora[] = ["MAG", "ICATU", "METLIFE", "OMINT", "PRUDENTIAL", "N/A"];
@@ -808,23 +822,24 @@ const Seguros = () => {
                 </Select>
               </div>
               <div>
-                <Label>Periodicidade</Label>
-                <Select value={String(form.periodicidade ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, periodicidade: v as Periodicidade }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {periodicidadeOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <Label>Produto</Label>
-                <Select value={String(form.produto ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, produto: v as Produto }))}>
+                <Select 
+                  value={String(form.produto ?? "")} 
+                  onValueChange={(v) => {
+                    const newProduto = v as Produto;
+                    const validForHolding = ["1 MÊS", "2 MESES", "3 MESES"];
+                    const validForOthers = ["MENSAL", "ANUAL"];
+                    let newPeriodicidade = form.periodicidade;
+                    
+                    if (newProduto === "HOLDING" && (!newPeriodicidade || !validForHolding.includes(newPeriodicidade))) {
+                      newPeriodicidade = null;
+                    } else if (newProduto !== "HOLDING" && (!newPeriodicidade || !validForOthers.includes(newPeriodicidade))) {
+                      newPeriodicidade = null;
+                    }
+                    
+                    setForm((f) => ({ ...f, produto: newProduto, periodicidade: newPeriodicidade }));
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -847,6 +862,27 @@ const Seguros = () => {
                     {seguradoraOptions.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Periodicidade</Label>
+                <Select value={String(form.periodicidade ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, periodicidade: v as Periodicidade }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periodicidadeOptions
+                      .filter((o) =>
+                        form.produto === "HOLDING"
+                          ? ["1 MÊS", "2 MESES", "3 MESES"].includes(o.value)
+                          : ["MENSAL", "ANUAL"].includes(o.value)
+                      )
+                      .map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
