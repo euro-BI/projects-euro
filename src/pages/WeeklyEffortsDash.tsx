@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parseISO, startOfDay, addMonths } from "date-fns";
+import { format, startOfWeek, endOfWeek, subWeeks, subMonths, startOfMonth, endOfMonth, parseISO, startOfDay, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, ReferenceLine, LabelList } from "recharts";
 
-type PeriodType = "currentWeek" | "prevWeek" | "currentMonth";
+type PeriodType = "currentWeek" | "prevWeek" | "currentMonth" | "prevMonth";
 const FIXED_MONTH_WEEKS = 4;
 
 function ProgressStrip({
@@ -145,6 +145,13 @@ export default function WeeklyEffortsDash() {
         end: format(endOfWeek(prevWeek, { weekStartsOn: 1 }), "yyyy-MM-dd"),
         label: "Semana Anterior"
       };
+    } else if (period === "prevMonth") {
+      const prevMonth = subMonths(now, 1);
+      return {
+        start: format(startOfMonth(prevMonth), "yyyy-MM-dd"),
+        end: format(endOfMonth(prevMonth), "yyyy-MM-dd"),
+        label: "Mês Anterior"
+      };
     } else {
       return {
         start: format(startOfMonth(now), "yyyy-MM-dd"),
@@ -235,8 +242,29 @@ export default function WeeklyEffortsDash() {
       const currMonthStart = format(startOfMonth(now), "yyyy-MM-dd");
       const currMonthEnd = format(endOfMonth(now), "yyyy-MM-dd");
 
+      const prevMonthDate = subMonths(now, 1);
+      const prevMonthStart = format(startOfMonth(prevMonthDate), "yyyy-MM-dd");
+      const prevMonthEnd = format(endOfMonth(prevMonthDate), "yyyy-MM-dd");
+
+      const targetMonthDate = parseISO(periodDates.start);
+      const targetMonthStart = format(startOfMonth(targetMonthDate), "yyyy-MM-dd");
+      const targetMonthEnd = format(endOfMonth(targetMonthDate), "yyyy-MM-dd");
+
       // We need min and max dates to fetch all at once
-      const allDates = [periodDates.start, periodDates.end, currWeekStart, currWeekEnd, prevWeekStart, prevWeekEnd, currMonthStart, currMonthEnd].sort();
+      const allDates = [
+        periodDates.start, 
+        periodDates.end, 
+        currWeekStart, 
+        currWeekEnd, 
+        prevWeekStart, 
+        prevWeekEnd, 
+        currMonthStart, 
+        currMonthEnd, 
+        prevMonthStart, 
+        prevMonthEnd,
+        targetMonthStart,
+        targetMonthEnd
+      ].sort();
       const minDate = allDates[0];
       const maxDate = allDates[allDates.length - 1];
 
@@ -407,6 +435,11 @@ export default function WeeklyEffortsDash() {
     // Selected Period Data
     const current = processRange(periodDates.start, periodDates.end);
     
+    const targetMonthDate = parseISO(periodDates.start);
+    const targetMonthStart = format(startOfMonth(targetMonthDate), "yyyy-MM-dd");
+    const targetMonthEnd = format(endOfMonth(targetMonthDate), "yyyy-MM-dd");
+    const selectedMonth = processRange(targetMonthStart, targetMonthEnd);
+    
     // Always calculate Current Week vs Prev Week for the comparative card
     const now = new Date();
     const currWeekStart = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
@@ -416,14 +449,18 @@ export default function WeeklyEffortsDash() {
     const prevWeekEnd = format(endOfWeek(prevWeekDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
     const currMonthStart = format(startOfMonth(now), "yyyy-MM-dd");
     const currMonthEnd = format(endOfMonth(now), "yyyy-MM-dd");
+    const prevMonthDate = subMonths(now, 1);
+    const prevMonthStart = format(startOfMonth(prevMonthDate), "yyyy-MM-dd");
+    const prevMonthEnd = format(endOfMonth(prevMonthDate), "yyyy-MM-dd");
 
     const comparative = {
       currentWeek: processRange(currWeekStart, currWeekEnd),
       prevWeek: processRange(prevWeekStart, prevWeekEnd),
-      currentMonth: processRange(currMonthStart, currMonthEnd)
+      currentMonth: processRange(currMonthStart, currMonthEnd),
+      prevMonth: processRange(prevMonthStart, prevMonthEnd),
     };
 
-    return { current, comparative };
+    return { current, selectedMonth, comparative };
   }, [dashboardData, metadata, periodDates, selectedTeam, selectedAssessor, today]);
 
   const handleSort = (key: string) => {
@@ -463,11 +500,27 @@ export default function WeeklyEffortsDash() {
     if (!processedData) return null;
 
     const current = processedData.current;
-    const month = processedData.comparative.currentMonth;
-    const monthStart = startOfMonth(today);
-    const monthEnd = endOfMonth(today);
+    const month = processedData.selectedMonth;
+
+    const targetMonthDate = parseISO(periodDates.start);
+    const monthStart = startOfMonth(targetMonthDate);
+    const monthEnd = endOfMonth(targetMonthDate);
     const totalMonthDays = monthEnd.getDate();
-    const elapsedMonthDays = Math.min(today.getDate(), totalMonthDays);
+
+    const currentMonthStart = startOfMonth(today);
+    
+    let elapsedMonthDays = totalMonthDays;
+    let isCurrentMonth = false;
+
+    if (monthStart.getTime() === currentMonthStart.getTime()) {
+      isCurrentMonth = true;
+      elapsedMonthDays = Math.min(today.getDate(), totalMonthDays);
+    } else if (monthStart.getTime() > currentMonthStart.getTime()) {
+      elapsedMonthDays = 0;
+    } else {
+      elapsedMonthDays = totalMonthDays;
+    }
+
     const monthProgressRatio = totalMonthDays > 0 ? elapsedMonthDays / totalMonthDays : 0;
     const fullMonthWeeks = FIXED_MONTH_WEEKS;
     const monthlyMetaTotal = month.totalAssessores * fullMonthWeeks;
@@ -479,6 +532,9 @@ export default function WeeklyEffortsDash() {
     const monthlyGap = Math.max(monthlyMetaTotal - month.realizadas, 0);
     const currentGap = Math.max(current.totalMeta - current.realizadas, 0);
     const indicationShare = current.realizadas > 0 ? (current.indicacao / current.realizadas) * 100 : 0;
+
+    const monthName = format(monthStart, "MMMM", { locale: ptBR });
+    const monthLabel = isCurrentMonth ? "do mês" : `de ${monthName}`;
 
     return {
       current,
@@ -495,8 +551,11 @@ export default function WeeklyEffortsDash() {
       monthlyGap,
       currentGap,
       indicationShare,
+      isCurrentMonth,
+      monthName,
+      monthLabel,
     };
-  }, [processedData, today]);
+  }, [processedData, today, periodDates]);
 
   const monthlyComparisonData = useMemo(() => {
     if (!monthlyHistoryData || !metadata) return [];
@@ -804,6 +863,7 @@ export default function WeeklyEffortsDash() {
                     <SelectItem value="currentWeek">Semana Atual</SelectItem>
                     <SelectItem value="prevWeek">Semana Anterior</SelectItem>
                     <SelectItem value="currentMonth">Mês Atual</SelectItem>
+                    <SelectItem value="prevMonth">Mês Anterior</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -982,10 +1042,10 @@ export default function WeeklyEffortsDash() {
                       <div className="flex items-start justify-between gap-4 mb-6">
                         <div>
                           <p className="text-[10px] font-data uppercase tracking-[0.25em] text-euro-gold/80 mb-2">
-                            Meta mensal geral
+                            {dashboardStory.isCurrentMonth ? "Meta mensal geral" : `Meta ${dashboardStory.monthLabel}`}
                           </p>
                           <h3 className="text-xl sm:text-2xl font-data text-white uppercase tracking-[0.18em]">
-                            Meta de reuniões do mês
+                            Meta de reuniões {dashboardStory.monthLabel}
                           </h3>
                         </div>
                         <Target className="w-5 h-5 text-euro-gold shrink-0 mt-1" />
@@ -1071,7 +1131,9 @@ export default function WeeklyEffortsDash() {
                     <CardContent className="p-6 space-y-5 h-full flex flex-col">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="text-[10px] font-data uppercase tracking-[0.22em] text-[#D8B4FE] mb-2">Pace do mês</p>
+                          <p className="text-[10px] font-data uppercase tracking-[0.22em] text-[#D8B4FE] mb-2">
+                            Pace {dashboardStory.monthLabel}
+                          </p>
                           <h3 className="text-lg font-data text-white uppercase tracking-[0.15em]">Ritmo proporcional</h3>
                         </div>
                         <Clock className="w-5 h-5 text-[#A855F7] shrink-0 mt-1" />
@@ -1099,7 +1161,7 @@ export default function WeeklyEffortsDash() {
                       </div>
 
                       <p className="text-sm text-white/60 leading-relaxed">
-                        Pace = meta mensal proporcional ao avanço do mês. Hoje consideramos {dashboardStory.elapsedMonthDays} de {dashboardStory.totalMonthDays} dias corridos.
+                        Pace = meta mensal proporcional ao avanço do mês. {dashboardStory.isCurrentMonth ? `Hoje consideramos ${dashboardStory.elapsedMonthDays} de ${dashboardStory.totalMonthDays} dias corridos.` : "Mês encerrado (100% dos dias corridos)."}
                       </p>
                     </CardContent>
                   </Card>
