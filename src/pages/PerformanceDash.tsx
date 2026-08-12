@@ -147,6 +147,8 @@ export default function PerformanceDash() {
     const current = new Date().getFullYear();
     return current < 2026 ? "2026" : current.toString();
   });
+  const [rankingPeriod, setRankingPeriod] = useState<"year" | "s1" | "s2" | "month">("year");
+  const [rankingMonth, setRankingMonth] = useState<string>("all");
 
   const formatCurrencyValue = (val: number) => {
     const absVal = Math.abs(val);
@@ -1201,6 +1203,10 @@ export default function PerformanceDash() {
               data={rankingData || []} 
               selectedYear={rankingYear}
               onYearChange={setRankingYear}
+              periodType={rankingPeriod}
+              onPeriodChange={setRankingPeriod}
+              selectedMonth={rankingMonth}
+              onMonthChange={setRankingMonth}
             />
             
             <div className="hidden sm:block">
@@ -1215,6 +1221,8 @@ export default function PerformanceDash() {
               <RankingTable 
                 data={rankingData || []} 
                 selectedYear={rankingYear}
+                periodType={rankingPeriod}
+                selectedMonth={rankingMonth}
               />
             </div>
             

@@ -24,7 +24,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { format, parseISO, getYear } from "date-fns";
+import { format, parseISO, getYear, getMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
@@ -33,9 +33,11 @@ const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 interface RankingTableProps {
   data: AssessorResumo[];
   selectedYear: string;
+  periodType?: "year" | "s1" | "s2" | "month";
+  selectedMonth?: string;
 }
 
-export default function RankingTable({ data, selectedYear }: RankingTableProps) {
+export default function RankingTable({ data, selectedYear, periodType, selectedMonth }: RankingTableProps) {
   const [selectedCluster, setSelectedCluster] = useState<string | null>("A");
   const [openClusterCombobox, setOpenClusterCombobox] = useState(false);
 
@@ -61,6 +63,15 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
       if (d.cod_assessor && BLOCKED_ASSESSORS.includes(d.cod_assessor)) return false;
       if (getYear(parseISO(d.data_posicao)).toString() !== selectedYear) return false;
       if (selectedCluster && d.cluster !== selectedCluster) return false;
+      
+      if (periodType === "s1") {
+        if (getMonth(parseISO(d.data_posicao)) >= 6) return false;
+      } else if (periodType === "s2") {
+        if (getMonth(parseISO(d.data_posicao)) < 6) return false;
+      } else if (periodType === "month" && selectedMonth && selectedMonth !== "all") {
+        if (format(parseISO(d.data_posicao), "yyyy-MM") !== selectedMonth) return false;
+      }
+
       return true;
     });
 
@@ -106,7 +117,7 @@ export default function RankingTable({ data, selectedYear }: RankingTableProps) 
     }, {});
 
     return Object.values(grouped).sort((a: any, b: any) => b.pontos_total - a.pontos_total);
-  }, [data, selectedYear, selectedCluster]);
+  }, [data, selectedYear, selectedCluster, periodType, selectedMonth]);
 
   const formatCaptacaoAbreviada = (value: number) => {
     const absValue = Math.abs(value);

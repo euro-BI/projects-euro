@@ -50,22 +50,33 @@ import { ptBR } from "date-fns/locale";
 const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 
-interface SuperRankingProps {
+type PeriodType = "year" | "s1" | "s2" | "month";
+
+export interface SuperRankingProps {
   data: AssessorResumo[];
   selectedYear: string;
   onYearChange?: (year: string) => void;
   onAssessorClick?: (assessor: AssessorResumo) => void;
   variant?: "default" | "tv";
   tvMode?: "month" | "semester" | "year";
+  periodType?: PeriodType;
+  onPeriodChange?: (period: PeriodType) => void;
+  selectedMonth?: string;
+  onMonthChange?: (month: string) => void;
 }
 
-type PeriodType = "year" | "s1" | "s2" | "month";
 
-export default function SuperRanking({ data, selectedYear, onYearChange, onAssessorClick, variant = "default", tvMode }: SuperRankingProps) {
+export default function SuperRanking({ data, selectedYear, onYearChange, onAssessorClick, variant = "default", tvMode, periodType: externalPeriodType, onPeriodChange, selectedMonth: externalSelectedMonth, onMonthChange }: SuperRankingProps) {
   const isTv = variant === "tv";
   const effectiveTvMode = isTv ? (tvMode ?? "month") : undefined;
-  const [periodType, setPeriodType] = useState<PeriodType>("year");
-  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [internalPeriodType, setInternalPeriodType] = useState<PeriodType>("year");
+  const [internalSelectedMonth, setInternalSelectedMonth] = useState<string>("all");
+  
+  const periodType = externalPeriodType !== undefined ? externalPeriodType : internalPeriodType;
+  const setPeriodType = onPeriodChange || setInternalPeriodType;
+  
+  const selectedMonth = externalSelectedMonth !== undefined ? externalSelectedMonth : internalSelectedMonth;
+  const setSelectedMonth = onMonthChange || setInternalSelectedMonth;
   const [mobileDetailAssessor, setMobileDetailAssessor] = useState<any | null>(null);
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
 
