@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Users, 
@@ -122,11 +122,11 @@ export function PosicaoBlack({ selectedMonth, selectedTeam, selectedAssessorId, 
 
   // 1. Fetch ALL data from the view (Centralized)
   const { data: allViewData, isLoading: isLoadingView } = useQuery({
-    queryKey: ["posicao-black-all-view-data"],
+    queryKey: ["posicao-black-all-view-data", selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("vw_resumo_clientes_posicao" as any)
-        .select("*");
+        .rpc("rpc_get_resumo_clientes_posicao", { p_assessores: selectedAssessorId?.length > 0 ? selectedAssessorId : null } as any);
         
       if (error) throw error;
       return data as any as ClientePosicaoBlack[];
@@ -163,6 +163,7 @@ export function PosicaoBlack({ selectedMonth, selectedTeam, selectedAssessorId, 
   // 1.2 Fetch Active Assessors Info (From Latest Position in mv_resumo_assessor)
   const { data: activeAssessorsData, isLoading: isLoadingActive } = useQuery({
     queryKey: ["active-assessors-info-posicao-black"],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // 1. Get latest date
       const { data: latestDateData } = await supabase

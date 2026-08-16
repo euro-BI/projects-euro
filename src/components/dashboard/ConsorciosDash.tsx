@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -315,6 +315,7 @@ export default function ConsorciosDash({
   // 1. Fetch Assessor -> Team mapping to filter properly
   const { data: activeAssessorsData } = useQuery({
     queryKey: ["active-assessors-info-consorcio"],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: latestDateData } = await supabase
         .from("mv_resumo_assessor" as any)
@@ -342,6 +343,7 @@ export default function ConsorciosDash({
   // 2. Fetch Base View (Dimensão) - All sales in selectedYear
   const { data: consorcioData, isLoading: isLoadingDim } = useQuery({
     queryKey: ["consorcios-dim", selectedYear],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const startDate = `${selectedYear}-01-01`;
       const endDate = `${selectedYear}-12-31`;
@@ -360,6 +362,7 @@ export default function ConsorciosDash({
   // 3. Fetch Comissões View (Fato) - All commissions falling in selectedMonth
   const { data: comissoesDataMes, isLoading: isLoadingFact } = useQuery({
     queryKey: ["consorcios-fact", selectedMonthKey],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       if (!selectedMonthKey) return [];
       
@@ -382,6 +385,7 @@ export default function ConsorciosDash({
   // 4. Fetch Comissões for the entire Year (for Chart)
   const { data: comissoesDataAno } = useQuery({
     queryKey: ["consorcios-fact-ano", selectedYear],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data } = await supabase
         .from("vw_dados_consorcio_comissoes" as any)
@@ -395,6 +399,7 @@ export default function ConsorciosDash({
   // 5. Fetch mv_resumo_assessor for the entire Year (for Chart target calculation)
   const { data: mvDataAno } = useQuery({
     queryKey: ["mv-resumo-assessor-ano-consorcio", selectedYear],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data } = await supabase
         .from("mv_resumo_assessor" as any)

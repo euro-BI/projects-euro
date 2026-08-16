@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { BarChart3, Download, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -136,17 +136,22 @@ async function fetchClientNameMap(codes: string[]) {
   return map;
 }
 
-export default function ParetoClientes12mDash() {
+interface ParetoClientes12mDashProps {
+  selectedAssessorId?: string[];
+}
+
+export default function ParetoClientes12mDash({ selectedAssessorId = [] }: ParetoClientes12mDashProps) {
   const [metric, setMetric] = useState<ParetoMetric>("bruta");
   const [tableSearch, setTableSearch] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "receita", direction: "desc" });
   const [selectedClient, setSelectedClient] = useState<ParetoRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["pareto-clientes-12m"],
+    queryKey: ["pareto-clientes-12m", selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: rows, error: rowsError } = await supabase
-        .from("vw_pareto_clientes_12m" as any)
+        .rpc("rpc_get_pareto_clientes_12m", { p_assessores: selectedAssessorId.length > 0 ? selectedAssessorId : null } as any)
         .select("*")
         .range(0, 20000);
 

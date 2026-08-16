@@ -197,35 +197,7 @@ export default function DashboardHome() {
             </div>
           )}
 
-          {/* Card Marketing */}
-          {(!isRegularUser && !isProdutosOnly && userRole !== "seguros") && (
-            <div 
-              onClick={() => navigate("/dash/marketing")}
-              className="cursor-pointer"
-            >
-            <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
-              <CardContent className="h-full flex flex-col items-center p-8 pt-10 relative">
-                <div className="absolute inset-0 bg-gradient-to-b from-[#A855F7]/5 to-transparent" />
-                
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#A855F7] to-[#7C3AED] flex items-center justify-center mb-6 shadow-lg shrink-0">
-                  <BarChart3 className="w-10 h-10 text-white" />
-                </div>
-                
-                <h2 className="text-3xl font-display text-white mb-3 tracking-wide">
-                  Marketing
-                </h2>
-                
-                <p className="text-[#A0A090] text-center font-light mb-auto max-w-xs line-clamp-3 min-h-[4.5rem]">
-                  Análise de performance de tráfego pago, campanhas e gestão de leads e custos.
-                </p>
-                
-                <div className="flex items-center gap-2 text-[#A855F7] font-data text-xs uppercase tracking-widest mt-4">
-                  Acessar Marketing <ArrowRight className="w-4 h-4" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          )}
+
 
           {/* Card Esforço Semanal */}
           <div 

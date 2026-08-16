@@ -56,29 +56,22 @@ export const Header = () => {
   // Função para obter o nome da página atual
   const getCurrentPageName = () => {
     if (location.pathname === '/') return 'Início';
-    if (location.pathname === '/dashboard') return 'Dashboard';
-    if (location.pathname.startsWith('/projects')) return 'Projetos';
     if (location.pathname === '/bi-dashboard') return 'Atualizações BD';
     if (location.pathname === '/consorcios') return 'Consórcios';
     if (location.pathname === '/seguros') return 'Seguros';
     if (location.pathname === '/chat') return 'IA Chat';
     if (location.pathname === '/users') return 'Usuários';
-    if (location.pathname === '/tv-presentations') return 'Gestão TV';
-    if (location.pathname === '/tv-published') return 'TV Dashboards';
     return 'Início';
   };
 
   // Função para obter o ícone da página atual
   const getCurrentPageIcon = () => {
     if (location.pathname === '/') return Home;
-    if (location.pathname === '/dashboard') return LayoutDashboard;
-    if (location.pathname.startsWith('/projects')) return FolderKanban;
     if (location.pathname === '/bi-dashboard') return RefreshCw;
     if (location.pathname === '/consorcios') return FileSpreadsheet;
     if (location.pathname === '/seguros') return Shield;
     if (location.pathname === '/chat') return MessageSquare;
     if (location.pathname === '/users') return Users;
-    if (location.pathname === '/tv-presentations' || location.pathname === '/tv-published') return Tv;
     return Home;
   };
 
@@ -139,14 +132,7 @@ export const Header = () => {
         </Badge>
       );
     }
-    if (userRole === "marketing") {
-      return (
-        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] py-0 h-4">
-          <BarChart3 className="w-2 h-2 mr-1" />
-          Marketing
-        </Badge>
-      );
-    }
+
     if (userRole === "produtos") {
       return (
         <Badge className="bg-[#4ADE80]/20 text-[#4ADE80] border-[#4ADE80]/30 text-[10px] py-0 h-4">
@@ -279,18 +265,6 @@ export const Header = () => {
                     </DropdownMenuItem>
                   )}
                   {isAdminMaster && (
-                    <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </DropdownMenuItem>
-                  )}
-                  {isAdminMaster && (
-                    <DropdownMenuItem onClick={() => navigate('/projects')}>
-                      <FolderKanban className="w-4 h-4 mr-2" />
-                      Projetos
-                    </DropdownMenuItem>
-                  )}
-                  {isAdminMaster && (
                     <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Atualizações BD
@@ -308,28 +282,10 @@ export const Header = () => {
                       Seguros
                     </DropdownMenuItem>
                   )}
-                  {canAccessPowerBI && (
-                    <DropdownMenuItem onClick={() => navigate('/powerbi')}>
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Power BI
-                    </DropdownMenuItem>
-                  )}
                   {canAccessIAChat && (
                     <DropdownMenuItem onClick={() => navigate('/chat')}>
                       <MessageSquare className="w-4 h-4 mr-2" />
                       IA Chat
-                    </DropdownMenuItem>
-                  )}
-                  {isAdminMaster && (
-                    <DropdownMenuItem onClick={() => navigate('/tv-published')}>
-                      <Tv className="w-4 h-4 mr-2" />
-                      TV Dashboards
-                    </DropdownMenuItem>
-                  )}
-                  {isAdminMaster && (
-                    <DropdownMenuItem onClick={() => navigate('/tv-presentations')}>
-                      <Settings className="w-4 h-4 mr-2" />
-                      Gestão TV
                     </DropdownMenuItem>
                   )}
 
@@ -383,15 +339,6 @@ export const Header = () => {
                     Ações
                   </DropdownMenuLabel>
 
-                  {isAdminMaster && (
-                    <DropdownMenuItem
-                      onClick={() => navigate("/dashboard-management")}
-                      className="cursor-pointer hover:bg-primary/10"
-                    >
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Gerenciar Dashboards
-                    </DropdownMenuItem>
-                  )}
                   {isAdminMaster && (
                     <DropdownMenuItem
                       onClick={() => navigate("/users")}

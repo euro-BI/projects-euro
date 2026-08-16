@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import {
@@ -281,6 +281,7 @@ export default function RendaFixaDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: mvData, isLoading: isMvLoading } = useQuery({
     queryKey: ["rf-mv-data", selectedYear, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase
         .from("dados_times" as any) as any)
@@ -323,6 +324,7 @@ export default function RendaFixaDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: rfFluxoData, isLoading: isRfFluxoLoading } = useQuery({
     queryKey: ["rf-fluxo-data", selectedMonthKey, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // Get all active teams
       const { data: activeTeamsData } = await (supabase
@@ -405,6 +407,7 @@ export default function RendaFixaDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: ofertasRfData, isLoading: isOfertasRfLoading } = useQuery({
     queryKey: ["ofertas-rf-data", selectedMonthKey, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase
         .from("dados_times" as any) as any)
@@ -513,6 +516,7 @@ export default function RendaFixaDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: ofertasFundosData, isLoading: isOfertasFundosLoading } = useQuery({
     queryKey: ["ofertas-fundos-data", selectedMonthKey, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase
         .from("dados_times" as any) as any)
@@ -622,6 +626,7 @@ export default function RendaFixaDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: cetipadosData, isLoading: isCetipadosLoading } = useQuery({
     queryKey: ["cetipados-data", selectedMonthKey, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase
         .from("dados_times" as any) as any)
@@ -704,6 +709,7 @@ export default function RendaFixaDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: offshoreData, isLoading: isOffshoreLoading } = useQuery({
     queryKey: ["offshore-detail-data", selectedMonthKey, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase
         .from("dados_times" as any) as any)
@@ -827,6 +833,7 @@ export default function RendaFixaDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: oppsData, isLoading: isOppsLoading } = useQuery({
     queryKey: ["rf-opportunities-data", selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase
         .from("dados_times" as any) as any)

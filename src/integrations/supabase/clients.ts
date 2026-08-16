@@ -11,6 +11,9 @@ const SUPABASE_SECONDARY_ANON_KEY = import.meta.env.VITE_SUPABASE_SECONDARY_ANON
 
 // Cliente principal (mantém compatibilidade com código existente)
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  db: {
+    schema: 'euro_dash'
+  },
   auth: {
     storage: localStorage,
     persistSession: true,
@@ -20,6 +23,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // Cliente secundário para a nova instância
 export const supabaseSecondary = createClient(SUPABASE_SECONDARY_URL, SUPABASE_SECONDARY_ANON_KEY, {
+  db: {
+    schema: 'euro_dash'
+  },
   auth: {
     storage: localStorage,
     persistSession: true,

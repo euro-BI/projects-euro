@@ -1192,22 +1192,34 @@ export default function AdvisorsDash() {
       
       const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
 
-      const { data, error } = await supabase
+      const { data: latestEntry } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, time, cod_assessor, nome_assessor")
-        .order("data_posicao", { ascending: false });
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const latestDate = latestEntry?.data_posicao;
+
+      const { data: latestData, error } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("time, cod_assessor, nome_assessor")
+        .eq("data_posicao", latestDate);
       
       if (error) throw error;
+
+      const { data: monthData } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao")
+        .order("data_posicao", { ascending: false });
       
-      const allMonths = Array.from(new Set(data.map((d: any) => d.data_posicao)));
+      const allMonths = Array.from(new Set(monthData?.map((d: any) => d.data_posicao) || []));
       const years = Array.from(new Set(allMonths.map(m => parseISO(m).getFullYear().toString()))).sort((a, b) => b.localeCompare(a));
-      const teams = Array.from(new Set(data.map((d: any) => d.time)))
+      const teams = Array.from(new Set(latestData.map((d: any) => d.time)))
         .filter(teamName => teamName && activeTeamNames.has(teamName));
       
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
-      const latestDate = data?.[0]?.data_posicao;
-      const latestRows = latestDate ? data.filter((d: any) => d.data_posicao === latestDate) : [];
-      latestRows.forEach((d: any) => {
+      latestData.forEach((d: any) => {
         if (d.cod_assessor && d.nome_assessor) {
           if (!assessorMap.has(d.cod_assessor)) {
             assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });

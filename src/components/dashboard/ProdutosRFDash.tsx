@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -71,6 +71,7 @@ export default function ProdutosRFDash({
 
   const { data: diversificadorData, isLoading } = useQuery({
     queryKey: ["produtos-rf-data", selectedMonthKey, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // If we have assessor filters, we first get their codes/names from mv_resumo_assessor
       // to map them properly since vw_diversificador_rf has 'assessor' which might be name or code.

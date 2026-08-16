@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import {
@@ -326,6 +326,7 @@ export default function RendaVariavelDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: rvData, isLoading: isRvLoading } = useQuery({
     queryKey: ["rv-executadas", selectedYear],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const prevYear = parseInt(selectedYear) - 1;
       const startDate = `${prevYear}-12-01`;
@@ -352,6 +353,7 @@ export default function RendaVariavelDash({
   // ────────────────────────────────────────────────────────────────────────
   const { data: mvData, isLoading: isMvLoading } = useQuery({
     queryKey: ["rv-mv-data", selectedYear, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase
         .from("dados_times" as any) as any)
@@ -387,11 +389,11 @@ export default function RendaVariavelDash({
   // Query 3 — vw_resumo_clientes_posicao (oportunidades PosicaoBlack)
   // ────────────────────────────────────────────────────────────────────────
     const { data: oppsData, isLoading: isOppsLoading } = useQuery({
-    queryKey: ["rv-oportunidades"],
+    queryKey: ["rv-oportunidades", selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("vw_resumo_clientes_posicao" as any)
-        .select("*");
+        .rpc("rpc_get_resumo_clientes_posicao", { p_assessores: selectedAssessorId?.length > 0 ? selectedAssessorId : null } as any);
       if (error) throw error;
       return data as any[];
     },
@@ -400,6 +402,7 @@ export default function RendaVariavelDash({
   // Active assessors for filtering oportunidades
   const { data: activeAssessors } = useQuery({
     queryKey: ["rv-active-assessors"],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: latestDateData } = await (supabase
         .from("mv_resumo_assessor" as any) as any)
@@ -441,6 +444,7 @@ export default function RendaVariavelDash({
 
   const { data: rvFixingData } = useQuery({
     queryKey: ["rv-fixing-data", format(subWeeks(today, 4), "yyyy-MM-dd"), format(addWeeks(today, 4), "yyyy-MM-dd")],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dados_rv_executadas" as any)

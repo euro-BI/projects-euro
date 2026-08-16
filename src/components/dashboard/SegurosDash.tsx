@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -246,6 +246,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   // ──────────────────────────────────────────────────────────────────────────
   const { data: activeAssessorsData } = useQuery({
     queryKey: ["active-assessors-info-seguros"],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: latestDateData } = await supabase
         .from("mv_resumo_assessor" as any)
@@ -274,6 +275,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   // ──────────────────────────────────────────────────────────────────────────
   const { data: mvDataAno } = useQuery({
     queryKey: ["mv-resumo-assessor-ano-seguros", selectedYear],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data } = await supabase
         .from("mv_resumo_assessor" as any)
@@ -289,6 +291,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   // ──────────────────────────────────────────────────────────────────────────
   const { data: segurosDataMes, isLoading: isLoadingMes } = useQuery({
     queryKey: ["seguros-novo-mes", selectedMonthKey],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       if (!selectedMonthKey) return [];
       const [year, month] = selectedMonthKey.split("-").map(Number);
@@ -312,6 +315,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   // ──────────────────────────────────────────────────────────────────────────
   const { data: segurosDataAno, isLoading: isLoadingAno } = useQuery({
     queryKey: ["seguros-novo-ano", selectedYear],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data } = await supabase
         .from("dados_seguros_novo" as any)

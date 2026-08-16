@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AssessorResumo } from "@/types/dashboard";
@@ -31,39 +31,68 @@ import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground"
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 
 export default function ManagementDash() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const persistKey = "filters:ManagementDash";
-  const persisted = readSessionJson<{
-    selectedYear?: string;
-    selectedMonth?: string;
-    selectedTeam?: string[];
-    selectedAssessorId?: string[];
-    activeTab?: string;
-  } | null>(persistKey, null);
+  
+  React.useEffect(() => {
+    if (searchParams.size === 0) {
+      const persisted = readSessionJson<Record<string, string>>(persistKey, {});
+      if (Object.keys(persisted).length > 0) {
+        setSearchParams(new URLSearchParams(persisted), { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams, persistKey]);
 
-  const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
-  const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? []);
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => persisted?.selectedAssessorId ?? []);
+  const pendingUpdates = React.useRef<Record<string, string | null>>({});
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const updateURLParams = (updates: Record<string, string | null>) => {
+    pendingUpdates.current = { ...pendingUpdates.current, ...updates };
+    
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setSearchParams((prevParams) => {
+        const newParams = new URLSearchParams(prevParams);
+        Object.entries(pendingUpdates.current).forEach(([key, value]) => {
+          if (value === null || value === undefined || value === "") {
+            newParams.delete(key);
+          } else {
+            newParams.set(key, value);
+          }
+        });
+        pendingUpdates.current = {};
+        return newParams;
+      }, { replace: true });
+    }, 10);
+  };
+  
+  const selectedYear = searchParams.get("selectedYear") || new Date().getFullYear().toString();
+  const selectedMonth = searchParams.get("selectedMonth") || "";
+  const selectedTeamRaw = searchParams.get("selectedTeam");
+  const selectedTeam = selectedTeamRaw ? selectedTeamRaw.split(",") : [];
+  
+  const selectedAssessorIdRaw = searchParams.get("selectedAssessorId");
+  const selectedAssessorId = selectedAssessorIdRaw ? selectedAssessorIdRaw.split(",") : [];
+  
+  const rawTab = searchParams.get("activeTab") || "cockpit";
+  const activeTab = rawTab === "superranking" ? "cockpit" : 
+                    (rawTab === "em-breve" || rawTab === "indicadores") ? "ranking-gerencial" : 
+                    rawTab;
+
+  const setSelectedYear = (val: string) => updateURLParams({ selectedYear: val });
+  const setSelectedMonth = (val: string) => updateURLParams({ selectedMonth: val });
+  const setSelectedTeam = (val: string[]) => updateURLParams({ selectedTeam: val.length > 0 ? val.join(",") : null });
+  const setSelectedAssessorId = (val: string[]) => updateURLParams({ selectedAssessorId: val.length > 0 ? val.join(",") : null });
+  const setActiveTab = (val: string) => updateURLParams({ activeTab: val });
+
   const [isMaximized, setIsMaximized] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    if (persisted?.activeTab === "superranking") return "cockpit";
-    if (persisted?.activeTab === "em-breve") return "ranking-gerencial";
-    if (persisted?.activeTab === "indicadores") return "ranking-gerencial";
-    return persisted?.activeTab ?? "cockpit";
-  });
   
   const navigate = useNavigate();
   const { userRole, userCode } = useAuth();
 
   React.useEffect(() => {
-    writeSessionJson(persistKey, {
-      selectedYear,
-      selectedMonth,
-      selectedTeam,
-      selectedAssessorId,
-      activeTab,
-    });
-  }, [persistKey, selectedYear, selectedMonth, selectedTeam, selectedAssessorId, activeTab]);
+    writeSessionJson(persistKey, Object.fromEntries(searchParams.entries()));
+  }, [searchParams, persistKey]);
 
   // Toggle maximization and handle ESC key
   const toggleMaximize = async () => {
@@ -94,6 +123,7 @@ export default function ManagementDash() {
   // Fetch unique months, teams, and assessors for filters
   const { data: filtersData, isLoading: isFiltersLoading } = useQuery({
     queryKey: ["dash-filters-mgmt"],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await supabase
         .from("dados_times")
@@ -102,23 +132,38 @@ export default function ManagementDash() {
       
       const activeTeamNames = new Set(activeTeamsData?.map(t => t.time) || []);
 
-      const { data, error } = await supabase
+      const { data: latestEntry } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, time, cod_assessor, nome_assessor")
+        .select("data_posicao")
+        .eq("status_assessor", true)
+        .order("data_posicao", { ascending: false })
+        .limit(1)
+        .single();
+      
+      const latestDate = latestEntry?.data_posicao;
+
+      const { data: latestData, error } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("time, cod_assessor, nome_assessor")
+        .eq("status_assessor", true)
+        .eq("data_posicao", latestDate);
+      
+      if (error) throw error;
+
+      const { data: monthData } = await supabase
+        .from("mv_resumo_assessor" as any)
+        .select("data_posicao")
         .eq("status_assessor", true)
         .order("data_posicao", { ascending: false });
       
-      if (error) throw error;
-      
-      const allMonths = Array.from(new Set(data.map((d: any) => d.data_posicao)));
+      const allMonths = Array.from(new Set(monthData?.map((d: any) => d.data_posicao) || []));
       const years = Array.from(new Set(allMonths.map(m => parseISO(m).getFullYear().toString()))).sort((a, b) => b.localeCompare(a));
-      const teams = Array.from(new Set(data.map((d: any) => d.time)))
+      
+      const teams = Array.from(new Set(latestData.map((d: any) => d.time)))
         .filter(teamName => teamName && activeTeamNames.has(teamName));
       
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
-      const latestDate = data?.[0]?.data_posicao;
-      const latestRows = latestDate ? data.filter((d: any) => d.data_posicao === latestDate) : [];
-      latestRows.forEach((d: any) => {
+      latestData.forEach((d: any) => {
         if (d.cod_assessor && d.nome_assessor) {
           if (!assessorMap.has(d.cod_assessor)) {
             assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });
@@ -151,6 +196,7 @@ export default function ManagementDash() {
   // Fetch dashboard data
   const { data: dashData, isLoading: isDashLoading } = useQuery({
     queryKey: ["dash-mgmt-data", selectedMonth, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonth,
     queryFn: async () => {
       const { data: activeTeamsData } = await supabase
@@ -179,6 +225,7 @@ export default function ManagementDash() {
 
   const { data: yearlyData } = useQuery({
     queryKey: ["dash-mgmt-yearly", selectedYear, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     enabled: !!selectedYear,
     queryFn: async () => {
       const startDate = `${selectedYear}-01-01`;
@@ -329,12 +376,17 @@ export default function ManagementDash() {
           <TabsContent value="distribuicao-carteira" className="space-y-6 mt-0 border-none p-0 outline-none">
             <CarteiraDistributionDash
               selectedMonth={selectedMonth}
-              assessors={dashData || []}
+              selectedYear={selectedYear}
+              selectedTeam={selectedTeam}
+              selectedAssessorId={selectedAssessorId}
+              teamPhotos={{}}
             />
           </TabsContent>
 
           <TabsContent value="pareto-clientes-12m" className="space-y-6 mt-0 border-none p-0 outline-none">
-            <ParetoClientes12mDash />
+            <ParetoClientes12mDash 
+              selectedAssessorId={selectedAssessorId}
+            />
           </TabsContent>
         </Tabs>
       </div>

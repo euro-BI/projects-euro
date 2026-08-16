@@ -37,36 +37,6 @@ export default function Welcome() {
       borderColor: "border-amber-400/20"
     },
     {
-      title: "Dashboard de Projetos",
-      description: "Visualize o status e progresso de todos os projetos ativos.",
-      icon: LayoutDashboard,
-      path: "/dashboard",
-      roles: ["admin_master"],
-      color: "text-blue-400",
-      bgColor: "bg-blue-400/10",
-      borderColor: "border-blue-400/20"
-    },
-    {
-      title: "Gestão de Projetos",
-      description: "Gerencie tarefas, atividades e cronogramas detalhados.",
-      icon: FolderKanban,
-      path: "/projects",
-      roles: ["admin_master"],
-      color: "text-cyan-400",
-      bgColor: "bg-cyan-400/10",
-      borderColor: "border-cyan-400/20"
-    },
-    {
-      title: "Power BI",
-      description: "Acesse relatórios e dashboards analíticos do Power BI.",
-      icon: BarChart3,
-      path: "/powerbi",
-      roles: ["admin_master"],
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-      borderColor: "border-primary/20"
-    },
-    {
       title: "IA Chat",
       description: "Interaja com nossa inteligência artificial para insights.",
       icon: MessageSquare,
@@ -115,16 +85,6 @@ export default function Welcome() {
       color: "text-indigo-400",
       bgColor: "bg-indigo-400/10",
       borderColor: "border-indigo-400/20"
-    },
-    {
-      title: "TV Dashboards",
-      description: "Acesse apresentações de dashboards prontas para exibição.",
-      icon: Tv,
-      path: "/tv-published",
-      roles: ["admin_master"],
-      color: "text-emerald-400",
-      bgColor: "bg-emerald-400/10",
-      borderColor: "border-emerald-400/20"
     }
   ];
 
@@ -192,22 +152,10 @@ export default function Welcome() {
             </p>
             <div className="flex flex-wrap gap-4">
               <button
-                onClick={() => navigate("/dashboard-management")}
-                className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all text-sm font-medium"
-              >
-                Configurações de Dashboards
-              </button>
-              <button
                 onClick={() => navigate("/users")}
                 className="px-4 py-2 rounded-lg bg-indigo-400/10 border border-indigo-400/20 text-indigo-400 hover:bg-indigo-400/20 transition-all text-sm font-medium"
               >
                 Gerenciar Usuários
-              </button>
-              <button
-                onClick={() => navigate("/tv-presentations")}
-                className="px-4 py-2 rounded-lg bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 hover:bg-emerald-400/20 transition-all text-sm font-medium"
-              >
-                Configurar TV Dashboards
               </button>
             </div>
           </div>

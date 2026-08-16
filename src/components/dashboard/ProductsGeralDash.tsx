@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -469,6 +469,7 @@ export default function ProductsGeralDash({
   // ──────────────────────────────────────────────────────────────────────────
   const { data: mvData, isLoading: isMvLoading } = useQuery({
     queryKey: ["prod-geral-mv", selectedYear, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data: activeTeamsData } = await (supabase.from("dados_times" as any) as any)
         .select("time")
@@ -506,6 +507,7 @@ export default function ProductsGeralDash({
   // ──────────────────────────────────────────────────────────────────────────
   const { data: consYearData, isLoading: isConsLoading } = useQuery({
     queryKey: ["prod-geral-cons", selectedYear, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // Active assessors for team filtering
       const { data: latestDateData } = await supabase
@@ -561,6 +563,7 @@ export default function ProductsGeralDash({
   // ──────────────────────────────────────────────────────────────────────────
   const { data: segurosData, isLoading: isSegLoading } = useQuery({
     queryKey: ["prod-geral-seguros-novo", selectedYear, selectedTeam, selectedAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // Get assessor map for team/assessor filtering
       const { data: latestDateData } = await supabase

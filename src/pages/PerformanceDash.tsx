@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AssessorResumo } from "@/types/dashboard";
@@ -102,53 +102,114 @@ const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 
 export default function PerformanceDash() {
-  const persistKey = "filters:PerformanceDash";
-  const persisted = readSessionJson<{
-    selectedYear?: string;
-    selectedMonth?: string;
-    selectedTeam?: string[];
-    selectedAssessorId?: string[];
-    activeTab?: string;
-  } | null>(persistKey, null);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
-  const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? []);
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => persisted?.selectedAssessorId ?? []);
-  const [isAssessorPopoverOpen, setIsAssessorPopoverOpen] = useState(false);
-  const [selectedAssessor, setSelectedAssessor] = useState<AssessorResumo | null>(null);
-  const [selectedAssessorRank, setSelectedAssessorRank] = useState<number | undefined>(undefined);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    if (
-      persisted?.activeTab === "esforcos" ||
-      persisted?.activeTab === "forecast" ||
-      persisted?.activeTab === "comparativo" ||
-      persisted?.activeTab === "auditoria-receita"
-    ) {
-      return "geral";
+  const persistKey = "filters:PerformanceDash";
+  
+  React.useEffect(() => {
+    if (searchParams.size === 0) {
+      const persisted = readSessionJson<Record<string, string>>(persistKey, {});
+      if (Object.keys(persisted).length > 0) {
+        setSearchParams(new URLSearchParams(persisted), { replace: true });
+      }
     }
-    return persisted?.activeTab ?? "geral";
-  });
+  }, [searchParams, setSearchParams]);
 
   React.useEffect(() => {
-    writeSessionJson(persistKey, {
-      selectedYear,
-      selectedMonth,
-      selectedTeam,
-      selectedAssessorId,
-      activeTab,
-    });
-  }, [persistKey, selectedYear, selectedMonth, selectedTeam, selectedAssessorId, activeTab]);
+    if (searchParams.size > 0) {
+      const obj: Record<string, string> = {};
+      searchParams.forEach((val, key) => { obj[key] = val; });
+      writeSessionJson(persistKey, obj);
+    }
+  }, [searchParams]);
+
+  const pendingUpdates = React.useRef<Record<string, string | null>>({});
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const updateURLParams = (updates: Record<string, string | null>) => {
+    pendingUpdates.current = { ...pendingUpdates.current, ...updates };
+    
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setSearchParams((prevParams) => {
+        const newParams = new URLSearchParams(prevParams);
+        Object.entries(pendingUpdates.current).forEach(([key, value]) => {
+          if (value === null || value === undefined || value === "") {
+            newParams.delete(key);
+          } else {
+            newParams.set(key, value);
+          }
+        });
+        pendingUpdates.current = {};
+        return newParams;
+      }, { replace: true });
+    }, 10);
+  };
+
+  const selectedYear = searchParams.get("year") ?? new Date().getFullYear().toString();
+  const selectedMonth = searchParams.get("month") ?? "";
+  const selectedTeam = searchParams.get("team") ? searchParams.get("team")!.split(",") : [];
+  const selectedAssessorId = searchParams.get("assessors") ? searchParams.get("assessors")!.split(",") : [];
+  const [isAssessorPopoverOpen, setIsAssessorPopoverOpen] = useState(false);
+  const isSheetOpen = searchParams.get("sheet") === "true";
+  const sheetAssessorCode = searchParams.get("assessorCode");
+  const sheetRank = searchParams.get("rank") ? Number(searchParams.get("rank")) : undefined;
+  const isMaximized = searchParams.get("maximized") === "true";
+  
+  const rawTab = searchParams.get("tab");
+  const activeTab = (rawTab === "esforcos" || rawTab === "forecast" || rawTab === "comparativo" || rawTab === "auditoria-receita") 
+    ? "geral" 
+    : (rawTab ?? "geral");
+
+  // Setters para manter a interface com os componentes filhos
+  const setSelectedYear = (val: string | ((prev: string) => string)) => {
+    const newVal = typeof val === 'function' ? val(selectedYear) : val;
+    updateURLParams({ year: newVal });
+  };
+  const setSelectedMonth = (val: string | ((prev: string) => string)) => {
+    const newVal = typeof val === 'function' ? val(selectedMonth) : val;
+    updateURLParams({ month: newVal });
+  };
+  const setActiveTab = (val: string | ((prev: string) => string)) => {
+    const newVal = typeof val === 'function' ? val(activeTab) : val;
+    updateURLParams({ tab: newVal });
+  };
+  const setSelectedTeam = (val: string[] | ((prev: string[]) => string[])) => {
+    const newVal = typeof val === 'function' ? val(selectedTeam) : val;
+    updateURLParams({ team: newVal.length > 0 ? newVal.join(",") : null });
+  };
+  const setSelectedAssessorId = (val: string[] | ((prev: string[]) => string[])) => {
+    const newVal = typeof val === 'function' ? val(selectedAssessorId) : val;
+    updateURLParams({ assessors: newVal.length > 0 ? newVal.join(",") : null });
+  };
+  const setIsSheetOpen = (val: boolean) => {
+    if (val) {
+      updateURLParams({ sheet: "true" });
+    } else {
+      updateURLParams({ sheet: null, assessorCode: null, rank: null });
+    }
+  };
+  const setIsMaximized = (val: boolean) => {
+    updateURLParams({ maximized: val ? "true" : null });
+  };
   
   // RANKING TAB STATE (Independent of global filters)
-  const [rankingYear, setRankingYear] = useState<string>(() => {
+  const initialYear = searchParams.get("rankingYear") ?? (() => {
     const current = new Date().getFullYear();
     return current < 2026 ? "2026" : current.toString();
-  });
-  const [rankingPeriod, setRankingPeriod] = useState<"year" | "s1" | "s2" | "month">("year");
-  const [rankingMonth, setRankingMonth] = useState<string>("all");
+  })();
+  const [rankingYear, setRankingYear] = useState<string>(initialYear);
+  const [rankingPeriod, setRankingPeriod] = useState<"year" | "s1" | "s2" | "month">((searchParams.get("rankingPeriod") as any) ?? "year");
+  const [rankingMonth, setRankingMonth] = useState<string>(searchParams.get("rankingMonth") ?? "all");
+
+  React.useEffect(() => {
+    updateURLParams({ 
+      rankingYear, 
+      rankingPeriod, 
+      rankingMonth 
+    });
+  }, [rankingYear, rankingPeriod, rankingMonth]);
 
   const formatCurrencyValue = (val: number) => {
     const absVal = Math.abs(val);
@@ -168,7 +229,6 @@ export default function PerformanceDash() {
     }
   };
 
-  const navigate = useNavigate();
   const { userRole, userCode } = useAuth();
 
   // Determine effective assessor ID based on role and active tab
@@ -363,6 +423,7 @@ export default function PerformanceDash() {
   const { data: dashData, isLoading: isDashLoading } = useQuery({
     queryKey: ["dash-data", selectedMonth, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedMonth,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       let query = supabase
         .from("mv_resumo_assessor" as any)
@@ -424,6 +485,7 @@ export default function PerformanceDash() {
   const { data: yearlyData, isLoading: isYearlyLoading } = useQuery({
     queryKey: ["dash-yearly-data", selectedYear, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedYear,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const startDate = `${selectedYear}-01-01`;
       const endDate = `${selectedYear}-12-31`;
@@ -453,6 +515,7 @@ export default function PerformanceDash() {
   const { data: rankingData, isLoading: isRankingLoading } = useQuery({
     queryKey: ["dash-ranking-data", rankingYear, effectiveTeam, effectiveAssessorId],
     enabled: !!rankingYear && !!filtersData,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const startDate = `${rankingYear}-01-01`;
       const endDate = `${rankingYear}-12-31`;
@@ -487,6 +550,7 @@ export default function PerformanceDash() {
   const { data: prevYearlyData, isLoading: isPrevYearlyLoading } = useQuery({
     queryKey: ["dash-prev-yearly-data", selectedYear, effectiveTeam, effectiveAssessorId],
     enabled: !!selectedYear,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const prevYear = (parseInt(selectedYear) - 1).toString();
       const startDate = `${prevYear}-01-01`;
@@ -516,6 +580,7 @@ export default function PerformanceDash() {
   // Fetch Financial Planning Data (Latest Month + 12 Months Trend) independent of filters
   const { data: fpData, isLoading: isFPLoading } = useQuery({
     queryKey: ["fp-data", effectiveTeam, effectiveAssessorId],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // 1. Get Latest Date
       const { data: latestEntry } = await supabase
@@ -683,10 +748,19 @@ export default function PerformanceDash() {
     };
   }, [dashData, selectedMonth, effectiveTeam]);
 
+  const selectedAssessor = useMemo(() => {
+    if (!sheetAssessorCode || !dashData?.current) return null;
+    return dashData.current.find(a => a.cod_assessor === sheetAssessorCode) || null;
+  }, [sheetAssessorCode, dashData]);
+
+  const selectedAssessorRank = sheetRank;
+
   const handleAssessorClick = (assessor: AssessorResumo, rank?: number) => {
-    setSelectedAssessor(assessor);
-    setSelectedAssessorRank(rank);
-    setIsSheetOpen(true);
+    updateURLParams({ 
+      sheet: "true", 
+      assessorCode: assessor.cod_assessor, 
+      rank: rank ? rank.toString() : null 
+    });
   };
 
   const isDataLoading = isFiltersLoading || isDashLoading || isYearlyLoading || isPrevYearlyLoading || isFPLoading;

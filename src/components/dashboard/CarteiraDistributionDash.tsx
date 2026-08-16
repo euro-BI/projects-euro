@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { endOfMonth, format, parseISO } from "date-fns";
 import { ArrowDown, ArrowUp, ArrowUpDown, Download } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -16,7 +16,10 @@ import { AssessorResumo } from "@/types/dashboard";
 
 type CarteiraDistributionDashProps = {
   selectedMonth: string;
-  assessors: AssessorResumo[];
+  selectedYear: string;
+  selectedTeam: string[];
+  selectedAssessorId: string[];
+  teamPhotos: Record<string, string>;
 };
 
 type DistribuicaoRow = {
@@ -102,7 +105,7 @@ function parseNet(value: unknown) {
 
 export default function CarteiraDistributionDash({
   selectedMonth,
-  assessors,
+  selectedAssessorId,
 }: CarteiraDistributionDashProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -120,35 +123,17 @@ export default function CarteiraDistributionDash({
     return format(endOfMonth(parseISO(`${selectedMonthKey}-01`)), "yyyy-MM-dd");
   }, [selectedMonthKey]);
 
-  const assessorFilter = useMemo(() => {
-    const codeSet = new Set<string>();
-    const nameSet = new Set<string>();
-
-    (assessors || []).forEach((assessor) => {
-      const code = normalizeAssessorCode(String(assessor.cod_assessor ?? ""));
-      const name = String(assessor.nome_assessor ?? "").trim().toUpperCase();
-
-      if (code) codeSet.add(code);
-      if (name) nameSet.add(name);
-    });
-
-    return {
-      codeSet,
-      nameSet,
-      cacheKey: Array.from(codeSet).sort().join("|"),
-    };
-  }, [assessors]);
-
   const { data, isLoading, error } = useQuery({
-    queryKey: ["gerencial-distribuicao-carteira", selectedMonthEnd, assessorFilter.cacheKey],
+    queryKey: ["gerencial-distribuicao-carteira", selectedMonthEnd, selectedAssessorId],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthEnd,
     queryFn: async () => {
-      if (!selectedMonthEnd || assessorFilter.codeSet.size === 0) {
+      if (!selectedMonthEnd) {
         return { latestDate: null as string | null, rows: [] as DistribuicaoRow[] };
       }
 
       const { data: latestDateRows, error: latestDateError } = await supabase
-        .from("vw_diversificador_full" as any)
+        .rpc("rpc_get_diversificador_full", { p_assessores: selectedAssessorId.length > 0 ? selectedAssessorId : null } as any)
         .select("data_posicao")
         .lte("data_posicao", selectedMonthEnd)
         .order("data_posicao", { ascending: false })
@@ -162,25 +147,14 @@ export default function CarteiraDistributionDash({
       }
 
       const { data: viewRows, error: viewError } = await supabase
-        .from("vw_diversificador_full" as any)
+        .rpc("rpc_get_diversificador_full", { p_assessores: selectedAssessorId.length > 0 ? selectedAssessorId : null } as any)
         .select("assessor, cliente, produto, subproduto, fator_risco, ativo, net, data_posicao, distribuicao_carteira")
         .eq("data_posicao", latestDate)
         .range(0, 50000);
 
       if (viewError) throw viewError;
 
-      const filteredRows = (viewRows || []).filter((row: any) => {
-        const rawAssessor = String(row?.assessor ?? "").trim();
-        if (!rawAssessor) return false;
-
-        const normalizedCode = normalizeAssessorCode(rawAssessor);
-        const normalizedName = rawAssessor.toUpperCase();
-
-        return (
-          assessorFilter.codeSet.has(normalizedCode) ||
-          assessorFilter.nameSet.has(normalizedName)
-        );
-      }) as DistribuicaoRow[];
+      const filteredRows = (viewRows || []) as DistribuicaoRow[];
 
       return { latestDate, rows: filteredRows };
     },

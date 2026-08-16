@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { AssessorResumo } from "@/types/dashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -362,16 +362,16 @@ export default function RankingGerencialDash({
 
   const { data: clientesPosicaoRv, isLoading: isLoadingClientesPosicaoRv } = useQuery({
     queryKey: ["ranking-gerencial-rv-clientes-posicao", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const start = `${selectedMonthKey}-01`;
       const next = format(addMonths(new Date(`${selectedMonthKey}-01T00:00:00`), 1), "yyyy-MM-01");
       let query = supabase
-        .from("vw_resumo_clientes_posicao" as any)
+        .rpc("rpc_get_resumo_clientes_posicao", { p_assessores: assessorCodes } as any)
         .select("cod_cliente, nome_cliente, cod_assessor, nome_assessor, net_em_m, data_ultima_operacao, comissao_ultima_operacao")
         .gte("data_ultima_operacao", start)
-        .lt("data_ultima_operacao", next)
-        .in("cod_assessor", assessorCodes);
+        .lt("data_ultima_operacao", next);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -381,12 +381,12 @@ export default function RankingGerencialDash({
 
   const { data: clientesPosicaoRvBase, isLoading: isLoadingClientesPosicaoRvBase } = useQuery({
     queryKey: ["ranking-gerencial-rv-clientes-base", selectedMonthDate, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthDate && assessorCodes.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("vw_resumo_clientes_posicao" as any)
-        .select("cod_cliente, cod_assessor, data_ultima_posicao, codigo_ultima_operacao")
-        .in("cod_assessor", assessorCodes);
+        .rpc("rpc_get_resumo_clientes_posicao", { p_assessores: assessorCodes } as any)
+        .select("cod_cliente, cod_assessor, data_ultima_posicao, codigo_ultima_operacao");
 
       if (error) throw error;
       return data as any[];
@@ -395,6 +395,7 @@ export default function RankingGerencialDash({
 
   const { data: consorciosCreditoPen, isLoading: isLoadingConsorciosCreditoPen } = useQuery({
     queryKey: ["ranking-gerencial-banco-pen-credito", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const start = `${selectedMonthKey}-01`;
@@ -414,6 +415,7 @@ export default function RankingGerencialDash({
 
   const { data: consorciosCreditoSales, isLoading: isLoadingConsorciosCreditoSales } = useQuery({
     queryKey: ["ranking-gerencial-banco-pen-credito-sales", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const monthStart = monthStartFromKey(selectedMonthKey);
@@ -435,6 +437,7 @@ export default function RankingGerencialDash({
 
   const { data: consorciosCreditoSalesYear, isLoading: isLoadingConsorciosCreditoSalesYear } = useQuery({
     queryKey: ["ranking-gerencial-banco-receita-credito-sales-year", selectedYearKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedYearKey && assessorCodes.length > 0,
     queryFn: async () => {
       const start = `${selectedYearKey}-01-01`;
@@ -454,6 +457,7 @@ export default function RankingGerencialDash({
 
   const { data: cambioReceitaYear, isLoading: isLoadingCambioReceitaYear } = useQuery({
     queryKey: ["ranking-gerencial-banco-cambio-year", selectedYearKey, selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedYearKey && !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const start = `${selectedYearKey}-01-01`;
@@ -473,6 +477,7 @@ export default function RankingGerencialDash({
 
   const { data: ativacoesPjMonth, isLoading: isLoadingAtivacoesPjMonth } = useQuery({
     queryKey: ["ranking-gerencial-banco-ativacoes-pj-month", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const start = `${selectedMonthKey}-01`;
@@ -492,6 +497,7 @@ export default function RankingGerencialDash({
 
   const { data: ativacoesPjYear, isLoading: isLoadingAtivacoesPjYear } = useQuery({
     queryKey: ["ranking-gerencial-banco-ativacoes-pj-year", selectedYearKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedYearKey && assessorCodes.length > 0,
     queryFn: async () => {
       const start = `${selectedYearKey}-01-01`;
@@ -511,6 +517,7 @@ export default function RankingGerencialDash({
 
   const { data: segurosWindowRows, isLoading: isLoadingSegurosWindow } = useQuery({
     queryKey: ["ranking-gerencial-seguros-window", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const monthStart = monthStartFromKey(selectedMonthKey);
@@ -531,6 +538,7 @@ export default function RankingGerencialDash({
 
   const { data: segurosYearRows, isLoading: isLoadingSegurosYear } = useQuery({
     queryKey: ["ranking-gerencial-seguros-year", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const monthStart = monthStartFromKey(selectedMonthKey);
@@ -551,6 +559,7 @@ export default function RankingGerencialDash({
 
   const { data: segurosHistoryRows, isLoading: isLoadingSegurosHistory } = useQuery({
     queryKey: ["ranking-gerencial-seguros-history", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const monthStart = monthStartFromKey(selectedMonthKey);
@@ -571,6 +580,7 @@ export default function RankingGerencialDash({
 
   const { data: estrelasClienteRows, isLoading: isLoadingEstrelasCliente } = useQuery({
     queryKey: ["ranking-gerencial-estrelas-cliente", selectedMonthKey, assessorCodes.join("|")],
+    placeholderData: keepPreviousData,
     enabled: !!selectedMonthKey && assessorCodes.length > 0,
     queryFn: async () => {
       const monthStart = monthStartFromKey(selectedMonthKey);

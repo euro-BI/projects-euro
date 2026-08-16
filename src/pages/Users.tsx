@@ -354,14 +354,7 @@ export default function Users() {
         </Badge>
       );
     }
-    if (role === "marketing") {
-      return (
-        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-          <BarChart3 className="w-3 h-3 mr-1" />
-          Marketing
-        </Badge>
-      );
-    }
+
     if (role === "produtos") {
       return (
         <Badge className="bg-[#4ADE80]/20 text-[#4ADE80] border-[#4ADE80]/30">
@@ -669,7 +662,7 @@ export default function Users() {
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="lider">Líder</SelectItem>
                     <SelectItem value="consorcio">Consórcio</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
+
                     <SelectItem value="produtos">Produtos</SelectItem>
                     <SelectItem value="seguros">Seguros</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
@@ -791,7 +784,7 @@ export default function Users() {
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="lider">Líder</SelectItem>
                     <SelectItem value="consorcio">Consórcio</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
+
                     <SelectItem value="produtos">Produtos</SelectItem>
                     <SelectItem value="seguros">Seguros</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
