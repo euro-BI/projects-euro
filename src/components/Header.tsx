@@ -49,14 +49,13 @@ export const Header = () => {
 
   // Combine roles for easier checks
   const canAccessAdminFeatures = isAdminMaster || isAdmin;
-  const canAccessPowerBI = isAdminMaster;
   const canAccessIAChat = isAdminMaster || isAdmin || isRegularUser;
   const canAccessEuroIntelligence = isAdminMaster || isAdmin || isMarketing || isRegularUser || isConsorcio || isSeguros || isProdutos;
 
   // Função para obter o nome da página atual
   const getCurrentPageName = () => {
     if (location.pathname === '/') return 'Início';
-    if (location.pathname === '/bi-dashboard') return 'Atualizações BD';
+    if (location.pathname === '/atualizacao') return 'Atualizações';
     if (location.pathname === '/consorcios') return 'Consórcios';
     if (location.pathname === '/seguros') return 'Seguros';
     if (location.pathname === '/chat') return 'IA Chat';
@@ -67,7 +66,7 @@ export const Header = () => {
   // Função para obter o ícone da página atual
   const getCurrentPageIcon = () => {
     if (location.pathname === '/') return Home;
-    if (location.pathname === '/bi-dashboard') return RefreshCw;
+    if (location.pathname === '/atualizacao') return RefreshCw;
     if (location.pathname === '/consorcios') return FileSpreadsheet;
     if (location.pathname === '/seguros') return Shield;
     if (location.pathname === '/chat') return MessageSquare;
@@ -218,7 +217,7 @@ export const Header = () => {
           isHeaderHidden ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
         ].join(" ")}
       >
-        <div className="container mx-auto h-full flex items-center justify-between px-4">
+        <div className="flex h-full w-full items-center justify-between px-5 sm:px-8 lg:px-10 xl:px-12">
           <button
             onClick={() => navigate("/")}
             className="flex items-center gap-3 text-lg md:text-xl font-bold text-gradient-cyan hover:opacity-80 transition-opacity"
@@ -265,9 +264,9 @@ export const Header = () => {
                     </DropdownMenuItem>
                   )}
                   {isAdminMaster && (
-                    <DropdownMenuItem onClick={() => navigate('/bi-dashboard')}>
+                    <DropdownMenuItem onClick={() => navigate('/atualizacao')}>
                       <RefreshCw className="w-4 h-4 mr-2" />
-                      Atualizações BD
+                      Atualizações
                     </DropdownMenuItem>
                   )}
                   {(isAdminMaster || isConsorcio) && (

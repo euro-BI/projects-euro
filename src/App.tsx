@@ -13,7 +13,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Welcome = lazy(() => import("./pages/Welcome"));
 const Users = lazy(() => import("./pages/Users"));
-const BIDashboard = lazy(() => import("./pages/BIDashboard"));
+const Atualizacao = lazy(() => import("./pages/Atualizacao"));
 const Consorcios = lazy(() => import("./pages/Consorcios"));
 const Chat = lazy(() => import("./pages/Chat"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
@@ -72,10 +72,18 @@ const App = () => (
                 }
               />
               <Route
+                path="/atualizacao"
+                element={
+                  <ProtectedRoute allowedRoles={["admin_master"]}>
+                    <Atualizacao />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/bi-dashboard"
                 element={
                   <ProtectedRoute allowedRoles={["admin_master"]}>
-                    <BIDashboard />
+                    <Navigate to="/atualizacao" replace />
                   </ProtectedRoute>
                 }
               />

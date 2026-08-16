@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/PageLayout";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { HubAtmosphere } from "@/components/home/HubAtmosphere";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -15,19 +13,21 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowLeft, Edit, Ban, FileSpreadsheet, Download, Eye, Settings, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit,
+  Eye,
+  Plus,
+  Search,
+  Settings,
+} from "lucide-react";
 import * as XLSX from "xlsx";
-import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { cn } from "@/lib/utils";
 
 type DadosConsorcio = {
   id: number;
@@ -51,17 +51,27 @@ type DadosConsorcio = {
   updated_at?: string | null;
 };
 
+type AssessorOption = { code: string; name: string };
+type AdmConfig = { id: number; administradora: string; comissao_percent: number };
+type StatusFilter = "all" | "active" | "cancelled";
+
+const fieldClass =
+  "h-11 rounded-2xl border-white/10 bg-white/[0.04] text-[#F4F1E8] placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-euro-gold/40 focus-visible:ring-offset-0";
+const dialogClass =
+  "gap-5 border-white/10 bg-[#12141A] text-[#F4F1E8] sm:rounded-[28px] p-6 sm:p-8";
+const labelClass = "text-[13px] font-medium text-white/50";
+
 const Consorcios = () => {
   const navigate = useNavigate();
   const [registros, setRegistros] = useState<DadosConsorcio[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DadosConsorcio | null>(null);
   const [cancellingRecord, setCancellingRecord] = useState<DadosConsorcio | null>(null);
   const [cancelForm, setCancelForm] = useState<{ data_cancelamento: string; observacao: string }>({ data_cancelamento: "", observacao: "" });
   const [form, setForm] = useState<Partial<DadosConsorcio>>({});
-  type AssessorOption = { code: string; name: string };
   const [assessorOptions, setAssessorOptions] = useState<AssessorOption[]>([]);
   const assessorLabelByCode = useMemo(() => {
     const m = new Map<string, string>();
@@ -75,13 +85,13 @@ const Consorcios = () => {
   const [viewing, setViewing] = useState<DadosConsorcio | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsForm, setSettingsForm] = useState<{ administradora: string; comissao_percent: string }>({ administradora: "", comissao_percent: "" });
-  type AdmConfig = { id: number; administradora: string; comissao_percent: number };
   const [admConfigs, setAdmConfigs] = useState<AdmConfig[]>([]);
   const [adminOptions, setAdminOptions] = useState<string[]>([]);
   const [adminCommissions, setAdminCommissions] = useState<Record<string, number>>({});
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [productAdminId, setProductAdminId] = useState<number | null>(null);
   const [productName, setProductName] = useState<string>("");
+
   const formatCurrency = (n: number | null) => {
     if (n === null || n === undefined) return "-";
     try {
@@ -109,7 +119,7 @@ const Consorcios = () => {
       if (v.length >= 1) parts.push(a);
       if (v.length >= 4) parts.push(b);
       if (v.length >= 7) parts.push(c);
-      const base = parts.join('.')
+      const base = parts.join(".");
       return v.length >= 10 ? `${base}-${d.trim()}` : base;
     } else {
       const p = v.padEnd(14, "");
@@ -118,22 +128,9 @@ const Consorcios = () => {
       const c = p.slice(5, 8);
       const d = p.slice(8, 12);
       const e = p.slice(12, 14);
-      const base = `${a}.${b}.${c}`.replace(/\.+$/, match => match);
-      const mid = v.length >= 9 ? `/${d.trim()}` : '';
-      const end = v.length >= 13 ? `-${e.trim()}` : '';
-      return `${a.length?`${a}`:''}${v.length>=3?`.${b}`:''}${v.length>=6?`.${c}`:''}${mid}${end}`;
-    }
-  };
-  const getAdminBadgeClass = (admin: string | null) => {
-    switch (admin) {
-      case "CONSÓRCIO XP":
-        return "bg-cyan-600 text-white";
-      case "ADEMICON":
-        return "bg-primary text-primary-foreground";
-      case "MAPFRE":
-        return "bg-red-600 text-white";
-      default:
-        return "bg-muted text-foreground";
+      const mid = v.length >= 9 ? `/${d.trim()}` : "";
+      const end = v.length >= 13 ? `-${e.trim()}` : "";
+      return `${a.length ? `${a}` : ""}${v.length >= 3 ? `.${b}` : ""}${v.length >= 6 ? `.${c}` : ""}${mid}${end}`;
     }
   };
   const formatPercent = (n: number | null | undefined) => {
@@ -217,7 +214,6 @@ const Consorcios = () => {
   useEffect(() => {
     loadRegistros();
     (async () => {
-      // Obter assessores ativos da mv_resumo_assessor (mesma lógica dos dashboards)
       const { data: mvData, error: mvError } = await supabase
         .from("mv_resumo_assessor" as any)
         .select("data_posicao, cod_assessor, nome_assessor")
@@ -235,7 +231,6 @@ const Consorcios = () => {
         });
       }
 
-      // Fallback para dados_colaboradores caso algum não esteja na MV
       const { data: colabData, error: colabError } = await supabase
         .from("dados_colaboradores")
         .select("cod_assessor, nome_completo");
@@ -310,21 +305,25 @@ const Consorcios = () => {
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return registros;
     return registros.filter((r) => {
+      if (statusFilter === "active" && r.data_cancelamento) return false;
+      if (statusFilter === "cancelled" && !r.data_cancelamento) return false;
+      if (!term) return true;
+      const assessor = r.cod_assessor ? assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor : "";
       const s = [
         r.administradora,
         r.cliente,
         r.cpf_cnpj,
         r.produto,
         r.contrato,
+        assessor,
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return s.includes(term);
     });
-  }, [registros, searchTerm]);
+  }, [registros, searchTerm, statusFilter, assessorLabelByCode]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -348,12 +347,12 @@ const Consorcios = () => {
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
+  const endIndex = Math.min(sorted.length, startIndex + pageSize);
   const pageItems = sorted.slice(startIndex, endIndex);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, registros.length]);
+  }, [searchTerm, statusFilter, registros.length]);
 
   const openCreate = () => {
     setEditing(null);
@@ -368,7 +367,7 @@ const Consorcios = () => {
   };
 
   const save = async () => {
-    const payload: Omit<DadosConsorcio, 'id' | 'created_at' | 'updated_at'> = {
+    const payload: Omit<DadosConsorcio, "id" | "created_at" | "updated_at"> = {
       administradora: form.administradora || null,
       cod_assessor: form.cod_assessor || null,
       data_venda: form.data_venda || null,
@@ -462,157 +461,265 @@ const Consorcios = () => {
     XLSX.writeFile(wb, "consorcios.xlsx");
   };
 
+  const saveProduct = async () => {
+    const name = productName.trim().toUpperCase();
+    if (!name || !productAdminId) {
+      toast.error("Informe o nome do produto");
+      return;
+    }
+    const { error } = await supabase
+      .from("dados_produtos_consorcio")
+      .insert({ administradora_id: productAdminId, nome_produto: name });
+    if (error) {
+      toast.error("Erro ao salvar produto");
+      return;
+    }
+    toast.success("Produto adicionado");
+    setProductDialogOpen(false);
+    setProductName("");
+    await loadAdminProducts();
+  };
+
   return (
-    <PageLayout>
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex items-center justify-between mb-8">
+    <PageLayout className="relative overflow-hidden bg-transparent font-ui text-[#F4F1E8] selection:bg-euro-gold/30">
+      <HubAtmosphere />
+
+      <div className="relative z-10 flex min-h-[calc(100vh-4rem)] w-full flex-col px-5 py-6 sm:px-8 lg:px-10 xl:px-12">
+        <header className="mb-6 flex shrink-0 flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <Button variant="ghost" onClick={() => navigate("/")} className="mb-4 -ml-2">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-            <h1 className="text-4xl font-bold mb-2 text-gradient-cyan">Consórcios</h1>
-            <p className="text-muted-foreground">Gerencie os dados de consórcios</p>
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mb-5 inline-flex items-center gap-2 text-sm text-white/45 transition-colors hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Início
+            </button>
+            <h1 className="text-[2rem] font-semibold tracking-tight text-white sm:text-4xl">Consórcios</h1>
+            <p className="mt-2 text-sm text-white/45">Vendas, comissões e administradoras.</p>
           </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Novo Registro
-          </Button>
-          <Button variant="secondary" onClick={() => setSettingsOpen(true)} className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            Configurações
-          </Button>
-          <Button variant="outline" onClick={exportXlsx} className="flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Exportar XLSX
-          </Button>
-        </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <GhostButton onClick={() => setSettingsOpen(true)}>
+              <Settings className="h-4 w-4" />
+              Configurações
+            </GhostButton>
+            <GhostButton onClick={exportXlsx}>
+              <Download className="h-4 w-4" />
+              Exportar
+            </GhostButton>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-euro-gold px-4 text-sm font-semibold text-euro-navy transition-colors hover:bg-euro-gold/90"
+            >
+              <Plus className="h-4 w-4" />
+              Novo registro
+            </button>
+          </div>
+        </header>
+
+        <div className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+            <Input
+              placeholder="Buscar cliente, contrato, CPF, assessor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={cn(fieldClass, "h-12 pl-11")}
+            />
+          </div>
+          <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            {([
+              ["all", "Todos"],
+              ["active", "Ativos"],
+              ["cancelled", "Cancelados"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={cn(
+                  "h-10 rounded-xl px-3.5 text-sm transition-colors",
+                  statusFilter === value
+                    ? "bg-euro-gold text-euro-navy font-semibold"
+                    : "text-white/50 hover:text-white",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <Card className="p-4 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
-            <div className="flex-1 flex items-center gap-2">
-              <Input
-                placeholder="Buscar por cliente, administradora, CPF/CNPJ, contrato"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </Card>
+        <p className="mb-3 shrink-0 text-xs text-white/35">
+          {loading ? "Carregando..." : `${sorted.length} ${sorted.length === 1 ? "registro" : "registros"}`}
+        </p>
 
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Administradora</TableHead>
-                <TableHead>Assessor</TableHead>
-                <TableHead>Contrato</TableHead>
-                <TableHead>Produto</TableHead>
-                <TableHead>Data Venda</TableHead>
-                <TableHead>Comissão Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8">Carregando...</TableCell>
-                </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8">Nenhum registro encontrado</TableCell>
-                </TableRow>
-              ) : (
-                pageItems.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      <Badge className={getAdminBadgeClass(r.administradora)}>
-                        {r.administradora ? `${r.administradora}${adminCommissions[r.administradora] !== undefined ? ` - ${formatPercent(adminCommissions[r.administradora])}` : ""}` : "-"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{r.cod_assessor ? (assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor) : "-"}</TableCell>
-                    <TableCell>{r.contrato || "-"}</TableCell>
-                    <TableCell>{r.produto || "-"}</TableCell>
-                    <TableCell>{formatDateBR(r.data_venda)}</TableCell>
-                    <TableCell>{formatCurrency(r.valor_comissao_total)}</TableCell>
-                    <TableCell>
-                      {r.data_cancelamento ? (
-                        <Badge className="bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30">
-                          Cancelado
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30">
-                          Ativo
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="ghost" size="icon" onClick={() => setViewing(r)}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:bg-red-500/10"
-                        onClick={() => openCancelamento(r)}
-                        disabled={!!r.data_cancelamento}
-                        title={r.data_cancelamento ? "Já cancelado" : "Cancelar consórcio"}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#12141A] shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)]">
+          <span className="pointer-events-none block h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+          <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-white/[0.08] bg-white/[0.025] text-[11px] uppercase tracking-wide text-white/40">
+                  <th className="px-5 py-3.5 font-medium">Cliente</th>
+                  <th className="px-4 py-3.5 font-medium">Administradora</th>
+                  <th className="px-4 py-3.5 font-medium">Assessor</th>
+                  <th className="px-4 py-3.5 font-medium">Produto</th>
+                  <th className="px-4 py-3.5 font-medium">Venda</th>
+                  <th className="px-4 py-3.5 font-medium text-right">Comissão</th>
+                  <th className="px-4 py-3.5 font-medium">Status</th>
+                  <th className="px-5 py-3.5 font-medium text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-16 text-center text-white/40">Carregando registros...</td>
+                  </tr>
+                ) : pageItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</td>
+                  </tr>
+                ) : (
+                  pageItems.map((r) => {
+                    const cancelled = !!r.data_cancelamento;
+                    return (
+                      <tr
+                        key={r.id}
+                        className={cn(
+                          "border-b border-white/[0.06] transition-colors last:border-0 hover:bg-white/[0.035]",
+                          cancelled && "opacity-60",
+                        )}
                       >
-                        <Ban className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+                        <td className="px-5 py-4">
+                          <p className="font-medium text-white">{r.cliente || "—"}</p>
+                          <p className="mt-0.5 text-xs text-white/40">
+                            {r.contrato ? `Contrato ${r.contrato}` : "Sem contrato"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <AdminChip
+                            name={r.administradora}
+                            percent={r.administradora ? adminCommissions[r.administradora] : undefined}
+                            formatPercent={formatPercent}
+                          />
+                        </td>
+                        <td className="px-4 py-4 text-sm text-white/75">
+                          {r.cod_assessor ? assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor : "—"}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-white/75">{r.produto || "—"}</td>
+                        <td className="px-4 py-4 font-data text-sm tabular-nums text-white/75">{formatDateBR(r.data_venda)}</td>
+                        <td className="px-4 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
+                          {formatCurrency(r.valor_comissao_total)}
+                        </td>
+                        <td className="px-4 py-4">
+                          <StatusChip cancelled={cancelled} />
+                        </td>
+                        <td className="px-5 py-4">
+                          <RowActions
+                            cancelled={cancelled}
+                            onView={() => setViewing(r)}
+                            onEdit={() => openEdit(r)}
+                            onCancel={() => openCancelamento(r)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <Pagination className="mt-4">
-          <PaginationContent>
-            <PaginationPrevious
+          <div className="divide-y divide-white/[0.06] md:hidden">
+            {loading ? (
+              <p className="px-5 py-16 text-center text-white/40">Carregando registros...</p>
+            ) : pageItems.length === 0 ? (
+              <p className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</p>
+            ) : (
+              pageItems.map((r) => {
+                const cancelled = !!r.data_cancelamento;
+                return (
+                  <div key={r.id} className={cn("space-y-3 px-5 py-4", cancelled && "opacity-60")}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-white">{r.cliente || "—"}</p>
+                        <p className="mt-0.5 text-xs text-white/40">{r.contrato ? `Contrato ${r.contrato}` : "Sem contrato"}</p>
+                      </div>
+                      <StatusChip cancelled={cancelled} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/55">
+                      <AdminChip
+                        name={r.administradora}
+                        percent={r.administradora ? adminCommissions[r.administradora] : undefined}
+                        formatPercent={formatPercent}
+                      />
+                      <span>{r.produto || "—"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="font-data text-sm tabular-nums text-euro-gold">{formatCurrency(r.valor_comissao_total)}</p>
+                      <RowActions
+                        cancelled={cancelled}
+                        onView={() => setViewing(r)}
+                        onEdit={() => openEdit(r)}
+                        onCancel={() => openCancelamento(r)}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 flex shrink-0 items-center justify-between gap-3">
+          <p className="text-xs text-white/35">
+            {sorted.length === 0 ? "Nenhum item" : `${startIndex + 1}–${endIndex} de ${sorted.length}`}
+          </p>
+          <div className="flex items-center gap-2">
+            <GhostButton
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            />
-            <PaginationItem>
-              <span className="px-3 text-sm">Página {currentPage} de {totalPages}</span>
-            </PaginationItem>
-            <PaginationNext
+              disabled={currentPage <= 1}
+              className="h-10 w-10 px-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </GhostButton>
+            <span className="min-w-[4.5rem] text-center text-sm text-white/60">
+              {currentPage} / {totalPages}
+            </span>
+            <GhostButton
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            />
-          </PaginationContent>
-        </Pagination>
+              disabled={currentPage >= totalPages}
+              className="h-10 w-10 px-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </GhostButton>
+          </div>
+        </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-5xl">
+          <DialogContent className={cn(dialogClass, "max-w-5xl")}>
             <DialogHeader>
-              <DialogTitle>{editing ? "Editar Registro" : "Novo Registro"}</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold tracking-tight">
+                {editing ? "Editar registro" : "Novo registro"}
+              </DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="space-y-2">
-                <Label>Administradora</Label>
+            <div className="grid max-h-[70vh] grid-cols-1 gap-4 overflow-y-auto pr-1 md:grid-cols-4">
+              <Field label="Administradora">
                 <Select value={form.administradora || ""} onValueChange={(v) => setForm((f) => ({ ...f, administradora: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {adminOptions.map((opt) => (
                       <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Código Assessor</Label>
+              </Field>
+              <Field label="Código assessor">
                 <Select value={form.cod_assessor || ""} onValueChange={(v) => setForm((f) => ({ ...f, cod_assessor: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {assessorOptions.map((opt) => (
                       <SelectItem key={opt.code} value={opt.code}>
@@ -621,240 +728,186 @@ const Consorcios = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Data Venda</Label>
-                <Input type="date" value={form.data_venda || ""} onChange={(e) => setForm((f) => ({ ...f, data_venda: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Produto</Label>
+              </Field>
+              <Field label="Data venda">
+                <Input type="date" value={form.data_venda || ""} onChange={(e) => setForm((f) => ({ ...f, data_venda: e.target.value }))} className={fieldClass} />
+              </Field>
+              <Field label="Produto">
                 <Select value={form.produto || ""} onValueChange={(v) => setForm((f) => ({ ...f, produto: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {availableProducts.map((p) => (
                       <SelectItem key={p} value={p}>{p}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label>Observação</Label>
-                <Input value={form.observacao || ""} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Código Cliente</Label>
-                <Input inputMode="numeric" pattern="[0-9]*" value={form.codigo_cliente || ""} onChange={(e) => setForm((f) => ({ ...f, codigo_cliente: e.target.value.replace(/\D/g, "") }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Cliente</Label>
-                <Input value={form.cliente || ""} onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>CPF/CNPJ</Label>
-                <Input inputMode="numeric" pattern="[0-9]*" value={formatCpfCnpjMask(form.cpf_cnpj || "")} onChange={(e) => setForm((f) => ({ ...f, cpf_cnpj: e.target.value.replace(/\D/g, "") }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Contrato</Label>
-                <Input inputMode="numeric" pattern="[0-9]*" value={form.contrato || ""} onChange={(e) => setForm((f) => ({ ...f, contrato: e.target.value.replace(/\D/g, "") }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Grupo</Label>
-                <Input inputMode="numeric" pattern="[0-9]*" value={form.grupo || ""} onChange={(e) => setForm((f) => ({ ...f, grupo: e.target.value.replace(/\D/g, "") }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Cota</Label>
-                <Input inputMode="numeric" pattern="[0-9]*" value={form.cota || ""} onChange={(e) => setForm((f) => ({ ...f, cota: e.target.value.replace(/\D/g, "") }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Valor Carta</Label>
-                <Input type="number" value={form.valor_carta ?? ""} onChange={(e) => setForm((f) => ({ ...f, valor_carta: e.target.value ? Number(e.target.value) : null }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Comissão Total</Label>
-                <Input type="number" value={form.valor_comissao_total ?? ""} readOnly />
-              </div>
+              </Field>
+              <Field label="Observação" className="md:col-span-2">
+                <Input value={form.observacao || ""} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} className={fieldClass} />
+              </Field>
+              <Field label="Código cliente">
+                <Input inputMode="numeric" pattern="[0-9]*" value={form.codigo_cliente || ""} onChange={(e) => setForm((f) => ({ ...f, codigo_cliente: e.target.value.replace(/\D/g, "") }))} className={fieldClass} />
+              </Field>
+              <Field label="Cliente">
+                <Input value={form.cliente || ""} onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value }))} className={fieldClass} />
+              </Field>
+              <Field label="CPF/CNPJ">
+                <Input inputMode="numeric" pattern="[0-9]*" value={formatCpfCnpjMask(form.cpf_cnpj || "")} onChange={(e) => setForm((f) => ({ ...f, cpf_cnpj: e.target.value.replace(/\D/g, "") }))} className={fieldClass} />
+              </Field>
+              <Field label="Contrato">
+                <Input inputMode="numeric" pattern="[0-9]*" value={form.contrato || ""} onChange={(e) => setForm((f) => ({ ...f, contrato: e.target.value.replace(/\D/g, "") }))} className={fieldClass} />
+              </Field>
+              <Field label="Grupo">
+                <Input inputMode="numeric" pattern="[0-9]*" value={form.grupo || ""} onChange={(e) => setForm((f) => ({ ...f, grupo: e.target.value.replace(/\D/g, "") }))} className={fieldClass} />
+              </Field>
+              <Field label="Cota">
+                <Input inputMode="numeric" pattern="[0-9]*" value={form.cota || ""} onChange={(e) => setForm((f) => ({ ...f, cota: e.target.value.replace(/\D/g, "") }))} className={fieldClass} />
+              </Field>
+              <Field label="Valor carta">
+                <Input type="number" value={form.valor_carta ?? ""} onChange={(e) => setForm((f) => ({ ...f, valor_carta: e.target.value ? Number(e.target.value) : null }))} className={fieldClass} />
+              </Field>
+              <Field label="Comissão total">
+                <Input type="number" value={form.valor_comissao_total ?? ""} readOnly className={cn(fieldClass, "text-euro-gold")} />
+              </Field>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={save}>Salvar</Button>
+            <DialogFooter className="gap-2 sm:gap-2">
+              <GhostButton onClick={() => setIsDialogOpen(false)}>Cancelar</GhostButton>
+              <button type="button" onClick={save} className="inline-flex h-11 items-center rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90">
+                Salvar
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className={cn(dialogClass, "max-w-lg")}>
             <DialogHeader>
-              <DialogTitle>Configurações de Administradora</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold tracking-tight">Administradoras</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-2">
-                <Label>Nome da Administradora</Label>
-                <Input value={settingsForm.administradora} onChange={(e) => setSettingsForm((f) => ({ ...f, administradora: e.target.value.toUpperCase() }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>% Comissão</Label>
-                <Input value={settingsForm.comissao_percent} onChange={(e) => setSettingsForm((f) => ({ ...f, comissao_percent: e.target.value }))} />
-              </div>
-              <Card className="p-0 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Administradora</TableHead>
-                      <TableHead>% Comissão</TableHead>
-                      <TableHead className="text-right">Produtos</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <Field label="Nome da administradora">
+                <Input value={settingsForm.administradora} onChange={(e) => setSettingsForm((f) => ({ ...f, administradora: e.target.value.toUpperCase() }))} className={fieldClass} />
+              </Field>
+              <Field label="% Comissão">
+                <Input value={settingsForm.comissao_percent} onChange={(e) => setSettingsForm((f) => ({ ...f, comissao_percent: e.target.value }))} className={fieldClass} />
+              </Field>
+              <div className="overflow-hidden rounded-2xl border border-white/10">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.03] text-[11px] uppercase tracking-wide text-white/40">
+                      <th className="px-3 py-2.5 text-left font-medium">Administradora</th>
+                      <th className="px-3 py-2.5 text-left font-medium">%</th>
+                      <th className="px-3 py-2.5 text-right font-medium">Produto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {admConfigs.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center py-6">Nenhuma configuração cadastrada</TableCell>
-                      </TableRow>
+                      <tr>
+                        <td colSpan={3} className="px-3 py-6 text-center text-white/40">Nenhuma configuração cadastrada</td>
+                      </tr>
                     ) : (
                       admConfigs.map((c) => (
-                        <TableRow key={c.id}>
-                          <TableCell>{c.administradora}</TableCell>
-                          <TableCell>{formatPercent(c.comissao_percent)}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => { setProductAdminId(c.id); setProductDialogOpen(true); }}>
-                              <Plus className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
+                        <tr key={c.id} className="border-b border-white/[0.06] last:border-0">
+                          <td className="px-3 py-2.5 text-white">{c.administradora}</td>
+                          <td className="px-3 py-2.5 text-white/70">{formatPercent(c.comissao_percent)}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => { setProductAdminId(c.id); setProductDialogOpen(true); }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/60 hover:border-euro-gold/40 hover:text-euro-gold"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
                       ))
                     )}
-                  </TableBody>
-                </Table>
-              </Card>
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSettingsOpen(false)}>Cancelar</Button>
-              <Button onClick={saveSettings}>Salvar</Button>
+            <DialogFooter className="gap-2">
+              <GhostButton onClick={() => setSettingsOpen(false)}>Cancelar</GhostButton>
+              <button type="button" onClick={saveSettings} className="inline-flex h-11 items-center rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90">
+                Salvar
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className={cn(dialogClass, "max-w-md")}>
             <DialogHeader>
-              <DialogTitle>Adicionar Produto</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold tracking-tight">Adicionar produto</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-2">
-                <Label>Nome do Produto</Label>
-                <Input value={productName} onChange={(e) => setProductName(e.target.value.toUpperCase())} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setProductDialogOpen(false); setProductName(""); }}>Cancelar</Button>
-              <Button onClick={async () => {
-                const name = productName.trim().toUpperCase();
-                if (!name || !productAdminId) { toast.error("Informe o nome do produto"); return; }
-                const { error } = await supabase
-                  .from("dados_produtos_consorcio")
-                  .insert({ administradora_id: productAdminId, nome_produto: name });
-                if (error) { toast.error("Erro ao salvar produto"); return; }
-                toast.success("Produto adicionado");
-                setProductDialogOpen(false);
-                setProductName("");
-                await loadAdminProducts();
-              }}>Salvar</Button>
+            <Field label="Nome do produto">
+              <Input value={productName} onChange={(e) => setProductName(e.target.value.toUpperCase())} className={fieldClass} />
+            </Field>
+            <DialogFooter className="gap-2">
+              <GhostButton onClick={() => { setProductDialogOpen(false); setProductName(""); }}>Cancelar</GhostButton>
+              <button type="button" onClick={saveProduct} className="inline-flex h-11 items-center rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90">
+                Salvar
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <Dialog open={!!cancellingRecord} onOpenChange={(open) => !open && setCancellingRecord(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className={cn(dialogClass, "max-w-md")}>
             <DialogHeader>
-              <DialogTitle>Cancelar Consórcio</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold tracking-tight">Cancelar consórcio</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-2">
-                <Label>Data do Cancelamento *</Label>
+              <Field label="Data do cancelamento *">
                 <Input
                   type="date"
                   value={cancelForm.data_cancelamento}
                   onChange={(e) => setCancelForm((f) => ({ ...f, data_cancelamento: e.target.value }))}
+                  className={fieldClass}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Motivo do Cancelamento</Label>
+              </Field>
+              <Field label="Motivo do cancelamento">
                 <Input
-                  placeholder="Informe o motivo do cancelamento"
+                  placeholder="Informe o motivo"
                   value={cancelForm.observacao}
                   onChange={(e) => setCancelForm((f) => ({ ...f, observacao: e.target.value }))}
+                  className={fieldClass}
                 />
-              </div>
+              </Field>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCancellingRecord(null)}>Voltar</Button>
-              <Button variant="destructive" onClick={doCancelamento}>Confirmar Cancelamento</Button>
+            <DialogFooter className="gap-2">
+              <GhostButton onClick={() => setCancellingRecord(null)}>Voltar</GhostButton>
+              <button
+                type="button"
+                onClick={doCancelamento}
+                className="inline-flex h-11 items-center rounded-2xl bg-red-500 px-5 text-sm font-semibold text-white hover:bg-red-500/90"
+              >
+                Confirmar cancelamento
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className={cn(dialogClass, "max-w-4xl")}>
             <DialogHeader>
-              <DialogTitle>Detalhes do Consórcio</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold tracking-tight">Detalhes do consórcio</DialogTitle>
             </DialogHeader>
             {viewing && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="p-4 col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Administradora</Label>
-                    <div className="text-sm mt-1">{viewing.administradora || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>Código Assessor</Label>
-                    <div className="text-sm mt-1">{viewing.cod_assessor || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>Data da Venda</Label>
-                    <div className="text-sm mt-1">{formatDateBR(viewing.data_venda)}</div>
-                  </div>
-                  <div>
-                    <Label>Produto</Label>
-                    <div className="text-sm mt-1">{viewing.produto || "-"}</div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label>Observação</Label>
-                    <div className="text-sm mt-1">{viewing.observacao || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>Código do Cliente</Label>
-                    <div className="text-sm mt-1">{viewing.codigo_cliente || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>Cliente</Label>
-                    <div className="text-sm mt-1">{viewing.cliente || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>CPF/CNPJ</Label>
-                    <div className="text-sm mt-1">{formatCpfCnpjMask(viewing.cpf_cnpj)}</div>
-                  </div>
-                  <div>
-                    <Label>Contrato</Label>
-                    <div className="text-sm mt-1">{viewing.contrato || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>Grupo</Label>
-                    <div className="text-sm mt-1">{viewing.grupo || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>Cota</Label>
-                    <div className="text-sm mt-1">{viewing.cota || "-"}</div>
-                  </div>
-                  <div>
-                    <Label>Valor Carta</Label>
-                    <div className="text-sm mt-1">{formatCurrency(viewing.valor_carta)}</div>
-                  </div>
-                  <div>
-                    <Label>Comissão Total</Label>
-                    <div className="text-sm mt-1">{formatCurrency(viewing.valor_comissao_total)}</div>
-                  </div>
-                </Card>
+              <div className="grid grid-cols-1 gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-3">
+                <Detail label="Administradora" value={viewing.administradora} />
+                <Detail label="Assessor" value={viewing.cod_assessor ? assessorLabelByCode.get(viewing.cod_assessor) || viewing.cod_assessor : viewing.cod_assessor} />
+                <Detail label="Data da venda" value={formatDateBR(viewing.data_venda)} />
+                <Detail label="Produto" value={viewing.produto} />
+                <Detail label="Observação" value={viewing.observacao} className="sm:col-span-2" />
+                <Detail label="Código do cliente" value={viewing.codigo_cliente} />
+                <Detail label="Cliente" value={viewing.cliente} />
+                <Detail label="CPF/CNPJ" value={formatCpfCnpjMask(viewing.cpf_cnpj)} />
+                <Detail label="Contrato" value={viewing.contrato} />
+                <Detail label="Grupo" value={viewing.grupo} />
+                <Detail label="Cota" value={viewing.cota} />
+                <Detail label="Valor carta" value={formatCurrency(viewing.valor_carta)} />
+                <Detail label="Comissão total" value={formatCurrency(viewing.valor_comissao_total)} highlight />
               </div>
             )}
           </DialogContent>
@@ -863,5 +916,145 @@ const Consorcios = () => {
     </PageLayout>
   );
 };
+
+function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <Label className={labelClass}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  className,
+  highlight,
+}: {
+  label: string;
+  value: string | null | undefined;
+  className?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={className}>
+      <p className="text-[11px] uppercase tracking-wide text-white/35">{label}</p>
+      <p className={cn("mt-1 text-sm", highlight ? "font-medium text-euro-gold" : "text-white")}>{value || "—"}</p>
+    </div>
+  );
+}
+
+function GhostButton({
+  children,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/75 transition-colors hover:bg-white/[0.08] hover:text-white disabled:pointer-events-none disabled:opacity-35",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AdminChip({
+  name,
+  percent,
+  formatPercent,
+}: {
+  name: string | null;
+  percent?: number;
+  formatPercent: (n: number | null | undefined) => string;
+}) {
+  const dot =
+    name === "MAPFRE" ? "bg-red-400" :
+    name === "ADEMICON" ? "bg-euro-gold" :
+    name === "CONSÓRCIO XP" ? "bg-sky-400" :
+    "bg-white/50";
+
+  return (
+    <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs text-white">
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
+      <span className="truncate">
+        {name || "—"}
+        {percent !== undefined ? ` · ${formatPercent(percent)}` : ""}
+      </span>
+    </span>
+  );
+}
+
+function StatusChip({ cancelled }: { cancelled: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium",
+        cancelled
+          ? "border-red-400/25 bg-red-400/15 text-red-300"
+          : "border-emerald-400/25 bg-emerald-400/15 text-emerald-300",
+      )}
+    >
+      {cancelled ? "Cancelado" : "Ativo"}
+    </span>
+  );
+}
+
+function RowActions({
+  cancelled,
+  onView,
+  onEdit,
+  onCancel,
+}: {
+  cancelled: boolean;
+  onView: () => void;
+  onEdit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <IconAction label="Ver" onClick={onView}><Eye className="h-4 w-4" /></IconAction>
+      <IconAction label="Editar" onClick={onEdit}><Edit className="h-4 w-4" /></IconAction>
+      <IconAction label={cancelled ? "Já cancelado" : "Cancelar"} onClick={onCancel} disabled={cancelled} danger>
+        <Ban className="h-4 w-4" />
+      </IconAction>
+    </div>
+  );
+}
+
+function IconAction({
+  children,
+  onClick,
+  disabled,
+  danger,
+  label,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/55 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-white disabled:pointer-events-none disabled:opacity-30",
+        danger && "hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default Consorcios;

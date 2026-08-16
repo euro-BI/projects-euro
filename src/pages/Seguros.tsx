@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/PageLayout";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { HubAtmosphere } from "@/components/home/HubAtmosphere";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -26,19 +24,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Edit, FileSpreadsheet, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import { addMonths, addYears, format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
 
 type Periodicidade = "MENSAL" | "ANUAL" | "1 MÊS" | "2 MESES" | "3 MESES";
 type Seguradora = "MAG" | "ICATU" | "METLIFE" | "OMINT" | "PRUDENTIAL" | "N/A";
@@ -70,6 +71,12 @@ type SeguroDraft = {
   percentComissaoDigits: string;
 };
 
+const fieldClass =
+  "h-11 rounded-2xl border-white/10 bg-white/[0.04] text-[#F4F1E8] placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-euro-gold/40 focus-visible:ring-offset-0";
+const dialogClass =
+  "gap-5 border-white/10 bg-[#12141A] text-[#F4F1E8] sm:rounded-[28px] p-6 sm:p-8";
+const labelClass = "text-[13px] font-medium text-white/50";
+
 const onlyDigits = (v: string) => v.replace(/\D/g, "");
 
 const formatCurrency = (n: number | null | undefined) => {
@@ -97,6 +104,17 @@ const formatDateBR = (isoDate: string | null) => {
 
 const DRAFT_KEY = "seguros_novo_draft_v1";
 const DRAFT_OPEN_KEY = "seguros_novo_draft_open_v1";
+
+const periodicidadeOptions: { value: Periodicidade; label: string }[] = [
+  { value: "MENSAL", label: "Mensal" },
+  { value: "ANUAL", label: "Anual" },
+  { value: "1 MÊS", label: "1 Mês" },
+  { value: "2 MESES", label: "2 Meses" },
+  { value: "3 MESES", label: "3 Meses" },
+];
+
+const seguradoraOptions: Seguradora[] = ["MAG", "ICATU", "METLIFE", "OMINT", "PRUDENTIAL", "N/A"];
+const produtoOptions: Produto[] = ["PLANO DE SAÚDE", "SEGURO DE VEÍCULOS", "SEGURO RC", "HOLDING", "OFFSHORE", "SEGURO DE VIDA"];
 
 const Seguros = () => {
   const navigate = useNavigate();
@@ -267,11 +285,13 @@ const Seguros = () => {
 
     if (term) {
       rows = rows.filter((r) => {
+        const assessor = r.cod_assessor ? assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor : "";
         const s = [
           r.inscricao,
           r.conta,
           r.cliente,
           r.cod_assessor,
+          assessor,
           r.seguradora,
           r.produto,
           r.periodicidade,
@@ -305,10 +325,12 @@ const Seguros = () => {
     }
 
     return rows;
-  }, [filterAssessor, filterDataAte, filterDataDe, filterPeriodicidade, filterSeguradora, registros, searchTerm]);
+  }, [assessorLabelByCode, filterAssessor, filterDataAte, filterDataDe, filterPeriodicidade, filterSeguradora, registros, searchTerm]);
 
   const pageSize = 20;
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const startIndex = filtered.length === 0 ? 0 : (page - 1) * pageSize;
+  const endIndex = Math.min(filtered.length, startIndex + pageSize);
   const pageItems = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
 
   useEffect(() => {
@@ -344,11 +366,14 @@ const Seguros = () => {
       onClear: () => setFilterAssessor(""),
     });
     if (filterSeguradora) chips.push({ key: "seguradora", label: `Seguradora: ${filterSeguradora}`, onClear: () => setFilterSeguradora("") });
-    if (filterPeriodicidade) chips.push({
-      key: "periodicidade",
-      label: `Periodicidade: ${filterPeriodicidade === "MENSAL" ? "Mensal" : "Anual"}`,
-      onClear: () => setFilterPeriodicidade(""),
-    });
+    if (filterPeriodicidade) {
+      const label = periodicidadeOptions.find((o) => o.value === filterPeriodicidade)?.label || filterPeriodicidade;
+      chips.push({
+        key: "periodicidade",
+        label: `Periodicidade: ${label}`,
+        onClear: () => setFilterPeriodicidade(""),
+      });
+    }
     if (filterDataDe || filterDataAte) {
       const de = filterDataDe ? formatDateBR(filterDataDe) : "—";
       const ate = filterDataAte ? formatDateBR(filterDataAte) : "—";
@@ -393,7 +418,6 @@ const Seguros = () => {
     const cliente = String(form.cliente || "").trim().toUpperCase();
     const codAssessor = String(form.cod_assessor || "").trim();
     const periodicidade = form.periodicidade as Periodicidade | undefined;
-    const seguradora = form.seguradora as Seguradora | undefined;
     const produto = form.produto as Produto | undefined;
     const dataInicial = String(form.data_inicial || "").trim();
     const parcela = form.valor_parcela;
@@ -455,7 +479,7 @@ const Seguros = () => {
 
     const periodicidade = payload.periodicidade as Periodicidade;
     const baseDate = parseISO(String(payload.data_inicial));
-    
+
     let dates: string[] = [];
     if (periodicidade === "MENSAL") {
       dates = Array.from({ length: 24 }, (_, i) => format(addMonths(baseDate, i), "yyyy-MM-dd"));
@@ -527,291 +551,221 @@ const Seguros = () => {
     XLSX.writeFile(wb, "seguros.xlsx");
   };
 
-  const periodicidadeOptions: { value: Periodicidade; label: string }[] = [
-    { value: "MENSAL", label: "Mensal" },
-    { value: "ANUAL", label: "Anual" },
-    { value: "1 MÊS", label: "1 Mês" },
-    { value: "2 MESES", label: "2 Meses" },
-    { value: "3 MESES", label: "3 Meses" },
-  ];
-
-  const seguradoraOptions: Seguradora[] = ["MAG", "ICATU", "METLIFE", "OMINT", "PRUDENTIAL", "N/A"];
-  const produtoOptions: Produto[] = ["PLANO DE SAÚDE", "SEGURO DE VEÍCULOS", "SEGURO RC", "HOLDING", "OFFSHORE", "SEGURO DE VIDA"];
-
   return (
-    <PageLayout>
-      <div className="container mx-auto px-4 py-8 max-w-[1600px]">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-6">
-          <div>
-            <Button variant="ghost" onClick={() => navigate("/")} className="mb-4 -ml-2">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-            <h1 className="text-4xl font-bold mb-2 text-gradient-cyan">Seguros</h1>
-            <p className="text-muted-foreground">Gerencie os dados de seguros</p>
-          </div>
-          <div className="flex items-center gap-2 md:pb-1">
-            <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              Novo Registro
-            </Button>
-            <Button variant="outline" onClick={exportXlsx} className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              Exportar XLSX
-            </Button>
-          </div>
-        </div>
+    <PageLayout className="relative overflow-hidden bg-transparent font-ui text-[#F4F1E8] selection:bg-euro-gold/30">
+      <HubAtmosphere />
 
-        <Card className="p-4 mb-6">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex-1 md:max-w-[520px]">
-                <Label className="sr-only">Busca</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    placeholder="Buscar por inscrição, conta, cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-2 md:justify-end">
-                <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-                  <Button variant="outline" className="flex items-center gap-2" onClick={() => setFiltersOpen(true)}>
-                    <SlidersHorizontal className="h-4 w-4" />
-                    Filtros
-                    {activeFiltersCount > 0 && (
-                      <Badge variant="secondary" className="ml-1">
-                        {activeFiltersCount}
-                      </Badge>
-                    )}
-                  </Button>
-                  <SheetContent side="right" className="w-full sm:max-w-md">
-                    <SheetHeader>
-                      <SheetTitle>Filtros</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-6 grid grid-cols-1 gap-4">
-                      <div>
-                        <Label>Assessor</Label>
-                        <Select value={filterAssessor} onValueChange={setFilterAssessor}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todos" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {assessorOptions.map((o) => (
-                              <SelectItem key={o.code} value={o.code}>
-                                {o.code} - {o.name.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Seguradora</Label>
-                        <Select value={filterSeguradora} onValueChange={(v) => setFilterSeguradora(v as Seguradora | "")}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {seguradoraOptions.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Periodicidade</Label>
-                        <Select value={filterPeriodicidade} onValueChange={(v) => setFilterPeriodicidade(v as Periodicidade | "")}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {periodicidadeOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <Label>Data inicial (de)</Label>
-                          <Input
-                            type="date"
-                            className=""
-                            value={filterDataDe}
-                            onChange={(e) => setFilterDataDe(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Data inicial (até)</Label>
-                          <Input
-                            type="date"
-                            className=""
-                            value={filterDataAte}
-                            onChange={(e) => setFilterDataAte(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <SheetFooter className="mt-6">
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          clearFilters();
-                        }}
-                      >
-                        Limpar
-                      </Button>
-                      <Button onClick={() => setFiltersOpen(false)}>Aplicar</Button>
-                    </SheetFooter>
-                  </SheetContent>
-                </Sheet>
-                {activeFiltersCount > 0 && (
-                  <Button variant="secondary" onClick={clearFilters}>
-                    Limpar tudo
-                  </Button>
-                )}
-              </div>
+      <div className="relative z-10 flex min-h-[calc(100vh-4rem)] w-full flex-col px-5 py-6 sm:px-8 lg:px-10 xl:px-12">
+        <header className="mb-6 flex shrink-0 flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mb-5 inline-flex items-center gap-2 text-sm text-white/45 transition-colors hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Início
+            </button>
+            <h1 className="text-[2rem] font-semibold tracking-tight text-white sm:text-4xl">Seguros</h1>
+            <p className="mt-2 text-sm text-white/45">Produção, parcelas e comissões da carteira.</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <GhostButton onClick={exportXlsx}>
+              <Download className="h-4 w-4" />
+              Exportar
+            </GhostButton>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-euro-gold px-4 text-sm font-semibold text-euro-navy transition-colors hover:bg-euro-gold/90"
+            >
+              <Plus className="h-4 w-4" />
+              Novo registro
+            </button>
+          </div>
+        </header>
+
+        <div className="mb-4 flex shrink-0 flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <Input
+                placeholder="Buscar cliente, inscrição, assessor, produto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={cn(fieldClass, "h-12 pl-11")}
+              />
             </div>
-            {filterChips.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {filterChips.map((c) => (
-                  <Badge key={c.key} variant="secondary" className="gap-2 pr-1">
-                    <span className="truncate max-w-[420px]">{c.label}</span>
-                    <button
-                      type="button"
-                      aria-label={`Remover filtro ${c.label}`}
-                      className="rounded-full p-0.5 hover:bg-background/50"
-                      onClick={c.onClear}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+            <GhostButton onClick={() => setFiltersOpen(true)}>
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+              {activeFiltersCount > 0 && (
+                <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-euro-gold px-1.5 text-[11px] font-semibold text-euro-navy">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </GhostButton>
+            {activeFiltersCount > 0 && (
+              <GhostButton onClick={clearFilters}>Limpar</GhostButton>
             )}
           </div>
-        </Card>
 
-        <Card className="p-0 overflow-hidden">
-          <div className="w-full overflow-x-auto">
-            <Table className="table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[160px] whitespace-nowrap">Inscrição</TableHead>
-                <TableHead className="w-[320px] whitespace-nowrap">Cliente</TableHead>
-                <TableHead className="w-[280px] whitespace-nowrap">Assessor</TableHead>
-                <TableHead className="w-[140px] whitespace-nowrap">Seguradora</TableHead>
-                <TableHead className="w-[150px] whitespace-nowrap text-right">Parcela</TableHead>
-                <TableHead className="w-[150px] whitespace-nowrap text-right">Comissão</TableHead>
-                <TableHead className="w-[140px] whitespace-nowrap">Data</TableHead>
-                <TableHead className="w-[90px] whitespace-nowrap text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">Carregando...</TableCell>
-                </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">Nenhum registro encontrado</TableCell>
-                </TableRow>
-              ) : (
-                pageItems.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium whitespace-nowrap">{r.inscricao || "-"}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <div className="truncate" title={r.cliente || ""}>
-                        {r.cliente || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <div className="truncate" title={r.cod_assessor ? (assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor) : ""}>
-                        {r.cod_assessor ? (assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor) : "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{r.seguradora || "-"}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(r.valor_parcela)}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(r.valor_comissao)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDateBR(r.data_inicial)}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(r)} aria-label="Editar">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setConfirmDeleteId(r.id)} aria-label="Excluir">
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-            </Table>
-          </div>
-        </Card>
-
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-muted-foreground whitespace-nowrap">
-            {filtered.length} {filtered.length === 1 ? "registro" : "registros"} • Página {page} de {pageCount}
-          </div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious onClick={() => setPage((p) => Math.max(1, p - 1))} />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext onClick={() => setPage((p) => Math.min(pageCount, p + 1))} />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          {filterChips.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {filterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={chip.onClear}
+                  className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-white/80 hover:border-white/20 hover:text-white"
+                >
+                  <span className="truncate">{chip.label}</span>
+                  <X className="h-3 w-3 shrink-0 text-white/45" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent
-            className="max-w-3xl"
-            onInteractOutside={(e) => e.preventDefault()}
-            onEscapeKeyDown={(e) => e.preventDefault()}
-          >
-            <DialogHeader>
-              <DialogTitle>{editing ? "Editar Seguro" : "Novo Seguro"}</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Inscrição</Label>
-                <Input
-                  value={String(form.inscricao ?? "")}
-                  onChange={(e) => setForm((f) => ({ ...f, inscricao: onlyDigits(e.target.value) }))}
-                  inputMode="numeric"
-                />
-              </div>
-              <div>
-                <Label>Conta (opcional)</Label>
-                <Input
-                  value={String(form.conta ?? "")}
-                  onChange={(e) => setForm((f) => ({ ...f, conta: onlyDigits(e.target.value) }))}
-                  inputMode="numeric"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Cliente</Label>
-                <Input
-                  value={String(form.cliente ?? "")}
-                  onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value.toUpperCase() }))}
-                />
-              </div>
-              <div>
-                <Label>Assessor</Label>
-                <Select value={String(form.cod_assessor ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, cod_assessor: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
+        <p className="mb-3 shrink-0 text-xs text-white/35">
+          {loading ? "Carregando..." : `${filtered.length} ${filtered.length === 1 ? "registro" : "registros"}`}
+        </p>
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#12141A] shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)]">
+          <span className="pointer-events-none block h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+          <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-white/[0.08] bg-white/[0.025] text-[11px] uppercase tracking-wide text-white/40">
+                  <th className="px-5 py-3.5 font-medium">Cliente</th>
+                  <th className="px-4 py-3.5 font-medium">Assessor</th>
+                  <th className="px-4 py-3.5 font-medium">Seguradora</th>
+                  <th className="px-4 py-3.5 font-medium">Periodicidade</th>
+                  <th className="px-4 py-3.5 font-medium text-right">Parcela</th>
+                  <th className="px-4 py-3.5 font-medium text-right">Comissão</th>
+                  <th className="px-4 py-3.5 font-medium">Data</th>
+                  <th className="px-5 py-3.5 font-medium text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-16 text-center text-white/40">Carregando registros...</td>
+                  </tr>
+                ) : pageItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</td>
+                  </tr>
+                ) : (
+                  pageItems.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-b border-white/[0.06] transition-colors last:border-0 hover:bg-white/[0.035]"
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-white">{r.cliente || "—"}</p>
+                        <p className="mt-0.5 text-xs text-white/40">
+                          {[r.inscricao ? `Inscrição ${r.inscricao}` : null, r.produto].filter(Boolean).join(" · ") || "Sem inscrição"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-white/75">
+                        {r.cod_assessor ? assessorLabelByCode.get(r.cod_assessor) || r.cod_assessor : "—"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <InsurerChip name={r.seguradora} />
+                      </td>
+                      <td className="px-4 py-4 text-sm text-white/75">
+                        {periodicidadeOptions.find((o) => o.value === r.periodicidade)?.label || r.periodicidade || "—"}
+                      </td>
+                      <td className="px-4 py-4 text-right font-data text-sm tabular-nums text-white/80">
+                        {formatCurrency(r.valor_parcela)}
+                      </td>
+                      <td className="px-4 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
+                        {formatCurrency(r.valor_comissao)}
+                      </td>
+                      <td className="px-4 py-4 font-data text-sm tabular-nums text-white/75">{formatDateBR(r.data_inicial)}</td>
+                      <td className="px-5 py-4">
+                        <RowActions
+                          onEdit={() => openEdit(r)}
+                          onDelete={() => setConfirmDeleteId(r.id)}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="divide-y divide-white/[0.06] md:hidden">
+            {loading ? (
+              <p className="px-5 py-16 text-center text-white/40">Carregando registros...</p>
+            ) : pageItems.length === 0 ? (
+              <p className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</p>
+            ) : (
+              pageItems.map((r) => (
+                <div key={r.id} className="space-y-3 px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-white">{r.cliente || "—"}</p>
+                      <p className="mt-0.5 text-xs text-white/40">
+                        {[r.inscricao ? `Inscrição ${r.inscricao}` : null, r.produto].filter(Boolean).join(" · ") || "Sem inscrição"}
+                      </p>
+                    </div>
+                    <InsurerChip name={r.seguradora} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-data text-sm tabular-nums text-euro-gold">{formatCurrency(r.valor_comissao)}</p>
+                      <p className="text-xs text-white/40">{formatCurrency(r.valor_parcela)} · {formatDateBR(r.data_inicial)}</p>
+                    </div>
+                    <RowActions
+                      onEdit={() => openEdit(r)}
+                      onDelete={() => setConfirmDeleteId(r.id)}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 flex shrink-0 items-center justify-between gap-3">
+          <p className="text-xs text-white/35">
+            {filtered.length === 0 ? "Nenhum item" : `${startIndex + 1}–${endIndex} de ${filtered.length}`}
+          </p>
+          <div className="flex items-center gap-2">
+            <GhostButton
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="h-10 w-10 px-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </GhostButton>
+            <span className="min-w-[4.5rem] text-center text-sm text-white/60">
+              {page} / {pageCount}
+            </span>
+            <GhostButton
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={page >= pageCount}
+              className="h-10 w-10 px-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </GhostButton>
+          </div>
+        </div>
+
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetContent side="right" className="w-full border-white/10 bg-[#12141A] text-[#F4F1E8] sm:max-w-md">
+            <SheetHeader>
+              <SheetTitle className="text-2xl font-semibold tracking-tight text-white">Filtros</SheetTitle>
+            </SheetHeader>
+            <div className="mt-6 grid grid-cols-1 gap-4">
+              <Field label="Assessor">
+                <Select value={filterAssessor} onValueChange={setFilterAssessor}>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     {assessorOptions.map((o) => (
                       <SelectItem key={o.code} value={o.code}>
@@ -820,132 +774,213 @@ const Seguros = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </Field>
+              <Field label="Seguradora">
+                <Select value={filterSeguradora} onValueChange={(v) => setFilterSeguradora(v as Seguradora | "")}>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    {seguradoraOptions.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Periodicidade">
+                <Select value={filterPeriodicidade} onValueChange={(v) => setFilterPeriodicidade(v as Periodicidade | "")}>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    {periodicidadeOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Data inicial (de)">
+                  <Input type="date" value={filterDataDe} onChange={(e) => setFilterDataDe(e.target.value)} className={fieldClass} />
+                </Field>
+                <Field label="Data inicial (até)">
+                  <Input type="date" value={filterDataAte} onChange={(e) => setFilterDataAte(e.target.value)} className={fieldClass} />
+                </Field>
               </div>
-              <div>
-                <Label>Produto</Label>
-                <Select 
-                  value={String(form.produto ?? "")} 
+            </div>
+            <SheetFooter className="mt-6 gap-2 sm:space-x-0">
+              <GhostButton onClick={clearFilters}>Limpar</GhostButton>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="inline-flex h-11 items-center rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90"
+              >
+                Aplicar
+              </button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent
+            className={cn(dialogClass, "max-w-3xl")}
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-semibold tracking-tight">
+                {editing ? "Editar seguro" : "Novo seguro"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid max-h-[70vh] grid-cols-1 gap-4 overflow-y-auto pr-1 md:grid-cols-2">
+              <Field label="Inscrição">
+                <Input
+                  value={String(form.inscricao ?? "")}
+                  onChange={(e) => setForm((f) => ({ ...f, inscricao: onlyDigits(e.target.value) }))}
+                  inputMode="numeric"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Conta (opcional)">
+                <Input
+                  value={String(form.conta ?? "")}
+                  onChange={(e) => setForm((f) => ({ ...f, conta: onlyDigits(e.target.value) }))}
+                  inputMode="numeric"
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Cliente" className="md:col-span-2">
+                <Input
+                  value={String(form.cliente ?? "")}
+                  onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value.toUpperCase() }))}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Assessor">
+                <Select value={String(form.cod_assessor ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, cod_assessor: v }))}>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {assessorOptions.map((o) => (
+                      <SelectItem key={o.code} value={o.code}>
+                        {o.code} - {o.name.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Produto">
+                <Select
+                  value={String(form.produto ?? "")}
                   onValueChange={(v) => {
                     const newProduto = v as Produto;
                     const validForHolding = ["1 MÊS", "2 MESES", "3 MESES"];
                     const validForOthers = ["MENSAL", "ANUAL"];
                     let newPeriodicidade = form.periodicidade;
-                    
+
                     if (newProduto === "HOLDING" && (!newPeriodicidade || !validForHolding.includes(newPeriodicidade))) {
                       newPeriodicidade = null;
                     } else if (newProduto !== "HOLDING" && (!newPeriodicidade || !validForOthers.includes(newPeriodicidade))) {
                       newPeriodicidade = null;
                     }
-                    
+
                     setForm((f) => ({ ...f, produto: newProduto, periodicidade: newPeriodicidade }));
                   }}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {produtoOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label>Seguradora</Label>
+              </Field>
+              <Field label="Seguradora">
                 <Select value={String(form.seguradora ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, seguradora: v as Seguradora }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {seguradoraOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label>Periodicidade</Label>
+              </Field>
+              <Field label="Periodicidade">
                 <Select value={String(form.periodicidade ?? "")} onValueChange={(v) => setForm((f) => ({ ...f, periodicidade: v as Periodicidade }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
+                  <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {periodicidadeOptions
                       .filter((o) =>
                         form.produto === "HOLDING"
                           ? ["1 MÊS", "2 MESES", "3 MESES"].includes(o.value)
-                          : ["MENSAL", "ANUAL"].includes(o.value)
+                          : ["MENSAL", "ANUAL"].includes(o.value),
                       )
                       .map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label>Valor da parcela</Label>
+              </Field>
+              <Field label="Valor da parcela">
                 <Input
                   value={valorParcelaDigits ? formatCurrency(Number(onlyDigits(valorParcelaDigits)) / 100) : ""}
                   onChange={(e) => setValorParcelaDigits(onlyDigits(e.target.value))}
                   inputMode="numeric"
+                  className={fieldClass}
                 />
-              </div>
-              <div>
-                <Label>% de comissão</Label>
+              </Field>
+              <Field label="% de comissão">
                 <Input
                   value={percentComissaoDigits ? formatNumberFromDigits(percentComissaoDigits, 2) : ""}
                   onChange={(e) => setPercentComissaoDigits(onlyDigits(e.target.value))}
                   inputMode="numeric"
+                  className={fieldClass}
                 />
-              </div>
-              <div>
-                <Label>Valor comissão</Label>
-                <Input value={form.valor_comissao !== null && form.valor_comissao !== undefined ? formatCurrency(form.valor_comissao) : ""} disabled />
-              </div>
-              <div>
-                <Label>Data inicial</Label>
+              </Field>
+              <Field label="Valor comissão">
+                <Input
+                  value={form.valor_comissao !== null && form.valor_comissao !== undefined ? formatCurrency(form.valor_comissao) : ""}
+                  disabled
+                  className={cn(fieldClass, "text-euro-gold")}
+                />
+              </Field>
+              <Field label="Data inicial">
                 <Input
                   type="date"
-                  className=""
                   value={String(form.data_inicial ?? "")}
                   onChange={(e) => setForm((f) => ({ ...f, data_inicial: e.target.value }))}
+                  className={fieldClass}
                 />
-              </div>
+              </Field>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-2">
               {!editing && (
-                <Button variant="outline" onClick={clearDraftAndResetForm}>
-                  Limpar rascunho
-                </Button>
+                <GhostButton onClick={clearDraftAndResetForm}>Limpar rascunho</GhostButton>
               )}
-              <Button variant="secondary" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={saveRegistro} className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
+              <GhostButton onClick={() => setIsDialogOpen(false)}>Cancelar</GhostButton>
+              <button
+                type="button"
+                onClick={saveRegistro}
+                className="inline-flex h-11 items-center gap-2 rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90"
+              >
+                <Plus className="h-4 w-4" />
                 Salvar
-              </Button>
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className="border-white/10 bg-[#12141A] text-[#F4F1E8] sm:rounded-[28px]">
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="text-xl text-white">Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription className="text-white/50">
                 Tem certeza que deseja excluir este registro? Essa ação não pode ser desfeita.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete}>
+            <AlertDialogFooter className="gap-2 sm:space-x-0">
+              <AlertDialogCancel className="h-11 rounded-2xl border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="h-11 rounded-2xl bg-red-500 text-white hover:bg-red-500/90"
+              >
                 Excluir
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -955,5 +990,92 @@ const Seguros = () => {
     </PageLayout>
   );
 };
+
+function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <Label className={labelClass}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function GhostButton({
+  children,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white/75 transition-colors hover:bg-white/[0.08] hover:text-white disabled:pointer-events-none disabled:opacity-35",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+function InsurerChip({ name }: { name: string | null }) {
+  const dot =
+    name === "MAG" ? "bg-euro-gold" :
+    name === "ICATU" ? "bg-sky-400" :
+    name === "METLIFE" ? "bg-blue-400" :
+    name === "OMINT" ? "bg-emerald-400" :
+    name === "PRUDENTIAL" ? "bg-violet-400" :
+    "bg-white/40";
+
+  return (
+    <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs text-white">
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
+      <span className="truncate">{name || "—"}</span>
+    </span>
+  );
+}
+
+function RowActions({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <IconAction label="Editar" onClick={onEdit}><Edit className="h-4 w-4" /></IconAction>
+      <IconAction label="Excluir" onClick={onDelete} danger><Trash2 className="h-4 w-4" /></IconAction>
+    </div>
+  );
+}
+
+function IconAction({
+  children,
+  onClick,
+  danger,
+  label,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/55 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-white",
+        danger && "hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default Seguros;

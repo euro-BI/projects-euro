@@ -139,7 +139,7 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         display: ["JetBrains Mono", "monospace"],
-        editorial: ["Lora", "serif"],
+        editorial: ["Instrument Serif", "Lora", "serif"],
         ui: ["DM Sans", "sans-serif"],
         data: ["JetBrains Mono", "monospace"],
       },
