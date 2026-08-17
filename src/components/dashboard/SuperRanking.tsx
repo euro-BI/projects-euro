@@ -270,9 +270,9 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     };
 
     const heights = {
-      1: isTv ? "h-[770px]" : "h-[450px]",
-      2: isTv ? "h-[660px]" : "h-[380px]",
-      3: isTv ? "h-[600px]" : "h-[320px]"
+      1: isTv ? "h-[560px]" : "h-[450px]",
+      2: isTv ? "h-[470px]" : "h-[380px]",
+      3: isTv ? "h-[420px]" : "h-[320px]"
     };
 
     const order = {
@@ -564,7 +564,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     <div className={cn(isTv ? "h-full flex flex-col" : "space-y-12")}>
       {/* HEADER & FILTERS */}
       {isTv ? (
-        <div className="flex items-center justify-between pb-4 pl-8">
+        <div className="relative z-20 flex items-center justify-between pb-4 pl-8">
           <div className="flex items-center gap-4">
             <Trophy className="w-10 h-10 text-euro-gold" />
             <h1 className="text-4xl font-data text-white tracking-[0.18em] uppercase whitespace-nowrap">

@@ -817,6 +817,7 @@ export default function RendaVariavelDash({
             "Vencimento": b.fixing ? format(parseISO(b.fixing), "dd/MM/yy") : "",
             "Ativo": b.ativo ?? "",
             "Operação": b.operacao ?? "",
+            "Estrutura": b.estrutura ?? "",
             "Comissão": b.comissao ? (parseFloat(String(b.comissao).replace(/[^\d.,-]/g, "").replace(",", ".")) || 0) : 0,
           }));
 

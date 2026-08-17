@@ -23,6 +23,261 @@ import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Toolti
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth" | "prevMonth";
 const FIXED_MONTH_WEEKS = 4;
 
+function buildDashboardStory(current: any, month: any, today: Date, monthAnchor: Date) {
+  const monthStart = startOfMonth(monthAnchor);
+  const monthEnd = endOfMonth(monthAnchor);
+  const totalMonthDays = monthEnd.getDate();
+  const currentMonthStart = startOfMonth(today);
+
+  let elapsedMonthDays = totalMonthDays;
+  let isCurrentMonth = false;
+
+  if (monthStart.getTime() === currentMonthStart.getTime()) {
+    isCurrentMonth = true;
+    elapsedMonthDays = Math.min(today.getDate(), totalMonthDays);
+  } else if (monthStart.getTime() > currentMonthStart.getTime()) {
+    elapsedMonthDays = 0;
+  } else {
+    elapsedMonthDays = totalMonthDays;
+  }
+
+  const monthProgressRatio = totalMonthDays > 0 ? elapsedMonthDays / totalMonthDays : 0;
+  const fullMonthWeeks = FIXED_MONTH_WEEKS;
+  const monthlyMetaTotal = month.totalAssessores * fullMonthWeeks;
+  const monthlyPaceTarget = monthlyMetaTotal * monthProgressRatio;
+  const monthlyAchievementPct = monthlyMetaTotal > 0 ? (month.realizadas / monthlyMetaTotal) * 100 : 0;
+  const paceAchievementPct = monthlyPaceTarget > 0 ? (month.realizadas / monthlyPaceTarget) * 100 : 0;
+  const currentAchievementPct = current.totalMeta > 0 ? (current.realizadas / current.totalMeta) * 100 : 0;
+  const paceGap = month.realizadas - monthlyPaceTarget;
+  const monthlyGap = Math.max(monthlyMetaTotal - month.realizadas, 0);
+  const currentGap = Math.max(current.totalMeta - current.realizadas, 0);
+  const indicationShare = current.realizadas > 0 ? (current.indicacao / current.realizadas) * 100 : 0;
+  const monthName = format(monthStart, "MMMM", { locale: ptBR });
+  const monthLabel = isCurrentMonth ? "do mês" : `de ${monthName}`;
+
+  return {
+    current,
+    month,
+    fullMonthWeeks,
+    totalMonthDays,
+    elapsedMonthDays,
+    monthlyMetaTotal,
+    monthlyPaceTarget,
+    monthlyAchievementPct,
+    paceAchievementPct,
+    currentAchievementPct,
+    paceGap,
+    monthlyGap,
+    currentGap,
+    indicationShare,
+    isCurrentMonth,
+    monthName,
+    monthLabel,
+  };
+}
+
+function VisaoAtualStoryGrid({
+  story,
+  periodLabel,
+}: {
+  story: ReturnType<typeof buildDashboardStory>;
+  periodLabel: string;
+}) {
+  return (
+    <div className="grid h-full min-h-0 grid-cols-12 gap-4">
+      <Card className="relative col-span-7 h-full overflow-hidden rounded-[28px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(6,182,212,0.18),_transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] bg-euro-card/70 shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-y-0 left-0 w-1 bg-[#06B6D4]" />
+        <CardContent className="flex h-full flex-col justify-between space-y-5 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1">
+                <CalendarCheck className="h-3.5 w-3.5 text-[#06B6D4]" />
+                <span className="font-data text-[10px] uppercase tracking-[0.25em] text-[#7DD3FC]">
+                  Pulso de {periodLabel}
+                </span>
+              </div>
+              <div>
+                <p className="mb-2 font-data text-xs uppercase tracking-[0.25em] text-white/55">
+                  Produção do período selecionado
+                </p>
+                <div className="flex items-end gap-3">
+                  <span className="font-display text-6xl leading-none text-white">{story.current.realizadas}</span>
+                  <span className="pb-2 text-sm uppercase tracking-[0.2em] text-white/55">R1 realizadas</span>
+                </div>
+              </div>
+            </div>
+            <div className="min-w-[210px] space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="flex items-center justify-between">
+                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Meta do período</span>
+                <span className="font-data text-sm text-white">
+                  {story.current.realizadas} / {story.current.totalMeta}
+                </span>
+              </div>
+              <ProgressStrip value={story.currentAchievementPct} color="#06B6D4" />
+              <p className="text-xs leading-relaxed text-white/55">
+                Cada assessor precisa de {story.current.metaTarget} R1 no período. Hoje faltam {story.currentGap} para a régua consolidada.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Total da Agenda</span>
+                <CalendarCheck className="h-4 w-4 text-blue-400" />
+              </div>
+              <div className="font-display text-3xl leading-none text-white">{story.current.agendadas + story.current.realizadas}</div>
+              <p className="mt-2 text-xs text-white/50">Volume total de R1 (realizadas + futuras).</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Agendadas</span>
+                <Clock className="h-4 w-4 text-[#A855F7]" />
+              </div>
+              <div className="font-display text-3xl leading-none text-white">{story.current.agendadas}</div>
+              <p className="mt-2 text-xs text-white/50">Reuniões futuras abertas no mesmo recorte.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Indicação</span>
+                <ThumbsUp className="h-4 w-4 text-[#EAB308]" />
+              </div>
+              <div className="font-display text-3xl leading-none text-white">{story.current.indicacao}</div>
+              <p className="mt-2 text-xs text-white/50">{story.indicationShare.toFixed(0)}% das realizadas vieram de indicação.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Base monitorada</span>
+                <Users className="h-4 w-4 text-euro-gold" />
+              </div>
+              <div className="font-display text-3xl leading-none text-white">{story.current.totalAssessores}</div>
+              <p className="mt-2 text-xs text-white/50">Assessores ativos dentro dos filtros aplicados.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="relative col-span-5 h-full overflow-hidden rounded-[28px] border border-euro-gold/20 bg-[radial-gradient(circle_at_top_left,_rgba(234,179,8,0.18),_transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] bg-euro-card/70 shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-y-0 left-0 w-1 bg-euro-gold" />
+        <CardContent className="flex h-full flex-col p-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <p className="mb-2 font-data text-[10px] uppercase tracking-[0.25em] text-euro-gold/80">Meta mensal geral</p>
+              <h3 className="font-data text-xl uppercase tracking-[0.18em] text-white">Meta de reuniões do mês</h3>
+            </div>
+            <Target className="mt-1 h-5 w-5 shrink-0 text-euro-gold" />
+          </div>
+          <div className="mb-4 flex items-end gap-3">
+            <span className="font-display text-6xl leading-none text-euro-gold">{story.monthlyAchievementPct.toFixed(0)}%</span>
+            <span className="pb-2 text-sm uppercase tracking-[0.18em] text-white/55">da meta mensal</span>
+          </div>
+          <div className="mb-5 space-y-3">
+            <ProgressStrip value={story.monthlyAchievementPct} color="#D4AF37" />
+            <div className="flex items-end justify-between gap-3">
+              <span className="font-data text-sm uppercase tracking-[0.16em] text-white/75">
+                {story.month.realizadas} de {story.monthlyMetaTotal}
+              </span>
+              <span className="text-xs text-white/55">Faltam {story.monthlyGap} R1</span>
+            </div>
+          </div>
+          <div className="mt-auto grid grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <span className="font-data text-[10px] uppercase tracking-[0.18em] text-white/40">Assessores</span>
+              <div className="mt-2 font-display text-2xl text-white">{story.month.totalAssessores}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <span className="font-data text-[10px] uppercase tracking-[0.18em] text-white/40">Semanas</span>
+              <div className="mt-2 font-display text-2xl text-white">{story.fullMonthWeeks}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <span className="font-data text-[10px] uppercase tracking-[0.18em] text-white/40">Fórmula</span>
+              <div className="mt-2 font-data text-base text-white">{story.month.totalAssessores} x {story.fullMonthWeeks}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="relative col-span-4 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-y-0 left-0 w-1 bg-[#A855F7]" />
+        <CardContent className="flex h-full flex-col space-y-5 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="mb-2 font-data text-[10px] uppercase tracking-[0.22em] text-[#D8B4FE]">Pace do mês</p>
+              <h3 className="font-data text-lg uppercase tracking-[0.15em] text-white">Ritmo proporcional</h3>
+            </div>
+            <Clock className="mt-1 h-5 w-5 shrink-0 text-[#A855F7]" />
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="font-display text-6xl leading-none text-[#D8B4FE]">{story.paceAchievementPct.toFixed(0)}%</span>
+            <span className="pb-2 text-sm uppercase tracking-[0.16em] text-white/50">do pace</span>
+          </div>
+          <div className="space-y-3">
+            <ProgressStrip value={story.paceAchievementPct} color="#A855F7" />
+            <div className="flex items-end justify-between gap-3">
+              <span className="font-data text-sm uppercase tracking-[0.16em] text-white/75">
+                {story.month.realizadas} vs {Math.round(story.monthlyPaceTarget)}
+              </span>
+              <span className="text-xs text-white/55">
+                {story.paceGap >= 0 ? `+${Math.round(story.paceGap)} acima` : `${Math.abs(Math.round(story.paceGap))} abaixo`}
+              </span>
+            </div>
+          </div>
+          <p className="mt-auto text-sm leading-relaxed text-white/60">
+            Pace = meta mensal proporcional ao avanço do mês. {story.isCurrentMonth ? `Hoje consideramos ${story.elapsedMonthDays} de ${story.totalMonthDays} dias corridos.` : "Mês encerrado (100% dos dias corridos)."}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="relative col-span-4 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-y-0 left-0 w-1 bg-green-500" />
+        <CardContent className="flex h-full flex-col space-y-5 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="mb-2 font-data text-[10px] uppercase tracking-[0.22em] text-green-300">Atingimento dos assessores</p>
+              <h3 className="font-data text-lg uppercase tracking-[0.15em] text-white">Quem bateu a meta</h3>
+            </div>
+            <Target className="mt-1 h-5 w-5 shrink-0 text-green-400" />
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="font-display text-7xl leading-none text-green-400">{story.current.pctMeta.toFixed(0)}%</span>
+            <span className="pb-2 text-sm uppercase tracking-[0.16em] text-white/50">
+              {story.current.bateramMeta} de {story.current.totalAssessores}
+            </span>
+          </div>
+          <ProgressStrip value={story.current.pctMeta} color="#22C55E" />
+          <p className="mt-auto text-sm leading-relaxed text-white/60">
+            Percentual de assessores que bateram a meta individual no recorte atual, e não o percentual da meta total de reuniões do time.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="relative col-span-4 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-y-0 left-0 w-1 bg-[#06B6D4]" />
+        <CardContent className="flex h-full flex-col space-y-5 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="mb-2 font-data text-[10px] uppercase tracking-[0.22em] text-cyan-300">Régua individual</p>
+              <h3 className="font-data text-lg uppercase tracking-[0.15em] text-white">Meta e destaque</h3>
+            </div>
+            <Users className="mt-1 h-5 w-5 shrink-0 text-[#06B6D4]" />
+          </div>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-2 font-data text-[10px] uppercase tracking-[0.18em] text-white/40">Meta individual</div>
+              <div className="font-display text-3xl leading-none text-white">{story.current.metaTarget}</div>
+              <p className="mt-2 text-xs text-white/55">R1 por assessor em {periodLabel.toLowerCase()}.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-2 font-data text-[10px] uppercase tracking-[0.18em] text-white/40">Top performer</div>
+              <div className="font-display text-3xl leading-none text-white">{story.current.topPerformerTarget}</div>
+              <p className="mt-2 text-xs text-white/55">R1 por assessor para entrar na faixa destaque.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function ProgressStrip({
   value,
   color,
@@ -498,64 +753,23 @@ export default function WeeklyEffortsDash() {
 
   const dashboardStory = useMemo(() => {
     if (!processedData) return null;
-
-    const current = processedData.current;
-    const month = processedData.selectedMonth;
-
-    const targetMonthDate = parseISO(periodDates.start);
-    const monthStart = startOfMonth(targetMonthDate);
-    const monthEnd = endOfMonth(targetMonthDate);
-    const totalMonthDays = monthEnd.getDate();
-
-    const currentMonthStart = startOfMonth(today);
-    
-    let elapsedMonthDays = totalMonthDays;
-    let isCurrentMonth = false;
-
-    if (monthStart.getTime() === currentMonthStart.getTime()) {
-      isCurrentMonth = true;
-      elapsedMonthDays = Math.min(today.getDate(), totalMonthDays);
-    } else if (monthStart.getTime() > currentMonthStart.getTime()) {
-      elapsedMonthDays = 0;
-    } else {
-      elapsedMonthDays = totalMonthDays;
-    }
-
-    const monthProgressRatio = totalMonthDays > 0 ? elapsedMonthDays / totalMonthDays : 0;
-    const fullMonthWeeks = FIXED_MONTH_WEEKS;
-    const monthlyMetaTotal = month.totalAssessores * fullMonthWeeks;
-    const monthlyPaceTarget = monthlyMetaTotal * monthProgressRatio;
-    const monthlyAchievementPct = monthlyMetaTotal > 0 ? (month.realizadas / monthlyMetaTotal) * 100 : 0;
-    const paceAchievementPct = monthlyPaceTarget > 0 ? (month.realizadas / monthlyPaceTarget) * 100 : 0;
-    const currentAchievementPct = current.totalMeta > 0 ? (current.realizadas / current.totalMeta) * 100 : 0;
-    const paceGap = month.realizadas - monthlyPaceTarget;
-    const monthlyGap = Math.max(monthlyMetaTotal - month.realizadas, 0);
-    const currentGap = Math.max(current.totalMeta - current.realizadas, 0);
-    const indicationShare = current.realizadas > 0 ? (current.indicacao / current.realizadas) * 100 : 0;
-
-    const monthName = format(monthStart, "MMMM", { locale: ptBR });
-    const monthLabel = isCurrentMonth ? "do mês" : `de ${monthName}`;
-
-    return {
-      current,
-      month,
-      fullMonthWeeks,
-      totalMonthDays,
-      elapsedMonthDays,
-      monthlyMetaTotal,
-      monthlyPaceTarget,
-      monthlyAchievementPct,
-      paceAchievementPct,
-      currentAchievementPct,
-      paceGap,
-      monthlyGap,
-      currentGap,
-      indicationShare,
-      isCurrentMonth,
-      monthName,
-      monthLabel,
-    };
+    return buildDashboardStory(
+      processedData.current,
+      processedData.selectedMonth,
+      today,
+      parseISO(periodDates.start),
+    );
   }, [processedData, today, periodDates]);
+
+  const tvVisaoAtualStory = useMemo(() => {
+    if (!processedData) return null;
+    return buildDashboardStory(
+      processedData.comparative.currentMonth,
+      processedData.comparative.currentMonth,
+      today,
+      today,
+    );
+  }, [processedData, today]);
 
   const monthlyComparisonData = useMemo(() => {
     if (!monthlyHistoryData || !metadata) return [];
@@ -755,6 +969,7 @@ export default function WeeklyEffortsDash() {
     return (
       <TVPresentationMode 
         data={processedData} 
+        visaoAtualStory={tvVisaoAtualStory}
         superRankingData={(superRankingData as any[]) || []}
         superRankingYear={rankingYear}
         onSuperRankingYearChange={setRankingYear}
@@ -1895,13 +2110,15 @@ export default function WeeklyEffortsDash() {
 // ----------------------------------------------------------------------------
 function TVPresentationMode({ 
   data, 
+  visaoAtualStory,
   superRankingData, 
   superRankingYear, 
   onSuperRankingYearChange, 
   isSuperRankingLoading,
   onClose 
 }: { 
-  data: any; 
+  data: any;
+  visaoAtualStory: ReturnType<typeof buildDashboardStory> | null;
   superRankingData: any[]; 
   superRankingYear: string; 
   onSuperRankingYearChange: (year: string) => void; 
@@ -1911,16 +2128,15 @@ function TVPresentationMode({
   const [slideIndex, setSlideIndex] = useState(0);
 
   const slides = useMemo(() => [
-    { kind: "effort" as const, title: "Semana Atual", data: data.comparative.currentWeek, accent: "#06B6D4" },
-    { kind: "effort" as const, title: "Semana Anterior", data: data.comparative.prevWeek, accent: "#A855F7" },
-    { kind: "effort" as const, title: "Acumulado do Mês", data: data.comparative.currentMonth, accent: "#EAB308" },
+    { kind: "visaoAtual" as const, title: "Mês Atual", accent: "#06B6D4" },
+    { kind: "effort" as const, title: "Mês Atual", data: data.comparative.currentMonth, accent: "#EAB308" },
     { kind: "superRanking" as const, title: "Anual", accent: "#FAC017", tvMode: "year" as const },
     { kind: "clusterTables" as const, title: "Clusters A/B", accent: "#FAC017", clusters: ["A", "B"] as const },
     { kind: "clusterTables" as const, title: "Clusters C/D", accent: "#FAC017", clusters: ["C", "D"] as const },
   ], [data]);
 
   const currentSlide = slides[slideIndex];
-  const slideDurationMs = currentSlide.kind === "clusterTables" ? 30000 : 15000;
+  const slideDurationMs = currentSlide.kind === "clusterTables" ? 30000 : currentSlide.kind === "visaoAtual" ? 20000 : 15000;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1953,8 +2169,8 @@ function TVPresentationMode({
         `}</style>
       </div>
 
-      {currentSlide.kind === "effort" ? (
-        <div className="relative z-10 flex items-center justify-between mb-12">
+      {(currentSlide.kind === "visaoAtual" || currentSlide.kind === "effort") ? (
+        <div className={cn("relative z-10 flex items-center justify-between", currentSlide.kind === "visaoAtual" ? "mb-6" : "mb-12")}>
           <div className="flex items-center gap-4">
             <CalendarCheck className="w-10 h-10 text-euro-gold" />
             <h1 className="text-4xl font-data text-white tracking-[0.2em] uppercase">
@@ -1987,8 +2203,16 @@ function TVPresentationMode({
         </>
       )}
 
-      <div className="relative z-10 flex-1 flex flex-col justify-between">
-        {currentSlide.kind === "effort" ? (
+      <div className="relative z-10 flex-1 flex flex-col justify-between min-h-0">
+        {currentSlide.kind === "visaoAtual" ? (
+          visaoAtualStory ? (
+            <VisaoAtualStoryGrid story={visaoAtualStory} periodLabel="Mês Atual" />
+          ) : (
+            <div className="flex h-full items-center justify-center font-data text-3xl uppercase tracking-widest text-white/40">
+              Carregando visão atual...
+            </div>
+          )
+        ) : currentSlide.kind === "effort" ? (
           <>
             <div className="grid grid-cols-4 gap-8">
               <Card className="bg-euro-card/40 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
