@@ -35,7 +35,13 @@ import {
   LayoutDashboard,
   Pencil,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Table2,
+  Users,
+  User,
+  Trophy,
+  TrendingDown,
+  Crown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,7 +66,10 @@ import {
 import { HelpCircle } from "lucide-react";
 import { ProductDetailsDialog } from "./ProductDetailsDialog";
 import { FundingMonthDialog } from "./FundingMonthDialog";
+import { AssessorIndicatorDialog } from "./AssessorIndicatorDialog";
+import { CockpitGlobalPulse } from "./CockpitGlobalPulse";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { BLOCKED_ASSESSORS, BLOCKED_TEAMS } from "@/utils/cockpit-v2-mappers";
 
 interface CockpitDashProps {
   currentData: AssessorResumo[];
@@ -71,6 +80,7 @@ interface CockpitDashProps {
 type MetricType = 'funding' | 'allocation' | 'variable' | 'banking' | 'insurance';
 type TargetKind = "breakeven" | "roa";
 type FundingFilter = 'all' | 'pf' | 'pj';
+type ViewMode = 'monthly' | 'accumulated' | 'detailed';
 
 const FUNDING_FIELDS: Record<FundingFilter, string[]> = {
   all: ["captacao_liquida_total"],
@@ -145,6 +155,36 @@ const METRIC_CONFIG: Record<MetricType, MetricConfigEntry> = {
   }
 };
 
+const REVENUE_METRICS: MetricType[] = ["allocation", "variable", "banking", "insurance"];
+const COCKPIT_METRICS = Object.keys(METRIC_CONFIG) as MetricType[];
+const METRIC_SHORT: Record<MetricType, string> = {
+  funding: "Cap",
+  allocation: "Aloc",
+  variable: "RV",
+  banking: "Bank",
+  insurance: "Seg",
+};
+
+type AdvisorMetricValue = {
+  realized: number;
+  target: number;
+  percent: number;
+  gap: number;
+};
+
+type AdvisorAnalysisRow = {
+  assessor: AssessorResumo;
+  metrics: Record<MetricType, AdvisorMetricValue>;
+};
+
+function groupedRevenue(row: AdvisorAnalysisRow) {
+  return REVENUE_METRICS.reduce((acc, key) => acc + row.metrics[key].realized, 0);
+}
+
+function groupedRevenueTarget(row: AdvisorAnalysisRow) {
+  return REVENUE_METRICS.reduce((acc, key) => acc + row.metrics[key].target, 0);
+}
+
 const PRODUCT_METRICS = {
   eurostock: [
     { key: "rf", label: "RF", fields: ["receita_renda_fixa"], roa: 0.0015 },
@@ -163,6 +203,8 @@ const PRODUCT_METRICS = {
     { key: "seguros", label: "Seguros", fields: ["receita_seguros"], roa: 0.0007 },
   ]
 };
+
+const ALL_PRODUCTS = [...PRODUCT_METRICS.eurostock, ...PRODUCT_METRICS.affare];
 
 const BREAK_EVEN_PRODUCT_OPTIONS = [
   { key: "estruturadas", label: "Estruturadas" },
@@ -211,11 +253,203 @@ const getProgressBarColor = (percent: number) => {
   return "bg-red-500";
 };
 
+const formatCompactCurrency = (value: number) => {
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${sign}R$ ${(abs / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  }
+  if (abs >= 1_000) {
+    const digits = abs >= 10_000 ? 0 : 1;
+    return `${sign}R$ ${(abs / 1_000).toFixed(digits).replace(".", ",")}k`;
+  }
+  return formatCurrency(value);
+};
+
+function getBusinessDayPaceFactor(referenceDate: Date) {
+  const start = startOfMonth(referenceDate);
+  const end = endOfMonth(referenceDate);
+  const totalDays = eachDayOfInterval({ start, end }).filter((d) => !isWeekend(d)).length;
+  const rawPassedDays = eachDayOfInterval({ start, end: referenceDate }).filter((d) => !isWeekend(d)).length;
+  const passedDays = Math.max(1, rawPassedDays - 2);
+  if (passedDays > 0 && totalDays > 0) return totalDays / passedDays;
+  return 1;
+}
+
+type MonthMetric = {
+  realized: number;
+  target: number;
+  percent: number;
+  pace: number | null;
+  pacePercent: number | null;
+  isCurrent: boolean;
+};
+
+function MonthMetricCell({ metric }: { metric: MonthMetric }) {
+  const hasTarget = metric.target > 0;
+  const tone = hasTarget ? getStatusColor(metric.percent) : "text-white/45";
+  const bar = hasTarget ? getProgressBarColor(metric.percent) : "bg-white/20";
+  const paceTone = metric.pacePercent != null ? getStatusColor(metric.pacePercent) : "";
+
+  return (
+    <div
+      className={cn(
+        "flex min-w-[118px] flex-col items-end gap-1.5 py-0.5",
+        metric.isCurrent && "rounded-lg bg-euro-gold/[0.08] px-2 py-1.5"
+      )}
+      title={[
+        `Realizado: ${formatCurrency(metric.realized)}`,
+        hasTarget ? `Meta: ${formatCurrency(metric.target)}` : "Meta não cadastrada",
+        metric.pace != null ? `Pace: ${formatCurrency(metric.pace)}` : null,
+      ].filter(Boolean).join("\n")}
+    >
+      <span className="text-white/90 font-data text-xs leading-none">
+        {formatCurrency(metric.realized)}
+      </span>
+      <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
+        <div
+          className={cn("h-full rounded-full transition-all", bar)}
+          style={{ width: `${hasTarget ? Math.min(Math.max(metric.percent, 0), 100) : 0}%` }}
+        />
+      </div>
+      <div className="flex items-center gap-1.5 text-[10px] font-data leading-none">
+        {hasTarget ? (
+          <>
+            <span className={cn("font-medium", tone)}>{Math.round(metric.percent)}%</span>
+            <span className="text-white/25">·</span>
+            <span className="text-white/40">{formatCompactCurrency(metric.target)}</span>
+          </>
+        ) : (
+          <span className="text-white/30">sem meta</span>
+        )}
+      </div>
+      {metric.isCurrent && metric.pace != null && (
+        <div className="flex items-center gap-1.5 text-[10px] font-data leading-none">
+          <span className="uppercase tracking-[0.16em] text-white/35">Pace</span>
+          <span className="text-white/80">{formatCompactCurrency(metric.pace)}</span>
+          {hasTarget && metric.pacePercent != null && (
+            <span className={cn("font-medium", paceTone)}>{Math.round(metric.pacePercent)}%</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProducerCard({
+  row,
+  rank,
+  tone,
+  onMetricClick,
+}: {
+  row: AdvisorAnalysisRow;
+  rank: number;
+  tone: "top" | "bottom";
+  onMetricClick: (assessor: AssessorResumo, metric: MetricType) => void;
+}) {
+  const revenue = groupedRevenue(row);
+  const target = groupedRevenueTarget(row);
+  const percent = target > 0 ? (revenue / target) * 100 : 0;
+  const isTop = tone === "top";
+
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl border p-4 transition-colors",
+        isTop
+          ? "border-euro-gold/20 bg-gradient-to-br from-euro-gold/[0.08] to-transparent"
+          : "border-red-500/20 bg-gradient-to-br from-red-500/[0.07] to-transparent"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="relative flex-shrink-0">
+          <div
+            className={cn(
+              "w-14 h-14 rounded-full overflow-hidden border-2 bg-euro-inset flex items-center justify-center",
+              isTop ? "border-euro-gold/70 shadow-[0_0_16px_rgba(250,192,23,0.25)]" : "border-red-400/40"
+            )}
+          >
+            {row.assessor.foto_url ? (
+              <img src={row.assessor.foto_url} alt={row.assessor.nome_assessor} className="w-full h-full object-cover" />
+            ) : (
+              <User className="w-6 h-6 text-white/25" />
+            )}
+          </div>
+          <div
+            className={cn(
+              "absolute -bottom-1 -right-1 h-6 min-w-6 px-1 rounded-full flex items-center justify-center text-[10px] font-display border",
+              rank === 1 && isTop
+                ? "bg-euro-gold text-black border-euro-gold"
+                : isTop
+                  ? "bg-[#1A2030] text-euro-gold border-euro-gold/30"
+                  : "bg-[#1A2030] text-red-300 border-red-500/30"
+            )}
+          >
+            {rank === 1 && isTop ? <Crown className="w-3 h-3" /> : `#${rank}`}
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="text-white font-data text-sm uppercase tracking-tight truncate">
+            {row.assessor.nome_assessor}
+          </div>
+          <div className="text-white/40 font-data text-[10px] uppercase tracking-widest truncate">
+            {row.assessor.cod_assessor} • {row.assessor.time}
+          </div>
+          <div className="mt-3 flex items-end justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-data uppercase tracking-widest text-white/35">Receita agrupada</div>
+              <div className="text-white font-display text-xl leading-none mt-1">{formatCurrency(revenue)}</div>
+            </div>
+            <div className="text-right">
+              <div className={cn("text-lg font-display leading-none", getStatusColor(percent))}>
+                {target > 0 ? `${Math.round(percent)}%` : "—"}
+              </div>
+              <div className="text-[10px] font-data uppercase tracking-widest text-white/35 mt-1">vs meta</div>
+            </div>
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className={cn("h-full rounded-full", getProgressBarColor(percent))}
+              style={{ width: `${target > 0 ? Math.min(Math.max(percent, 0), 100) : 0}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-5 gap-1.5">
+        {COCKPIT_METRICS.map((metric) => {
+          const value = row.metrics[metric];
+          return (
+            <button
+              key={metric}
+              type="button"
+              onClick={() => onMetricClick(row.assessor, metric)}
+              className="rounded-lg border border-white/8 bg-black/20 px-1.5 py-2 text-center hover:border-white/20 hover:bg-white/[0.04] transition-colors"
+              title={METRIC_CONFIG[metric].label}
+            >
+              <div className="text-[8px] font-data uppercase tracking-widest text-white/35 truncate">
+                {METRIC_SHORT[metric]}
+              </div>
+              <div className="mt-1 text-[10px] font-data text-white/85 leading-none">
+                {formatCompactCurrency(value.realized)}
+              </div>
+              <div className={cn("mt-1 text-[10px] font-data", getStatusColor(value.percent))}>
+                {value.target > 0 ? `${Math.round(value.percent)}%` : "—"}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CockpitDash({ currentData, yearlyData, selectedYear }: CockpitDashProps) {
   const { userRole } = useAuth();
   const isMobile = useIsMobile();
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('funding'); // Changed from 'cap_liquida' to 'funding' to match METRIC_CONFIG keys
-  const [viewMode, setViewMode] = useState<'monthly' | 'accumulated'>('monthly');
+  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [displayMode, setDisplayMode] = useState<'meta' | 'proportional' | 'pace'>('meta');
   const [targetKind, setTargetKind] = useState<TargetKind>("breakeven");
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
@@ -235,7 +469,20 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
   });
   const [selectedProduct, setSelectedProduct] = useState<{ key: string; label: string; fields: string[]; roa: number } | null>(null);
   const [fundingFilter, setFundingFilter] = useState<FundingFilter>('all');
-  const [selectedChartMonth, setSelectedChartMonth] = useState<string | null>(null);
+  const [fundingDialog, setFundingDialog] = useState<{
+    monthKey: string;
+    assessorCode?: string;
+    assessorName?: string;
+  } | null>(null);
+  const [advisorMetricModal, setAdvisorMetricModal] = useState<{
+    assessor: AssessorResumo;
+    metric: Exclude<MetricType, "funding">;
+  } | null>(null);
+  const [advisorSort, setAdvisorSort] = useState<{ key: "name" | MetricType; dir: "asc" | "desc" }>({
+    key: "name",
+    dir: "asc",
+  });
+  const [advisorDisplayMode, setAdvisorDisplayMode] = useState<"meta" | "pace">("meta");
 
   const canManageTargets = userRole === "admin" || userRole === "admin_master";
 
@@ -255,6 +502,12 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     if (!currentData || currentData.length === 0) return `${selectedYear}-01`;
     return format(parseISO(currentData[0].data_posicao), "yyyy-MM");
   }, [currentData, selectedYear]);
+
+  useEffect(() => {
+    if (selectedMetric === "funding" && viewMode === "detailed") {
+      setViewMode("monthly");
+    }
+  }, [selectedMetric, viewMode]);
 
   useEffect(() => {
     if (monthOptions.length > 0) {
@@ -646,6 +899,230 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
       gap: d.target - d.realized
     }));
   }, [yearlyData, selectedMetric, viewMode, targetKind, breakEvenMap, fundingFilter]);
+
+  const productMonthTable = useMemo(() => {
+    if (selectedMetric === "funding") return null;
+
+    const products = BREAK_EVEN_KEYS_BY_METRIC[selectedMetric]
+      .map((key) => ALL_PRODUCTS.find((p) => p.key === key))
+      .filter((p): p is (typeof ALL_PRODUCTS)[number] => Boolean(p));
+
+    if (products.length === 0) return null;
+
+    const liveMonthKey = format(referenceDate, "yyyy-MM");
+    const paceFactor = getBusinessDayPaceFactor(referenceDate);
+
+    const grouped: Record<string, { label: string; custody: number; values: Record<string, number> }> = {};
+
+    yearlyData.forEach((curr) => {
+      const monthKey = format(parseISO(curr.data_posicao), "yyyy-MM");
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = {
+          label: format(parseISO(curr.data_posicao), "MMM", { locale: ptBR }),
+          custody: 0,
+          values: {},
+        };
+      }
+      grouped[monthKey].custody += curr.custodia_net || 0;
+      products.forEach((product) => {
+        const sum = product.fields.reduce((acc, field) => acc + ((curr as any)[field] || 0), 0);
+        grouped[monthKey].values[product.key] = (grouped[monthKey].values[product.key] || 0) + sum;
+      });
+    });
+
+    const months = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+    const monthMeta = months.map((key) => ({
+      key,
+      label: grouped[key].label,
+      isCurrent: key === liveMonthKey,
+    }));
+
+    const toMetric = (realized: number, target: number, isCurrent: boolean): MonthMetric => {
+      const percent = target > 0 ? (realized / target) * 100 : 0;
+      const pace = isCurrent ? realized * paceFactor : null;
+      const pacePercent = isCurrent && pace != null && target > 0 ? (pace / target) * 100 : null;
+      return { realized, target, percent, pace, pacePercent, isCurrent };
+    };
+
+    const rows = products.map((product) => {
+      const cells = months.map((key) => {
+        const realized = grouped[key].values[product.key] || 0;
+        const target = targetKind === "roa"
+          ? (grouped[key].custody * product.roa) / 12
+          : getBreakEvenProductTarget(key, product.key);
+        return toMetric(realized, target, key === liveMonthKey);
+      });
+
+      const totalRealized = cells.reduce((acc, cell) => acc + cell.realized, 0);
+      const totalTarget = cells.reduce((acc, cell) => acc + cell.target, 0);
+      return {
+        key: product.key,
+        label: product.label,
+        cells,
+        total: toMetric(totalRealized, totalTarget, false),
+      };
+    });
+
+    const totals = months.map((_, index) => {
+      const realized = rows.reduce((acc, row) => acc + row.cells[index].realized, 0);
+      const target = rows.reduce((acc, row) => acc + row.cells[index].target, 0);
+      return toMetric(realized, target, monthMeta[index].isCurrent);
+    });
+
+    const grandRealized = rows.reduce((acc, row) => acc + row.total.realized, 0);
+    const grandTarget = rows.reduce((acc, row) => acc + row.total.target, 0);
+
+    return {
+      monthMeta,
+      rows,
+      totals,
+      grandTotal: toMetric(grandRealized, grandTarget, false),
+    };
+  }, [yearlyData, selectedMetric, targetKind, breakEvenMap, referenceDate]);
+
+  const advisorMonthLabel = useMemo(() => {
+    if (!currentData?.[0]?.data_posicao) return selectedYear;
+    try {
+      return format(parseISO(currentData[0].data_posicao), "MMMM yyyy", { locale: ptBR });
+    } catch {
+      return selectedYear;
+    }
+  }, [currentData, selectedYear]);
+
+  const advisorRows = useMemo(() => {
+    const base = (currentData || []).filter((d) => {
+      const name = (d.nome_assessor || "").trim().toLowerCase();
+      if (!d.cod_assessor || !name || name === "null" || name === "undefined") return false;
+      if (d.time && BLOCKED_TEAMS.includes(d.time)) return false;
+      if (BLOCKED_ASSESSORS.includes(d.cod_assessor)) return false;
+      return true;
+    });
+    const totalCustody = base.reduce((acc, d) => acc + (d.custodia_net || 0), 0);
+
+    const applyAdvisorValue = (raw: number) => {
+      if (advisorDisplayMode !== "pace") return raw;
+      if (!currentData?.[0]?.data_posicao) return raw;
+      const dataDate = parseISO(currentData[0].data_posicao);
+      if (!isSameMonth(dataDate, referenceDate) || dataDate.getFullYear() !== referenceDate.getFullYear()) {
+        return raw;
+      }
+      return raw * getBusinessDayPaceFactor(referenceDate);
+    };
+
+    const calcMetric = (assessor: AssessorResumo, type: MetricType) => {
+      const config = METRIC_CONFIG[type];
+      const raw = config.fields.reduce((acc, field) => acc + ((assessor as any)[field] || 0), 0);
+      const realized = applyAdvisorValue(raw);
+      let target = 0;
+      if (config.isRoaBased) {
+        if (targetKind === "roa") {
+          target = ((assessor.custodia_net || 0) * (config.roaTarget || 0)) / 12;
+        } else {
+          const share = totalCustody > 0 ? (assessor.custodia_net || 0) / totalCustody : 0;
+          target = getBreakEvenMetricTarget(currentMonthKey, type) * share;
+        }
+      } else {
+        target = assessor.meta_captacao || 0;
+      }
+      const percent = target > 0 ? (realized / target) * 100 : 0;
+      return { realized, target, percent, gap: target - realized };
+    };
+
+    return base.map((assessor) => ({
+      assessor,
+      metrics: {
+        funding: calcMetric(assessor, "funding"),
+        allocation: calcMetric(assessor, "allocation"),
+        variable: calcMetric(assessor, "variable"),
+        banking: calcMetric(assessor, "banking"),
+        insurance: calcMetric(assessor, "insurance"),
+      },
+    }));
+  }, [currentData, targetKind, advisorDisplayMode, currentMonthKey, breakEvenMap, referenceDate]);
+
+  const sortedAdvisorRows = useMemo(() => {
+    const rows = [...advisorRows];
+    rows.sort((a, b) => {
+      if (advisorSort.key === "name") {
+        const cmp = a.assessor.nome_assessor.localeCompare(b.assessor.nome_assessor, "pt-BR");
+        return advisorSort.dir === "asc" ? cmp : -cmp;
+      }
+      const av = a.metrics[advisorSort.key].percent;
+      const bv = b.metrics[advisorSort.key].percent;
+      return advisorSort.dir === "asc" ? av - bv : bv - av;
+    });
+    return rows;
+  }, [advisorRows, advisorSort]);
+
+  const producerHighlights = useMemo(() => {
+    const ranked = [...advisorRows]
+      .sort((a, b) => groupedRevenue(b) - groupedRevenue(a))
+      .map((row, index) => ({ row, rank: index + 1 }));
+    const take = Math.min(5, ranked.length);
+    const top = ranked.slice(0, take);
+    const topCodes = new Set(top.map((item) => item.row.assessor.cod_assessor));
+    const bottom = [...ranked]
+      .reverse()
+      .filter((item) => !topCodes.has(item.row.assessor.cod_assessor))
+      .slice(0, Math.min(5, ranked.length));
+    return { top, bottom };
+  }, [advisorRows]);
+
+  const advisorProductRows = useMemo(() => {
+    if (!advisorMetricModal) return [];
+    const { assessor, metric } = advisorMetricModal;
+    const products = BREAK_EVEN_KEYS_BY_METRIC[metric]
+      .map((key) => ALL_PRODUCTS.find((product) => product.key === key))
+      .filter((product): product is (typeof ALL_PRODUCTS)[number] => Boolean(product));
+    const totalCustody = (currentData || []).reduce((acc, d) => acc + (d.custodia_net || 0), 0);
+    const share = totalCustody > 0 ? (assessor.custodia_net || 0) / totalCustody : 0;
+
+    return products.map((product) => {
+      const raw = product.fields.reduce((acc, field) => acc + ((assessor as any)[field] || 0), 0);
+      const realized = advisorDisplayMode === "pace" && currentData?.[0]?.data_posicao
+        && isSameMonth(parseISO(currentData[0].data_posicao), referenceDate)
+        && parseISO(currentData[0].data_posicao).getFullYear() === referenceDate.getFullYear()
+          ? raw * getBusinessDayPaceFactor(referenceDate)
+          : raw;
+      let target = targetKind === "roa"
+        ? ((assessor.custodia_net || 0) * product.roa) / 12
+        : getBreakEvenProductTarget(currentMonthKey, product.key) * share;
+      const percent = target > 0 ? (realized / target) * 100 : 0;
+      return {
+        key: product.key,
+        label: product.label,
+        realized,
+        target,
+        percent,
+        gap: target - realized,
+      };
+    });
+  }, [advisorMetricModal, currentData, targetKind, advisorDisplayMode, currentMonthKey, breakEvenMap, referenceDate]);
+
+  const fundingDialogData = useMemo(() => {
+    if (!fundingDialog?.assessorCode) return yearlyData;
+    return yearlyData.filter((row) => String(row.cod_assessor) === String(fundingDialog.assessorCode));
+  }, [yearlyData, fundingDialog]);
+
+  const toggleAdvisorSort = (key: "name" | MetricType) => {
+    setAdvisorSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
+        : { key, dir: key === "name" ? "asc" : "desc" }
+    );
+  };
+
+  const openAdvisorMetric = (assessor: AssessorResumo, metric: MetricType) => {
+    if (metric === "funding") {
+      setFundingDialog({
+        monthKey: currentMonthKey,
+        assessorCode: String(assessor.cod_assessor),
+        assessorName: assessor.nome_assessor,
+      });
+      return;
+    }
+    setAdvisorMetricModal({ assessor, metric });
+  };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -1352,14 +1829,20 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
           <div>
             <h3 className="text-lg font-display text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-euro-gold" />
-              Evolução - {METRIC_CONFIG[selectedMetric].label}
+              {viewMode === "detailed" ? (
+                <Table2 className="w-5 h-5 text-euro-gold" />
+              ) : (
+                <TrendingUp className="w-5 h-5 text-euro-gold" />
+              )}
+              {viewMode === "detailed" ? "Detalhado" : "Evolução"} - {METRIC_CONFIG[selectedMetric].label}
               {selectedMetric === 'funding' && fundingFilter !== 'all' && (
                 <span className="text-sm font-data text-euro-gold/70 uppercase">({FUNDING_LABELS[fundingFilter]})</span>
               )}
             </h3>
             <p className="text-xs text-white/40 font-data mt-1">
-              Acompanhamento mensal vs Meta
+              {viewMode === "detailed"
+                ? "Realizado vs meta por produto e mês. No mês atual, entra também o pace."
+                : "Acompanhamento mensal vs Meta"}
             </p>
           </div>
 
@@ -1405,9 +1888,137 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
             >
               Acumulado
             </button>
+            {selectedMetric !== "funding" && (
+              <button
+                onClick={() => setViewMode('detailed')}
+                className={cn(
+                  "px-4 py-1.5 rounded-md text-xs font-data transition-all",
+                  viewMode === 'detailed'
+                    ? "bg-euro-gold text-black font-bold shadow-lg"
+                    : "text-white/40 hover:text-white hover:bg-white/5"
+                )}
+              >
+                Detalhado
+              </button>
+            )}
           </div>
         </div>
 
+        {viewMode === "detailed" ? (
+          productMonthTable ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-data uppercase tracking-widest text-white/45">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  No alvo
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-euro-gold" />
+                  Atenção
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                  Abaixo
+                </span>
+                <span className="text-white/20">·</span>
+                <span>Cada mês: realizado, % e meta</span>
+                <span className="text-white/20">·</span>
+                <span className="text-euro-gold/80">Mês atual inclui pace</span>
+              </div>
+
+              <div className="rounded-xl border border-white/10 overflow-hidden">
+                <div className="max-h-[560px] overflow-auto">
+                  <table className="w-full min-w-[980px] text-left border-collapse">
+                    <thead>
+                      <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest">
+                        <th className="sticky top-0 left-0 z-40 bg-euro-gold py-4 px-4 font-bold min-w-[168px] shadow-[8px_0_12px_rgba(0,0,0,0.12)]">
+                          Produto
+                        </th>
+                        {productMonthTable.monthMeta.map((month) => (
+                          <th
+                            key={month.key}
+                            className={cn(
+                              "sticky top-0 z-20 py-3 px-3 font-bold text-right whitespace-nowrap",
+                              month.isCurrent ? "bg-[#E5B014]" : "bg-euro-gold"
+                            )}
+                          >
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span>{month.label}</span>
+                              {month.isCurrent && (
+                                <span className="text-[8px] tracking-[0.18em] opacity-80">Atual</span>
+                              )}
+                            </div>
+                          </th>
+                        ))}
+                        <th className="sticky top-0 right-0 z-40 bg-euro-gold py-4 px-4 font-bold text-right whitespace-nowrap border-l border-euro-navy/20 shadow-[-8px_0_12px_rgba(0,0,0,0.12)]">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.06]">
+                      {productMonthTable.rows.map((row, rowIndex) => {
+                        const rowBg = rowIndex % 2 === 1 ? "bg-[#141824]" : "bg-[#11141D]";
+                        return (
+                        <tr
+                          key={row.key}
+                          className="text-sm hover:bg-white/[0.03] transition-colors"
+                        >
+                          <td className={cn("sticky left-0 z-10 py-3 px-4 align-top shadow-[8px_0_12px_rgba(0,0,0,0.18)]", rowBg)}>
+                            <div className="flex items-center gap-3">
+                              <span className="h-8 w-[3px] rounded-full bg-euro-gold/80 shrink-0" />
+                              <div className="min-w-0">
+                                <div className="text-white/90 font-data text-xs">{row.label}</div>
+                                <div className="text-white/35 font-data text-[10px] uppercase tracking-widest">
+                                  {String(rowIndex + 1).padStart(2, "0")}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          {row.cells.map((cell, index) => (
+                            <td
+                              key={`${row.key}-${productMonthTable.monthMeta[index].key}`}
+                              className={cn("py-3 px-3 align-top", rowBg)}
+                            >
+                              <MonthMetricCell metric={cell} />
+                            </td>
+                          ))}
+                          <td className={cn("sticky right-0 z-10 py-3 px-4 align-top border-l border-white/10 shadow-[-8px_0_12px_rgba(0,0,0,0.28)]", rowBg)}>
+                            <MonthMetricCell metric={row.total} />
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="text-sm">
+                        <td className="sticky bottom-0 left-0 z-30 bg-[#0A0A0B] py-3 px-4 align-top border-t border-white/10 shadow-[8px_0_12px_rgba(0,0,0,0.18)]">
+                          <div className="text-euro-gold font-data text-[10px] uppercase tracking-widest">
+                            Total
+                          </div>
+                        </td>
+                        {productMonthTable.totals.map((metric, index) => (
+                          <td
+                            key={`total-${productMonthTable.monthMeta[index].key}`}
+                            className="sticky bottom-0 z-20 bg-[#0A0A0B] py-3 px-3 align-top border-t border-white/10"
+                          >
+                            <MonthMetricCell metric={metric} />
+                          </td>
+                        ))}
+                        <td className="sticky bottom-0 right-0 z-30 bg-[#0A0A0B] py-3 px-4 align-top border-t border-l border-white/10 shadow-[-8px_0_12px_rgba(0,0,0,0.28)]">
+                          <MonthMetricCell metric={productMonthTable.grandTotal} />
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="h-[280px] flex items-center justify-center rounded-xl border border-white/10 text-white/45 font-data text-sm">
+              Nenhum produto encontrado para este indicador.
+            </div>
+          )
+        ) : (
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -1459,7 +2070,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                 cursor={selectedMetric === 'funding' ? 'pointer' : undefined}
                 onClick={(data: any) => {
                   if (selectedMetric === 'funding' && data?.monthKey) {
-                    setSelectedChartMonth(data.monthKey);
+                    setFundingDialog({ monthKey: data.monthKey });
                   }
                 }}
               >
@@ -1492,7 +2103,201 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+        )}
       </Card>
+
+      <Card className="bg-[#11141D]/80 backdrop-blur-md border-white/10 p-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-display text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-euro-gold" />
+              Análise por Assessor
+            </h3>
+            <p className="text-xs text-white/40 font-data mt-1">
+              {advisorDisplayMode === "pace" ? "Pace projetado vs meta" : "Realizado vs meta"} • {advisorMonthLabel}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex bg-black/20 p-1 rounded-lg border border-white/5">
+              <button
+                type="button"
+                onClick={() => setAdvisorDisplayMode("meta")}
+                className={cn(
+                  "px-4 py-1.5 rounded-md text-xs font-data transition-all uppercase tracking-wider",
+                  advisorDisplayMode === "meta"
+                    ? "bg-euro-gold text-black font-bold shadow-lg"
+                    : "text-white/40 hover:text-white hover:bg-white/5"
+                )}
+              >
+                Meta
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdvisorDisplayMode("pace")}
+                className={cn(
+                  "px-4 py-1.5 rounded-md text-xs font-data transition-all uppercase tracking-wider",
+                  advisorDisplayMode === "pace"
+                    ? "bg-euro-gold text-black font-bold shadow-lg"
+                    : "text-white/40 hover:text-white hover:bg-white/5"
+                )}
+              >
+                Pace
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {producerHighlights.top.length > 0 && (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-4 h-4 text-euro-gold" />
+                <h4 className="text-sm font-display text-white">Mais produtores</h4>
+                <span className="text-[10px] font-data uppercase tracking-widest text-white/35">
+                  Receita agrupada {advisorDisplayMode === "pace" ? "• pace" : "• realizado"}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {producerHighlights.top.map((item) => (
+                  <ProducerCard
+                    key={`top-${item.row.assessor.cod_assessor}`}
+                    row={item.row}
+                    rank={item.rank}
+                    tone="top"
+                    onMetricClick={openAdvisorMetric}
+                  />
+                ))}
+              </div>
+            </div>
+            {producerHighlights.bottom.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingDown className="w-4 h-4 text-red-400" />
+                  <h4 className="text-sm font-display text-white">Menos produtores</h4>
+                  <span className="text-[10px] font-data uppercase tracking-widest text-white/35">
+                    Foco de decisão
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {producerHighlights.bottom.map((item) => (
+                    <ProducerCard
+                      key={`bottom-${item.row.assessor.cod_assessor}`}
+                      row={item.row}
+                      rank={item.rank}
+                      tone="bottom"
+                      onMetricClick={openAdvisorMetric}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-sm font-display text-white">Todos os assessores</h4>
+          <p className="text-[10px] font-data uppercase tracking-widest text-white/35">
+            Clique no indicador para detalhar
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="max-h-[560px] overflow-auto">
+            <table className="w-full min-w-[920px] text-left border-collapse">
+              <thead>
+                <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest">
+                  <th className="sticky top-0 left-0 z-30 bg-euro-gold py-4 px-4 font-bold min-w-[240px]">
+                    <button type="button" onClick={() => toggleAdvisorSort("name")} className="hover:opacity-80">
+                      Assessor
+                    </button>
+                  </th>
+                  {(Object.keys(METRIC_CONFIG) as MetricType[]).map((metric) => (
+                    <th key={metric} className="sticky top-0 z-20 bg-euro-gold py-4 px-3 font-bold text-right">
+                      <button type="button" onClick={() => toggleAdvisorSort(metric)} className="hover:opacity-80">
+                        {METRIC_CONFIG[metric].label}
+                      </button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {sortedAdvisorRows.map((row, rowIndex) => {
+                  const rowBg = rowIndex % 2 === 1 ? "bg-[#141824]" : "bg-[#11141D]";
+                  return (
+                    <tr key={row.assessor.cod_assessor} className="text-sm">
+                      <td className={cn("sticky left-0 z-10 py-3 px-4 align-middle shadow-[8px_0_12px_rgba(0,0,0,0.18)]", rowBg)}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={cn(
+                              "w-10 h-10 rounded-full bg-euro-inset flex items-center justify-center border border-white/10 overflow-hidden flex-shrink-0",
+                              row.assessor.lider && "border-euro-gold shadow-[0_0_8px_rgba(250,192,23,0.3)]"
+                            )}
+                          >
+                            {row.assessor.foto_url ? (
+                              <img src={row.assessor.foto_url} alt={row.assessor.nome_assessor} className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-4 h-4 text-euro-gold/30" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-white/90 font-data text-xs uppercase tracking-tight truncate">
+                              {row.assessor.nome_assessor}
+                            </div>
+                            <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
+                              {row.assessor.cod_assessor} • {row.assessor.time}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      {(Object.keys(METRIC_CONFIG) as MetricType[]).map((metric) => {
+                        const metricValue = row.metrics[metric];
+                        return (
+                          <td key={`${row.assessor.cod_assessor}-${metric}`} className={cn("py-2 px-3 align-middle", rowBg)}>
+                            <button
+                              type="button"
+                              onClick={() => openAdvisorMetric(row.assessor, metric)}
+                              className="w-full rounded-lg border border-transparent px-2 py-1.5 text-right hover:border-white/10 hover:bg-white/[0.04] transition-colors"
+                            >
+                              <div className="text-white/90 font-data text-xs leading-none">
+                                {formatCurrency(metricValue.realized)}
+                              </div>
+                              <div className="mt-1.5 h-1 w-full rounded-full bg-white/10 overflow-hidden">
+                                <div
+                                  className={cn("h-full rounded-full", getProgressBarColor(metricValue.percent))}
+                                  style={{ width: `${metricValue.target > 0 ? Math.min(Math.max(metricValue.percent, 0), 100) : 0}%` }}
+                                />
+                              </div>
+                              <div className={cn("mt-1 text-[10px] font-data", getStatusColor(metricValue.percent))}>
+                                {metricValue.target > 0 ? `${Math.round(metricValue.percent)}%` : "sem meta"}
+                              </div>
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+                {sortedAdvisorRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-10 px-4 text-center text-white/45 font-data text-sm">
+                      Nenhum assessor encontrado para o mês selecionado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Card>
+
+      <CockpitGlobalPulse
+        yearlyData={yearlyData}
+        currentData={currentData}
+        selectedYear={selectedYear}
+        targetKind={targetKind}
+        breakEvenTargets={breakEvenTargets}
+        referenceDate={referenceDate}
+      />
 
       <ProductDetailsDialog
         isOpen={!!selectedProduct}
@@ -1504,10 +2309,20 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
       />
 
       <FundingMonthDialog
-        isOpen={!!selectedChartMonth}
-        onClose={() => setSelectedChartMonth(null)}
-        monthKey={selectedChartMonth}
-        yearlyData={yearlyData}
+        isOpen={!!fundingDialog}
+        onClose={() => setFundingDialog(null)}
+        monthKey={fundingDialog?.monthKey || null}
+        yearlyData={fundingDialogData}
+        assessorName={fundingDialog?.assessorName}
+      />
+
+      <AssessorIndicatorDialog
+        isOpen={!!advisorMetricModal}
+        onClose={() => setAdvisorMetricModal(null)}
+        assessor={advisorMetricModal?.assessor || null}
+        metricLabel={advisorMetricModal ? METRIC_CONFIG[advisorMetricModal.metric].label : ""}
+        monthLabel={advisorMonthLabel}
+        rows={advisorProductRows}
       />
     </div>
   );

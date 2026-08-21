@@ -14,9 +14,10 @@ export interface FundingMonthDialogProps {
   onClose: () => void;
   monthKey: string | null;      // "2026-04" format
   yearlyData: AssessorResumo[]; // full year data - we filter by monthKey
+  assessorName?: string | null;
 }
 
-export function FundingMonthDialog({ isOpen, onClose, monthKey, yearlyData }: FundingMonthDialogProps) {
+export function FundingMonthDialog({ isOpen, onClose, monthKey, yearlyData, assessorName }: FundingMonthDialogProps) {
   const [sortKey, setSortKey] = useState("captacao_liquida_total");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -81,10 +82,12 @@ export function FundingMonthDialog({ isOpen, onClose, monthKey, yearlyData }: Fu
         <DialogHeader className="p-6 pb-4 border-b border-white/5 bg-white/5 flex-shrink-0">
           <DialogTitle className="text-euro-gold font-display text-xl tracking-wide flex items-center gap-3">
             <Wallet className="w-5 h-5 text-euro-gold" />
-            Captação Líquida — {monthLabel}
+            Captação Líquida — {assessorName || monthLabel}
           </DialogTitle>
           <DialogDescription className="text-white/60 font-data text-xs uppercase tracking-wider">
-            Breakdown por tipo de pessoa, transferências e ativações
+            {assessorName
+              ? `Breakdown de captação • ${monthLabel}`
+              : "Breakdown por tipo de pessoa, transferências e ativações"}
           </DialogDescription>
         </DialogHeader>
 
