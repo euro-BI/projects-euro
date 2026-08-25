@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import {
@@ -271,6 +272,7 @@ export default function RendaVariavelDash({
   teamPhotos,
 }: RendaVariavelDashProps) {
   const isMobile = useIsMobile();
+  const { map: breakEvenMap } = useBreakEvenTargets(selectedYear);
 
   // ── Table state ──
   const [rvSortConfig, setRvSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'data_inclusao', direction: 'desc' });
@@ -367,7 +369,7 @@ export default function RendaVariavelDash({
 
       let query = supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, cod_assessor, nome_assessor, time, receitas_estruturadas, custodia_net, foto_url, lider")
+        .select("data_posicao, cod_assessor, nome_assessor, time, receitas_estruturadas, custodia_net, meta_receita, foto_url, lider")
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
 
@@ -469,7 +471,7 @@ export default function RendaVariavelDash({
     const custodiaTotal = currentMonthMv.reduce(
       (acc: number, d: any) => acc + (d.custodia_net || 0), 0
     );
-    const receitaTarget = (custodiaTotal * 0.0035) / 12; // ROA alvo de estruturadas = 0.35%
+    const receitaTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaVariavel);
     const receitaAchievement = receitaTarget > 0 ? (receitaEstruturas / receitaTarget) * 100 : 0;
     const roaAtual = custodiaTotal > 0 ? ((receitaEstruturas * 12) / custodiaTotal) * 100 : 0;
 
@@ -601,7 +603,7 @@ export default function RendaVariavelDash({
       boletasVencidasSemana,
       assessorEngagementList, // new detailed list exported here
     };
-  }, [rvData, rvFixingData, mvData, oppsData, activeAssessors, selectedMonthKey, selectedTeam, selectedAssessorId]);
+  }, [rvData, rvFixingData, mvData, oppsData, activeAssessors, selectedMonthKey, selectedTeam, selectedAssessorId, breakEvenMap]);
 
   // ────────────────────────────────────────────────────────────────────────
   // Chart data — Receitas Estruturadas ao longo do tempo
@@ -621,8 +623,6 @@ export default function RendaVariavelDash({
       return acc;
     }, {});
 
-    const ROA_TARGET = 0.0035; // ROA alvo de estruturadas = 0.35%
-
     return Object.entries(grouped)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([monthKey, vals]) => {
@@ -631,10 +631,10 @@ export default function RendaVariavelDash({
           monthKey,
           monthName: format(parseISO(`${monthKey}-01`), "MMM", { locale: ptBR }),
           realized: d.realized,
-          target: (d.custody * ROA_TARGET) / 12,
+          target: getBreakEvenSum(breakEvenMap, monthKey, BREAK_EVEN_GROUPS.rendaVariavel),
         };
       });
-  }, [mvData, selectedYear]);
+  }, [mvData, selectedYear, breakEvenMap]);
 
   // ────────────────────────────────────────────────────────────────────────
   // Donut chart data - Clientes s/ Engajamento por Status
@@ -891,7 +891,7 @@ export default function RendaVariavelDash({
               <span className="text-white font-medium">{formatCurrency(data.realized)}</span>
             </div>
             <div className="flex justify-between gap-6 text-xs font-data">
-              <span className="text-white/60">Meta (ROA):</span>
+              <span className="text-white/60">Meta breakeven:</span>
               <span className="text-white font-medium">{formatCurrency(data.target)}</span>
             </div>
             <div className="flex justify-between gap-6 text-xs font-data pt-1 border-t border-white/5">
@@ -1046,7 +1046,7 @@ export default function RendaVariavelDash({
               Receitas Estruturadas — Evolução {selectedYear}
             </h3>
             <p className="text-[11px] text-white/70 font-data mt-1 uppercase tracking-widest">
-              Acompanhamento mensal vs Meta (ROA 0.35%)
+              Acompanhamento mensal vs meta breakeven
             </p>
           </div>
         </div>
@@ -1096,7 +1096,7 @@ export default function RendaVariavelDash({
               <Line
                 type="monotone"
                 dataKey="target"
-                name="Meta (ROA)"
+                name="Meta breakeven"
                 stroke="#FFFFFF"
                 strokeOpacity={0.5}
                 strokeWidth={2}
@@ -1292,6 +1292,7 @@ export default function RendaVariavelDash({
           if (existing) {
             existing.receita_total_rv += d.receitas_estruturadas || 0;
             existing.custodia_net += d.custodia_net || 0;
+            if (!existing.meta_receita) existing.meta_receita = d.meta_receita || 0;
           } else {
             assessorMapLocal.set(d.cod_assessor, {
               cod_assessor: d.cod_assessor,
@@ -1301,6 +1302,7 @@ export default function RendaVariavelDash({
               lider: d.lider || false,
               receita_total_rv: d.receitas_estruturadas || 0,
               custodia_net: d.custodia_net || 0,
+              meta_receita: d.meta_receita || 0,
             });
           }
         });
@@ -1314,11 +1316,12 @@ export default function RendaVariavelDash({
           engagementByAssessor.set(cod, (engagementByAssessor.get(cod) || 0) + 1);
         });
 
-        const ROA_RV = 0.0035;
+        const houseTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaVariavel);
+        const rvRows = Array.from(assessorMapLocal.values());
 
-        const rvAssessorTableData = Array.from(assessorMapLocal.values())
+        const rvAssessorTableData = rvRows
           .map((a: any) => {
-            const meta_rv = (a.custodia_net * ROA_RV) / 12;
+            const meta_rv = houseTarget * metaReceitaShare(a.meta_receita, rvRows);
             const pct_meta = meta_rv > 0 ? (a.receita_total_rv / meta_rv) * 100 : 0;
             const clientes_engajados = engagementByAssessor.get(a.cod_assessor) || 0;
             return { ...a, meta_rv, pct_meta, clientes_engajados };

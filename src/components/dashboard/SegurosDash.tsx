@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -63,14 +64,11 @@ interface SegurosDashProps {
 type ChartMetric = "vs_meta" | "receita_mensal" | "apolices_ativas" | "previsao_receita";
 
 const CHART_METRICS: Record<ChartMetric, { label: string; icon: React.ReactNode; tooltip: string }> = {
-  vs_meta: { label: "Receita vs Meta", icon: <TrendingUp className="w-3.5 h-3.5" />, tooltip: "Acompanhamento mensal vs Meta (ROA 0.07%)" },
+  vs_meta: { label: "Receita vs Meta", icon: <TrendingUp className="w-3.5 h-3.5" />, tooltip: "Acompanhamento mensal vs meta breakeven" },
   receita_mensal: { label: "Receita Mensal", icon: <DollarSign className="w-3.5 h-3.5" />, tooltip: "Soma da receita de seguros por mês" },
   apolices_ativas: { label: "Apólices Ativas", icon: <Target className="w-3.5 h-3.5" />, tooltip: "Quantidade de apólices ativas gerando receita" },
   previsao_receita: { label: "Previsão de Receita", icon: <Calendar className="w-3.5 h-3.5" />, tooltip: "Projeção total de recebíveis por mês (passado + futuro)" },
 };
-
-// ROA target for seguros
-const ROA_SEGUROS = 0.0007; // 0.07% ao ano
 
 // ==========================================================================
 // Helpers
@@ -233,6 +231,7 @@ function KpiCard({ title, value, rawValue, metaValue, subtitle, icon: Icon, colo
 // ==========================================================================
 
 export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam, selectedAssessorId, teamPhotos }: SegurosDashProps) {
+  const { map: breakEvenMap } = useBreakEvenTargets(selectedYear);
   const [chartMetric, setChartMetric] = React.useState<ChartMetric>("vs_meta");
   const [searchTerm, setSearchTerm] = React.useState("");
   const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" }>({ key: "receita_num", direction: "desc" });
@@ -259,7 +258,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
 
       const { data } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("cod_assessor, nome_assessor, time, custodia_net, foto_url")
+        .select("cod_assessor, nome_assessor, time, custodia_net, meta_receita, foto_url")
         .eq("data_posicao", latestDate);
 
       const infoMap = new Map();
@@ -279,7 +278,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     queryFn: async () => {
       const { data } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, cod_assessor, time, custodia_net")
+        .select("data_posicao, cod_assessor, time, custodia_net, meta_receita")
         .gte("data_posicao", `${selectedYear}-01-01`)
         .lte("data_posicao", `${selectedYear}-12-31`);
       return (data as any[]) || [];
@@ -359,18 +358,10 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
       return { receitaMes: 0, metaMes: 0, apolicesMes: 0, receitaAno: 0, apolicesAno: 0, clientesAno: 0, ticketMedio: 0 };
     }
 
-    // Total custody for meta
-    let totalCustody = 0;
-    activeAssessorsData.forEach((info: any, cod: string) => {
-      if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
-      if (info?.custodia_net) totalCustody += Number(info.custodia_net);
-    });
-
     const filteredMes = (segurosDataMes || []).filter(filterRow);
     const receitaMes = filteredMes.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
     const apolicesMes = filteredMes.length;
-    const metaMes = (totalCustody * ROA_SEGUROS) / 12;
+    const metaMes = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.seguros);
 
     const filteredAno = (segurosDataAno || []).filter(filterRow);
     const receitaAno = filteredAno.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
@@ -381,7 +372,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
     const ticketMedio = apolicesAno > 0 ? receitaAno / apolicesAno : 0;
 
     return { receitaMes, metaMes, apolicesMes, receitaAno, apolicesAno, clientesAno, ticketMedio };
-  }, [segurosDataMes, segurosDataAno, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey]);
+  }, [segurosDataMes, segurosDataAno, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey, breakEvenMap]);
 
   // ──────────────────────────────────────────────────────────────────────────
   // Chart data
@@ -430,7 +421,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
       .map(([mk, vals]) => {
         const [y, m] = mk.split("-").map(Number);
         const isFuture = y > currYear || (y === currYear && m > currMonth);
-        const target = (vals.custody * ROA_SEGUROS) / 12;
+        const target = getBreakEvenSum(breakEvenMap, mk, BREAK_EVEN_GROUPS.seguros);
         const hasData = target > 0 && !isFuture;
         return {
           monthKey: mk,
@@ -443,7 +434,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
           isFuture,
         };
       });
-  }, [segurosDataAno, mvDataAno, selectedYear, selectedTeam, selectedAssessorId]);
+  }, [segurosDataAno, mvDataAno, selectedYear, selectedTeam, selectedAssessorId, breakEvenMap]);
 
   // Derived filtered data — hide future months unless viewing previsão
   const displayChartData = useMemo(() => {
@@ -482,18 +473,24 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   const tableData = useMemo(() => {
     if (!activeAssessorsData || !segurosDataMes) return [];
     const rows: any[] = [];
+    const visible: { cod: string; info: any; meta_receita: number }[] = [];
     activeAssessorsData.forEach((info: any, cod: string) => {
       if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
       if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
+      const mvHist = (mvDataAno || []).find((mv: any) => (mv.cod_assessor || "").toUpperCase() === cod && mv.data_posicao?.startsWith(selectedMonthKey));
+      visible.push({ cod, info, meta_receita: Number(mvHist?.meta_receita || info.meta_receita || 0) });
+    });
+    const houseTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.seguros);
+    visible.forEach(({ cod, info, meta_receita }) => {
       const myRows = segurosDataMes.filter((r: any) => normalizeAssessor(r.cod_assessor) === cod);
       const receita = myRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
-      const meta = ((Number(info.custodia_net) || 0) * ROA_SEGUROS) / 12;
+      const meta = houseTarget * metaReceitaShare(meta_receita, visible);
       if (receita > 0 || meta > 0) {
         rows.push({ cod_assessor: cod, nome: info.nome_assessor, foto_url: info.foto_url, meta, receita, atingimento: meta > 0 ? (receita / meta) * 100 : 0 });
       }
     });
     return rows.sort((a, b) => b.receita - a.receita);
-  }, [activeAssessorsData, segurosDataMes, selectedTeam, selectedAssessorId]);
+  }, [activeAssessorsData, segurosDataMes, mvDataAno, selectedTeam, selectedAssessorId, selectedMonthKey, breakEvenMap]);
 
   // ──────────────────────────────────────────────────────────────────────────
   // Detail table
@@ -682,7 +679,7 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
                           return <Cell key={`cell-${index}`} fill={fill} />;
                         })}
                       </Bar>
-                      <Line type="monotone" dataKey="target" name="Meta (ROA)" stroke="#FFFFFF" strokeOpacity={0.5} strokeWidth={2} dot={{ r: 4, fill: "#1A2030", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6, fill: "#FAC017", stroke: "#fff" }} />
+                      <Line type="monotone" dataKey="target" name="Meta breakeven" stroke="#FFFFFF" strokeOpacity={0.5} strokeWidth={2} dot={{ r: 4, fill: "#1A2030", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6, fill: "#FAC017", stroke: "#fff" }} />
                     </>
                   )}
 

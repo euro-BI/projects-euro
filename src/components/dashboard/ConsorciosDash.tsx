@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,7 @@ type ChartMetric = "contratos_ativos" | "vs_meta" | "contratos_novos" | "previsa
 
 const CHART_METRICS: Record<ChartMetric, { label: string; icon: React.ReactNode; tooltip: string }> = {
   contratos_ativos: { label: "Contratos Ativos", icon: <Target className="w-3.5 h-3.5" />, tooltip: "Contratos ativos gerando comissão no mês" },
-  vs_meta: { label: "Receita vs Meta", icon: <TrendingUp className="w-3.5 h-3.5" />, tooltip: "Acompanhamento mensal vs Meta (ROA 0.09%)" },
+  vs_meta: { label: "Receita vs Meta", icon: <TrendingUp className="w-3.5 h-3.5" />, tooltip: "Acompanhamento mensal vs meta breakeven" },
   contratos_novos: { label: "Novos Contratos", icon: <FileText className="w-3.5 h-3.5" />, tooltip: "Qtd de Vendas (Linha) e Volume em R$ (Barra)" },
   previsao_receita: { label: "Previsão de Receita", icon: <Calendar className="w-3.5 h-3.5" />, tooltip: "Projeção total de recebíveis por mês" },
 };
@@ -304,6 +305,7 @@ export default function ConsorciosDash({
   selectedAssessorId,
   teamPhotos,
 }: ConsorciosDashProps) {
+  const { map: breakEvenMap } = useBreakEvenTargets(selectedYear);
 
   const [chartMetric, setChartMetric] = React.useState<ChartMetric>("contratos_ativos");
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -329,7 +331,7 @@ export default function ConsorciosDash({
 
       const { data } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("cod_assessor, nome_assessor, time, custodia_net, foto_url")
+        .select("cod_assessor, nome_assessor, time, custodia_net, meta_receita, foto_url")
         .eq("data_posicao", latestDate);
       
       const infoMap = new Map();
@@ -403,7 +405,7 @@ export default function ConsorciosDash({
     queryFn: async () => {
       const { data } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, cod_assessor, time, custodia_net")
+        .select("data_posicao, cod_assessor, time, custodia_net, meta_receita")
         .gte("data_posicao", `${selectedYear}-01-01`)
         .lte("data_posicao", `${selectedYear}-12-31`);
       return (data as any[]) || [];
@@ -427,8 +429,6 @@ export default function ConsorciosDash({
         metaReceitaMes: 0,
       };
     }
-
-    let totalCustody = 0;
 
     // A. Filter Dimensions (Year context)
     const filteredYear = consorcioData.filter(c => {
@@ -460,17 +460,6 @@ export default function ConsorciosDash({
       return true;
     });
 
-    // To calculate custody properly for the target, we gather ALL active assessors 
-    // that match the current filters
-    activeAssessorsData.forEach((assessor, cod) => {
-      if (selectedTeam.length > 0 && assessor.time && !selectedTeam.includes(assessor.time)) return;
-      if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
-      
-      if (assessor && assessor.custodia_net) {
-        totalCustody += Number(assessor.custodia_net);
-      }
-    });
-
     // Calculate Year Metrics
     const totalCotasAno = filteredYear.length;
     
@@ -492,7 +481,7 @@ export default function ConsorciosDash({
 
     // Calculate Revenue and Meta (from Fact and Custody)
     const receitaTotalMes = filteredMonth.reduce((acc, curr) => acc + (Number(curr.valor_comissao_mensal) || 0), 0);
-    const metaReceitaMes = (totalCustody * 0.0009) / 12;
+    const metaReceitaMes = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.consorcios);
 
     return {
       totalCotasAno,
@@ -504,7 +493,7 @@ export default function ConsorciosDash({
       receitaTotalMes,
       metaReceitaMes
     };
-  }, [consorcioData, comissoesDataMes, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey]);
+  }, [consorcioData, comissoesDataMes, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey, breakEvenMap]);
 
   // ==========================================================================
   // Chart Data Preparation
@@ -586,7 +575,7 @@ export default function ConsorciosDash({
       .map(([monthKey, rawVals]) => {
         const vals = rawVals as { realized: number; custody: number; ativos: Set<string>; novosQtd: number; novosVol: number; };
         const isFuture = Number(selectedYear) > currentYearNum || (Number(selectedYear) === currentYearNum && Number(monthKey.substring(5, 7)) > currentMonthNum);
-        const target = (vals.custody * 0.0009) / 12;
+        const target = getBreakEvenSum(breakEvenMap, monthKey, BREAK_EVEN_GROUPS.consorcios);
         
         // Hide vs_meta data if target is zero OR if it's a future month
         const hasDataVsMeta = target > 0 && !isFuture;
@@ -612,7 +601,7 @@ export default function ConsorciosDash({
           isFuture
         };
       });
-  }, [comissoesDataAno, mvDataAno, consorcioData, activeAssessorsData, selectedTeam, selectedAssessorId, selectedYear]);
+  }, [comissoesDataAno, mvDataAno, consorcioData, activeAssessorsData, selectedTeam, selectedAssessorId, selectedYear, breakEvenMap]);
 
   // Derived filtered data depending on the metric
   const displayChartData = useMemo(() => {
@@ -665,14 +654,23 @@ export default function ConsorciosDash({
     
     const rows: any[] = [];
     
-    activeAssessorsData.forEach((info, cod) => {
-       if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
-       if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return;
-       
-       // Calculate this assessor's meta based on their custody in the selected month
+    const visible = Array.from(activeAssessorsData.entries()).filter(([cod, info]) => {
+       if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return false;
+       if (selectedAssessorId.length > 0 && !selectedAssessorId.map(i=>i.toUpperCase()).includes(cod)) return false;
+       return true;
+    }).map(([cod, info]) => {
        const mvHist = mvDataAno.find(mv => (mv.cod_assessor || "").toUpperCase() === cod && mv.data_posicao?.startsWith(selectedMonthKey));
-       const custody = mvHist ? Number(mvHist.custodia_net || 0) : Number(info.custodia_net || 0);
-       const meta = (custody * 0.0009) / 12;
+       return {
+         cod,
+         info,
+         mvHist,
+         meta_receita: Number(mvHist?.meta_receita || info.meta_receita || 0),
+       };
+    });
+    const houseTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.consorcios);
+
+    visible.forEach(({ cod, info, meta_receita }) => {
+       const meta = houseTarget * metaReceitaShare(meta_receita, visible);
        
        // Calculate comissions for the selected month
        const comissions = comissoesDataMes.filter(c => (c.cod_assessor || "").toUpperCase() === cod);
@@ -692,7 +690,7 @@ export default function ConsorciosDash({
     });
     
     return rows.sort((a, b) => b.receita - a.receita);
-  }, [activeAssessorsData, comissoesDataMes, mvDataAno, selectedTeam, selectedAssessorId, selectedMonthKey, teamPhotos]);
+  }, [activeAssessorsData, comissoesDataMes, mvDataAno, selectedTeam, selectedAssessorId, selectedMonthKey, teamPhotos, breakEvenMap]);
 
   // Derived data for the Details Table
   const detailTableData = useMemo(() => {
@@ -1002,7 +1000,7 @@ export default function ConsorciosDash({
                         yAxisId="left"
                         type="monotone"
                         dataKey="target"
-                        name="Meta (ROA)"
+                        name="Meta breakeven"
                         stroke="#FFFFFF"
                         strokeOpacity={0.5}
                         strokeWidth={2}

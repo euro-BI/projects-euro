@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BREAK_EVEN_GROUPS, getBreakEvenProduct, getBreakEvenSum, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import {
   ComposedChart,
   Bar,
@@ -47,17 +48,8 @@ interface ProductsGeralDashProps {
 }
 
 // ==========================================================================
-// Constants — ROA targets matching each sub-dashboard
+// Constants
 // ==========================================================================
-
-// Renda Fixa ROA targets (custódia anualizada ÷ 12)
-const ROA_RF = 0.0015 + 0.001 + 0.0005 + 0.0002; // renda_fixa + ofertas + cetipados + offshore
-// Renda Variável / Estruturadas
-const ROA_RV = 0.0035;
-// Consórcios
-const ROA_CONS = 0.0009;
-// Seguros
-const ROA_SEG = 0.0007;
 
 /** Parse valor_mensal TEXT (e.g. "1168,04") → number */
 const parseValor = (raw: any): number => {
@@ -453,6 +445,7 @@ export default function ProductsGeralDash({
   selectedAssessorId,
 }: ProductsGeralDashProps) {
   const [isRfModalOpen, setIsRfModalOpen] = useState(false);
+  const { map: breakEvenMap } = useBreakEvenTargets(selectedYear);
 
   const selectedMonthKey = selectedMonth
     ? selectedMonth.substring(0, 7)
@@ -627,18 +620,16 @@ export default function ProductsGeralDash({
     const curMv = filterMv(selectedMonthKey);
     const prevMv = filterMv(prevMonthKey);
 
-    const custodiaTotal = sumMvFields(curMv, ["custodia_net"]);
-
     // Renda Fixa (includes ofertas, cetipados, offshore)
     const rfFields = ["receita_renda_fixa", "receitas_ofertas_fundos", "receitas_ofertas_rf", "receita_cetipados", "receitas_offshore"];
     const rfRealized = sumMvFields(curMv, rfFields);
     const rfPrev = sumMvFields(prevMv, rfFields);
-    const rfTarget = (custodiaTotal * ROA_RF) / 12;
+    const rfTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaFixa);
 
     // Renda Variável (Estruturadas)
     const rvRealized = sumMvFields(curMv, ["receitas_estruturadas"]);
     const rvPrev = sumMvFields(prevMv, ["receitas_estruturadas"]);
-    const rvTarget = (custodiaTotal * ROA_RV) / 12;
+    const rvTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaVariavel);
 
     // Consórcios — filter month from year data
     const consRows = (consYearData?.rows || []).filter(
@@ -649,7 +640,7 @@ export default function ProductsGeralDash({
     );
     const consRealized = consRows.reduce((acc: number, r: any) => acc + Number(r.valor_comissao_mensal || 0), 0);
     const consPrev = consPrevRows.reduce((acc: number, r: any) => acc + Number(r.valor_comissao_mensal || 0), 0);
-    const consTarget = (custodiaTotal * ROA_CONS) / 12;
+    const consTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.consorcios);
 
     // Seguros — filter month from year data
     const segRows = (segurosData || []).filter(
@@ -660,31 +651,31 @@ export default function ProductsGeralDash({
     );
     const segRealized = segRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
     const segPrev = segPrevRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
-    const segTarget = (custodiaTotal * ROA_SEG) / 12;
+    const segTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.seguros);
 
     const rfDetails = [
       {
         label: "Renda Fixa",
         realized: sumMvFields(curMv, ["receita_renda_fixa"]),
-        target: (custodiaTotal * 0.0015) / 12,
+        target: getBreakEvenProduct(breakEvenMap, selectedMonthKey, "rf"),
         color: "#3B82F6",
       },
       {
         label: "Ofertas (Fundos + RF)",
         realized: sumMvFields(curMv, ["receitas_ofertas_fundos", "receitas_ofertas_rf"]),
-        target: (custodiaTotal * 0.001) / 12,
+        target: getBreakEvenProduct(breakEvenMap, selectedMonthKey, "ofertas"),
         color: "#8B5CF6",
       },
       {
         label: "Cetipados",
         realized: sumMvFields(curMv, ["receita_cetipados"]),
-        target: (custodiaTotal * 0.0005) / 12,
+        target: getBreakEvenProduct(breakEvenMap, selectedMonthKey, "cetipados"),
         color: "#F97316",
       },
       {
         label: "Offshore",
         realized: sumMvFields(curMv, ["receitas_offshore"]),
-        target: (custodiaTotal * 0.0002) / 12,
+        target: getBreakEvenProduct(breakEvenMap, selectedMonthKey, "offshore"),
         color: "#10B981",
       },
     ];
@@ -700,7 +691,7 @@ export default function ProductsGeralDash({
       seg: { realized: segRealized, target: segTarget, prev: segPrev },
       total: { realized: totalRealized, target: totalTarget, pct: totalPct },
     };
-  }, [mvData, consYearData, segurosData, selectedMonthKey, prevMonthKey]);
+  }, [mvData, consYearData, segurosData, selectedMonthKey, prevMonthKey, breakEvenMap]);
 
   // ──────────────────────────────────────────────────────────────────────────
   // Chart data — monthly evolution (year)
@@ -759,10 +750,10 @@ export default function ProductsGeralDash({
 
         const totalRealized = vals.rfRealized + vals.rvRealized + vals.consRealized + vals.segRealized;
         const totalTarget =
-          ((vals.custody * ROA_RF) / 12) +
-          ((vals.custody * ROA_RV) / 12) +
-          ((vals.custody * ROA_CONS) / 12) +
-          ((vals.custody * ROA_SEG) / 12);
+          getBreakEvenSum(breakEvenMap, mk, BREAK_EVEN_GROUPS.rendaFixa) +
+          getBreakEvenSum(breakEvenMap, mk, BREAK_EVEN_GROUPS.rendaVariavel) +
+          getBreakEvenSum(breakEvenMap, mk, BREAK_EVEN_GROUPS.consorcios) +
+          getBreakEvenSum(breakEvenMap, mk, BREAK_EVEN_GROUPS.seguros);
 
         return {
           monthKey: mk,
@@ -776,7 +767,7 @@ export default function ProductsGeralDash({
           isFuture,
         };
       });
-  }, [mvData, consYearData, segurosData, selectedYear]);
+  }, [mvData, consYearData, segurosData, selectedYear, breakEvenMap]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
@@ -792,7 +783,7 @@ export default function ProductsGeralDash({
             Visão Geral · Produtos
           </h2>
           <p className="text-white/35 font-data tracking-[ widest] uppercase text-xs mt-2 ml-[60px]">
-            Performance Consolidada · {format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR })}
+            Performance vs meta breakeven · {format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR })}
           </p>
         </div>
       </div>

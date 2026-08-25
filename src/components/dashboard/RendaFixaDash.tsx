@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import {
   BarChart,
   Bar,
@@ -78,58 +79,47 @@ const formatMetaLabel = (value: number) => {
 };
 
 // ==========================================================================
-// ROA Targets (same pattern as PerformanceDash)
-// ==========================================================================
-
-const ROA_TARGETS = {
-  renda_fixa: 0.0015,        // 0.15%
-  ofertas: 0.0010,           // 0.10% (fundos + rf)
-  cetipados: 0.0005,         // 0.05%
-  offshore: 0.0002,          // 0.02%
-};
-
-// Metric config for the chart selector
 const RF_METRICS: Record<RFMetricKey, {
   label: string;
   icon: React.ReactNode;
   color: string;
   fields: string[];
-  roa: number;
+  productKeys: readonly string[];
 }> = {
   total_rf: {
     label: "Total Renda Fixa",
     icon: <Coins className="w-3.5 h-3.5" />,
     color: "#FAC017",
     fields: ["receita_renda_fixa", "receitas_ofertas_fundos", "receitas_ofertas_rf", "receita_cetipados", "receitas_offshore"],
-    roa: ROA_TARGETS.renda_fixa + ROA_TARGETS.ofertas + ROA_TARGETS.cetipados + ROA_TARGETS.offshore,
+    productKeys: BREAK_EVEN_GROUPS.rendaFixa,
   },
   renda_fixa: {
     label: "Renda Fixa",
     icon: <Landmark className="w-3.5 h-3.5" />,
     color: "#3B82F6",
     fields: ["receita_renda_fixa"],
-    roa: ROA_TARGETS.renda_fixa,
+    productKeys: ["rf"],
   },
   ofertas: {
     label: "Receita Ofertas",
     icon: <FileStack className="w-3.5 h-3.5" />,
     color: "#8B5CF6",
     fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"],
-    roa: ROA_TARGETS.ofertas,
+    productKeys: ["ofertas"],
   },
   cetipados: {
     label: "Receita Cetipados",
     icon: <TrendingUp className="w-3.5 h-3.5" />,
     color: "#22C55E",
     fields: ["receita_cetipados"],
-    roa: ROA_TARGETS.cetipados,
+    productKeys: ["cetipados"],
   },
   offshore: {
     label: "Receita Offshore",
     icon: <Globe className="w-3.5 h-3.5" />,
     color: "#F97316",
     fields: ["receitas_offshore"],
-    roa: ROA_TARGETS.offshore,
+    productKeys: ["offshore"],
   },
 };
 
@@ -233,6 +223,7 @@ export default function RendaFixaDash({
   selectedAssessorId,
   teamPhotos,
 }: RendaFixaDashProps) {
+  const { map: breakEvenMap } = useBreakEvenTargets(selectedYear);
 
   const [chartMetric, setChartMetric] = useState<RFMetricKey>("total_rf");
   const [searchTerm, setSearchTerm] = useState("");
@@ -294,7 +285,7 @@ export default function RendaFixaDash({
 
       let query = supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, cod_assessor, nome_assessor, time, receita_renda_fixa, receitas_ofertas_fundos, receitas_ofertas_rf, receita_cetipados, receitas_offshore, custodia_net, foto_url, lider, cluster")
+        .select("data_posicao, cod_assessor, nome_assessor, time, receita_renda_fixa, receitas_ofertas_fundos, receitas_ofertas_rf, receita_cetipados, receitas_offshore, custodia_net, meta_receita, foto_url, lider, cluster")
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
 
@@ -922,10 +913,6 @@ export default function RendaFixaDash({
       (d: any) => d.data_posicao && d.data_posicao.substring(0, 7) === selectedMonthKey
     );
 
-    const custodiaTotal = currentMonthMv.reduce(
-      (acc: number, d: any) => acc + (d.custodia_net || 0), 0
-    );
-
     const receitaRendaFixa = currentMonthMv.reduce(
       (acc: number, d: any) => acc + (d.receita_renda_fixa || 0), 0
     );
@@ -943,10 +930,10 @@ export default function RendaFixaDash({
       (acc: number, d: any) => acc + (d.receitas_offshore || 0), 0
     );
 
-    const targetRendaFixa = (custodiaTotal * ROA_TARGETS.renda_fixa) / 12;
-    const targetOfertas = (custodiaTotal * ROA_TARGETS.ofertas) / 12;
-    const targetCetipados = (custodiaTotal * ROA_TARGETS.cetipados) / 12;
-    const targetOffshore = (custodiaTotal * ROA_TARGETS.offshore) / 12;
+    const targetRendaFixa = getBreakEvenSum(breakEvenMap, selectedMonthKey, ["rf"]);
+    const targetOfertas = getBreakEvenSum(breakEvenMap, selectedMonthKey, ["ofertas"]);
+    const targetCetipados = getBreakEvenSum(breakEvenMap, selectedMonthKey, ["cetipados"]);
+    const targetOffshore = getBreakEvenSum(breakEvenMap, selectedMonthKey, ["offshore"]);
 
     const receitaTotal = receitaRendaFixa + receitaOfertas + receitaCetipados + receitaOffshore;
     const targetTotal = targetRendaFixa + targetOfertas + targetCetipados + targetOffshore;
@@ -963,7 +950,7 @@ export default function RendaFixaDash({
       receitaTotal,
       targetTotal,
     };
-  }, [mvData, selectedMonthKey]);
+  }, [mvData, selectedMonthKey, breakEvenMap]);
 
   // ────────────────────────────────────────────────────────────────────────
   // Chart data — Evolução mensal da métrica selecionada
@@ -995,10 +982,10 @@ export default function RendaFixaDash({
           monthKey,
           monthName: format(parseISO(`${monthKey}-01`), "MMM", { locale: ptBR }),
           realized: d.realized,
-          target: (d.custody * metric.roa) / 12,
+          target: getBreakEvenSum(breakEvenMap, monthKey, metric.productKeys),
         };
       });
-  }, [mvData, selectedYear, chartMetric]);
+  }, [mvData, selectedYear, chartMetric, breakEvenMap]);
 
   // ────────────────────────────────────────────────────────────────────────
   // Chart tooltip
@@ -1016,7 +1003,7 @@ export default function RendaFixaDash({
               <span className="text-white font-medium">{formatCurrency(data.realized)}</span>
             </div>
             <div className="flex justify-between gap-6 text-xs font-data">
-              <span className="text-white/60">Meta (ROA):</span>
+              <span className="text-white/60">Meta breakeven:</span>
               <span className="text-white font-medium">{formatCurrency(data.target)}</span>
             </div>
             <div className="flex justify-between gap-6 text-xs font-data pt-1 border-t border-white/5">
@@ -1112,7 +1099,7 @@ export default function RendaFixaDash({
               {currentMetric.label} — Evolução {selectedYear}
             </h3>
             <p className="text-[11px] text-white/70 font-data mt-1 uppercase tracking-widest">
-              Acompanhamento mensal vs Meta (ROA {(currentMetric.roa * 100).toFixed(2)}%)
+              Acompanhamento mensal vs meta breakeven
             </p>
           </div>
 
@@ -1190,7 +1177,7 @@ export default function RendaFixaDash({
               <Line
                 type="monotone"
                 dataKey="target"
-                name="Meta (ROA)"
+                name="Meta breakeven"
                 stroke="#FFFFFF"
                 strokeOpacity={0.5}
                 strokeWidth={2}
@@ -1212,6 +1199,7 @@ export default function RendaFixaDash({
         setSearchTerm={setSearchTerm}
         sortConfig={sortConfig}
         setSortConfig={setSortConfig}
+        breakEvenMap={breakEvenMap}
       />
 
       {/* ── Tabelas Detalhadas com Seletor ── */}
@@ -1419,6 +1407,7 @@ interface RFAssessorTableProps {
   setSearchTerm: (v: string) => void;
   sortConfig: { key: string; direction: 'asc' | 'desc' };
   setSortConfig: (v: { key: string; direction: 'asc' | 'desc' }) => void;
+  breakEvenMap: Map<string, number>;
 }
 
 function RFAssessorTable({
@@ -1430,6 +1419,7 @@ function RFAssessorTable({
   setSearchTerm,
   sortConfig,
   setSortConfig,
+  breakEvenMap,
 }: RFAssessorTableProps) {
 
   const formatCurrencyTable = (value: number) =>
@@ -1473,6 +1463,7 @@ function RFAssessorTable({
         existing.receita_cetipados += d.receita_cetipados || 0;
         existing.receitas_offshore += d.receitas_offshore || 0;
         existing.custodia_net += d.custodia_net || 0;
+        if (!existing.meta_receita) existing.meta_receita = d.meta_receita || 0;
       } else {
         assessorMap.set(d.cod_assessor, {
           cod_assessor: d.cod_assessor,
@@ -1487,16 +1478,18 @@ function RFAssessorTable({
           receita_cetipados: d.receita_cetipados || 0,
           receitas_offshore: d.receitas_offshore || 0,
           custodia_net: d.custodia_net || 0,
+          meta_receita: d.meta_receita || 0,
         });
       }
     });
 
-    const totalROA = ROA_TARGETS.renda_fixa + ROA_TARGETS.ofertas + ROA_TARGETS.cetipados + ROA_TARGETS.offshore;
+    const rows = Array.from(assessorMap.values());
+    const houseTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaFixa);
 
-    return Array.from(assessorMap.values())
+    return rows
       .map((a) => {
         const receita_total_rf = a.receita_renda_fixa + a.receitas_ofertas_rf + a.receitas_ofertas_fundos + a.receita_cetipados + a.receitas_offshore;
-        const meta_rf = (a.custodia_net * totalROA) / 12;
+        const meta_rf = houseTarget * metaReceitaShare(a.meta_receita, rows);
         const pct_meta = meta_rf > 0 ? (receita_total_rf / meta_rf) * 100 : 0;
         return { ...a, receita_total_rf, meta_rf, pct_meta };
       })
@@ -1517,10 +1510,9 @@ function RFAssessorTable({
         }
         return direction === 'asc' ? (aVal > bVal ? 1 : -1) : (bVal > aVal ? 1 : -1);
       });
-  }, [mvData, selectedMonthKey, searchTerm, sortConfig]);
+  }, [mvData, selectedMonthKey, searchTerm, sortConfig, breakEvenMap]);
 
   const totals = useMemo(() => {
-    const totalROA = ROA_TARGETS.renda_fixa + ROA_TARGETS.ofertas + ROA_TARGETS.cetipados + ROA_TARGETS.offshore;
     const sums = tableData.reduce((acc, curr) => ({
       receita_total_rf: acc.receita_total_rf + curr.receita_total_rf,
       meta_rf: acc.meta_rf + curr.meta_rf,
