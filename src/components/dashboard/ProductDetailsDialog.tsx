@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AssessorResumo } from "@/types/dashboard";
 import { ArrowUpDown, ArrowUp, ArrowDown, User, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { cockpitUniverse, metaReceitaShare } from "@/utils/cockpit-v2-mappers";
 
 const formatCurrency = (value: number) => {
   return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -17,6 +18,8 @@ export interface ProductDetailsDialogProps {
   data: AssessorResumo[];
   getPaceValue: (value: number) => number;
   getProportionalTarget: (target: number) => number;
+  targetKind?: "breakeven" | "roa";
+  houseBreakEvenTarget?: number;
 }
 
 export function ProductDetailsDialog({
@@ -25,7 +28,9 @@ export function ProductDetailsDialog({
   product,
   data,
   getPaceValue,
-  getProportionalTarget
+  getProportionalTarget,
+  targetKind = "roa",
+  houseBreakEvenTarget = 0,
 }: ProductDetailsDialogProps) {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'gap',
@@ -63,15 +68,18 @@ export function ProductDetailsDialog({
 
   const tableData = useMemo(() => {
     if (!product) return [];
+    const universe = cockpitUniverse(data);
 
-    const mapped = data.map(assessor => {
+    const mapped = universe.map(assessor => {
       let rawRealized = 0;
       product.fields.forEach(field => {
         rawRealized += (assessor as any)[field] || 0;
       });
 
       const realized = getPaceValue(rawRealized);
-      const rawTarget = (assessor.custodia_net * product.roa) / 12;
+      const rawTarget = targetKind === "roa"
+        ? (assessor.custodia_net * product.roa) / 12
+        : houseBreakEvenTarget * metaReceitaShare(assessor, universe);
       const target = getProportionalTarget(rawTarget);
       const gap = target - realized;
 
@@ -101,7 +109,7 @@ export function ProductDetailsDialog({
         ? (aValue > bValue ? 1 : -1) 
         : (bValue > aValue ? 1 : -1);
     });
-  }, [data, product, sortConfig, getPaceValue, getProportionalTarget]);
+  }, [data, product, sortConfig, getPaceValue, getProportionalTarget, targetKind, houseBreakEvenTarget]);
 
   if (!product) return null;
 
@@ -116,7 +124,9 @@ export function ProductDetailsDialog({
             Detalhamento por Assessor: {product.label}
           </DialogTitle>
           <DialogDescription className="text-white/60 font-data text-xs uppercase tracking-wider">
-            Receita Realizada vs Meta ROA ({((product.roa * 100).toFixed(4))}%)
+            {targetKind === "breakeven"
+              ? "Receita realizada vs meta breakeven rateada pela meta de receita"
+              : `Receita realizada vs meta ROA (${((product.roa * 100).toFixed(4))}%)`}
           </DialogDescription>
         </DialogHeader>
         
@@ -146,7 +156,7 @@ export function ProductDetailsDialog({
                   onClick={() => handleSort('target')}
                   className="py-4 px-4 font-bold text-right border-r border-white/5 cursor-pointer hover:bg-white/5 transition-colors"
                 >
-                  <div className="flex items-center justify-end gap-2">Meta ROA <SortIcon column="target" /></div>
+                  <div className="flex items-center justify-end gap-2">{targetKind === "breakeven" ? "Meta BE" : "Meta ROA"} <SortIcon column="target" /></div>
                 </th>
                 <th 
                   onClick={() => handleSort('realized')}

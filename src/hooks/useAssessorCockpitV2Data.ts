@@ -232,8 +232,8 @@ export function useAssessorCockpitV2Data() {
         receitaTotal: row.receita_total || 0,
         receitaInvest:
           (row.receita_renda_fixa || 0) + (row.asset_m_1 || 0) + (row.receita_previdencia || 0) + (row.receita_cetipados || 0) +
-          (row.receitas_ofertas_fundos || 0) + (row.receitas_ofertas_rf || 0) + (row.receitas_offshore || 0) + (row.receitas_estruturadas || 0) + (row.receita_b3 || 0),
-        receitaCs: (row.receita_consorcios || 0) + (row.receita_compromissadas || 0) + (row.receita_cambio || 0) + (row.receita_seguros || 0),
+          (row.receitas_ofertas_fundos || 0) + (row.receitas_ofertas_rf || 0) + (row.receitas_offshore || 0) + (row.receita_cambio_pf || 0) + (row.receitas_estruturadas || 0) + (row.receita_b3 || 0),
+        receitaCs: (row.receita_consorcios || 0) + (row.receita_compromissadas || 0) + (row.receita_cambio_pj || 0) + (row.receita_seguros || 0),
         roaTotal: row.roa || 0,
         ativacao300k: row.ativacao_300k || 0,
         repasseTotal: row.repasse_total || 0,

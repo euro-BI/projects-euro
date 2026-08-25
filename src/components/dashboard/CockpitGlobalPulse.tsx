@@ -13,13 +13,14 @@ import {
 } from "recharts";
 import { format, parseISO, isSameMonth, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Compass, Target, TrendingUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Compass, Target, TrendingUp } from "lucide-react";
 import { AssessorResumo } from "@/types/dashboard";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 
 type TargetKind = "breakeven" | "roa";
 type Horizon = "month" | "year" | "pace" | "yearPace";
+type ProductSortKey = "label" | "realized" | "target" | "percent" | "gap";
 
 type BreakEvenTargetRow = {
   competencia: string;
@@ -36,11 +37,12 @@ const PRODUCTS: ProductDef[] = [
   { key: "cetipados", label: "Cetipados", fields: ["receita_cetipados"], roa: 0.0005, family: "allocation" },
   { key: "ofertas", label: "Ofertas", fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"], roa: 0.0010, family: "allocation" },
   { key: "offshore", label: "Offshore", fields: ["receitas_offshore"], roa: 0.0002, family: "allocation" },
+  { key: "cambio_pf", label: "Câmbio PF", fields: ["receita_cambio_pf"], roa: 0.0001, family: "allocation" },
   { key: "estruturadas", label: "Estruturadas", fields: ["receitas_estruturadas"], roa: 0.0035, family: "variable" },
   { key: "b3", label: "B3", fields: ["receita_b3"], roa: 0.0020, family: "variable" },
   { key: "consorcios", label: "Consórcios", fields: ["receita_consorcios"], roa: 0.0009, family: "banking" },
   { key: "compromissadas_pj", label: "Compromissadas PJ", fields: ["receita_compromissadas"], roa: 0.0001, family: "banking" },
-  { key: "cambio", label: "Câmbio", fields: ["receita_cambio"], roa: 0.0001, family: "banking" },
+  { key: "cambio", label: "Câmbio PJ", fields: ["receita_cambio_pj"], roa: 0.0001, family: "banking" },
   { key: "seguros", label: "Seguros", fields: ["receita_seguros"], roa: 0.0007, family: "insurance" },
 ];
 
@@ -96,6 +98,10 @@ export function CockpitGlobalPulse({
   referenceDate: Date;
 }) {
   const [horizon, setHorizon] = useState<Horizon>("month");
+  const [productSort, setProductSort] = useState<{ key: ProductSortKey; dir: "asc" | "desc" }>({
+    key: "label",
+    dir: "asc",
+  });
 
   const breakEvenMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -399,6 +405,33 @@ export function CockpitGlobalPulse({
     return { ...totals, products, families, story };
   }, [horizon, pulse]);
 
+  const sortedProducts = useMemo(() => {
+    const rows = [...view.products];
+    rows.sort((a, b) => {
+      if (productSort.key === "label") {
+        const cmp = a.label.localeCompare(b.label, "pt-BR");
+        return productSort.dir === "asc" ? cmp : -cmp;
+      }
+      const av = a[productSort.key];
+      const bv = b[productSort.key];
+      return productSort.dir === "asc" ? av - bv : bv - av;
+    });
+    return rows;
+  }, [view.products, productSort]);
+
+  const toggleProductSort = (key: ProductSortKey) => {
+    setProductSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
+        : { key, dir: key === "label" ? "asc" : "desc" }
+    );
+  };
+
+  const ProductSortIcon = ({ column }: { column: ProductSortKey }) => {
+    if (productSort.key !== column) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+    return productSort.dir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
+  };
+
   const productChartData = view.products.map((product) => ({
     name: product.label,
     realized: product.realized,
@@ -663,31 +696,60 @@ export function CockpitGlobalPulse({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left border-collapse">
             <thead>
-              <tr className="text-[10px] font-data uppercase tracking-widest text-white/45 border-b border-white/10">
-                <th className="py-3 px-4 font-medium">Produto</th>
-                <th className="py-3 px-4 font-medium text-right">
-                  {horizon === "yearPace" ? "Pace ano" : horizon === "pace" ? "Pace" : "Realizado"}
-                </th>
-                <th className="py-3 px-4 font-medium text-right">Meta</th>
-                <th className="py-3 px-4 font-medium text-right">Ating.</th>
-                <th className="py-3 px-4 font-medium text-right">Gap</th>
+              <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest">
+                {(
+                  [
+                    { key: "label", label: "Produto", align: "left" },
+                    {
+                      key: "realized",
+                      label: horizon === "yearPace" ? "Pace ano" : horizon === "pace" ? "Pace" : "Realizado",
+                      align: "right",
+                    },
+                    { key: "target", label: "Meta", align: "right" },
+                    { key: "percent", label: "Ating.", align: "right" },
+                    { key: "gap", label: "Gap", align: "right" },
+                  ] as const
+                ).map((column) => (
+                  <th
+                    key={column.key}
+                    className={cn(
+                      "sticky top-0 z-20 bg-euro-gold py-4 px-4 font-bold",
+                      column.align === "right" && "text-right"
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleProductSort(column.key)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 hover:opacity-80",
+                        column.align === "right" && "w-full justify-end"
+                      )}
+                    >
+                      {column.label}
+                      <ProductSortIcon column={column.key} />
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.06]">
-              {view.products.map((product) => (
-                <tr key={product.key} className="text-xs font-data">
-                  <td className="py-3 px-4 text-white/85">{product.label}</td>
-                  <td className="py-3 px-4 text-right text-white">{formatCurrency(product.realized)}</td>
-                  <td className="py-3 px-4 text-right text-white/55">{formatCurrency(product.target)}</td>
-                  <td className={cn("py-3 px-4 text-right", statusColor(product.percent))}>
-                    {product.target > 0 ? `${Math.round(product.percent)}%` : "—"}
-                  </td>
-                  <td className={cn("py-3 px-4 text-right", product.gap > 0 ? "text-red-400" : "text-green-400")}>
-                    {product.gap > 0 ? "-" : "+"}
-                    {formatCurrency(Math.abs(product.gap))}
-                  </td>
-                </tr>
-              ))}
+              {sortedProducts.map((product, rowIndex) => {
+                const rowBg = rowIndex % 2 === 1 ? "bg-[#141824]" : "bg-[#11141D]";
+                return (
+                  <tr key={product.key} className={cn("text-xs font-data", rowBg)}>
+                    <td className="py-3 px-4 text-white/85">{product.label}</td>
+                    <td className="py-3 px-4 text-right text-white">{formatCurrency(product.realized)}</td>
+                    <td className="py-3 px-4 text-right text-white/55">{formatCurrency(product.target)}</td>
+                    <td className={cn("py-3 px-4 text-right", statusColor(product.percent))}>
+                      {product.target > 0 ? `${Math.round(product.percent)}%` : "—"}
+                    </td>
+                    <td className={cn("py-3 px-4 text-right", product.gap > 0 ? "text-red-400" : "text-green-400")}>
+                      {product.gap > 0 ? "-" : "+"}
+                      {formatCurrency(Math.abs(product.gap))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

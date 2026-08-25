@@ -23,6 +23,8 @@ export interface AssessorIndicatorDialogProps {
   metricLabel: string;
   monthLabel: string;
   rows: AssessorProductRow[];
+  shareMode?: boolean;
+  targetKind?: "breakeven" | "roa";
 }
 
 function statusColor(percent: number) {
@@ -44,6 +46,8 @@ export function AssessorIndicatorDialog({
   metricLabel,
   monthLabel,
   rows,
+  shareMode = false,
+  targetKind = "roa",
 }: AssessorIndicatorDialogProps) {
   if (!assessor) return null;
 
@@ -63,7 +67,12 @@ export function AssessorIndicatorDialog({
             {metricLabel} — {assessor.nome_assessor}
           </DialogTitle>
           <DialogDescription className="text-white/60 font-data text-xs uppercase tracking-wider">
-            Receita por produto • {monthLabel}
+            {shareMode
+              ? "Participação no total da casa"
+              : targetKind === "breakeven"
+                ? "Receita vs meta breakeven rateada pela meta de receita"
+                : "Receita vs meta ROA da custódia"}{" "}
+            • {monthLabel}
           </DialogDescription>
         </DialogHeader>
 
@@ -91,19 +100,25 @@ export function AssessorIndicatorDialog({
               </p>
             </div>
             <div className="ml-auto text-right">
-              <p className={cn("text-2xl font-display", statusColor(totalPercent))}>{Math.round(totalPercent)}%</p>
-              <p className="text-[10px] font-data uppercase tracking-widest text-white/35">Atingimento</p>
+              <p className={cn("text-2xl font-display", shareMode ? "text-euro-gold" : statusColor(totalPercent))}>
+                {shareMode
+                  ? `${totalPercent.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+                  : `${Math.round(totalPercent)}%`}
+              </p>
+              <p className="text-[10px] font-data uppercase tracking-widest text-white/35">
+                {shareMode ? "% do total" : "Atingimento"}
+              </p>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-4">
             {[
               { label: "Realizado", value: formatCurrency(totalRealized), color: "text-white" },
-              { label: "Meta", value: formatCurrency(totalTarget), color: "text-euro-gold" },
+              { label: shareMode ? "Total da casa" : "Meta", value: formatCurrency(totalTarget), color: "text-euro-gold" },
               {
-                label: "Gap",
+                label: shareMode ? "Resto" : "Gap",
                 value: `${totalGap > 0 ? "-" : "+"}${formatCurrency(Math.abs(totalGap))}`,
-                color: totalGap > 0 ? "text-red-400" : "text-green-400",
+                color: shareMode ? "text-white/70" : totalGap > 0 ? "text-red-400" : "text-green-400",
               },
             ].map((card) => (
               <div key={card.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
@@ -121,9 +136,9 @@ export function AssessorIndicatorDialog({
                 <tr className="bg-[#0A0A0B] text-[10px] font-data uppercase tracking-widest text-euro-gold border-b border-white/10">
                   <th className="py-3 px-4 font-bold">Produto</th>
                   <th className="py-3 px-4 font-bold text-right">Realizado</th>
-                  <th className="py-3 px-4 font-bold text-right">Meta</th>
-                  <th className="py-3 px-4 font-bold text-right">Ating.</th>
-                  <th className="py-3 px-4 font-bold text-right">Gap</th>
+                  <th className="py-3 px-4 font-bold text-right">{shareMode ? "Total" : "Meta"}</th>
+                  <th className="py-3 px-4 font-bold text-right">{shareMode ? "% do total" : "Ating."}</th>
+                  <th className="py-3 px-4 font-bold text-right">{shareMode ? "Resto" : "Gap"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
@@ -134,18 +149,22 @@ export function AssessorIndicatorDialog({
                     <td className="py-3 px-4 text-right text-white/60">{formatCurrency(row.target)}</td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex flex-col items-end gap-1">
-                        <span className={cn("font-medium", statusColor(row.percent))}>
-                          {row.target > 0 ? `${Math.round(row.percent)}%` : "—"}
+                        <span className={cn("font-medium", shareMode ? "text-euro-gold" : statusColor(row.percent))}>
+                          {row.target > 0
+                            ? shareMode
+                              ? `${row.percent.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+                              : `${Math.round(row.percent)}%`
+                            : "—"}
                         </span>
                         <div className="h-1 w-16 rounded-full bg-white/10 overflow-hidden">
                           <div
-                            className={cn("h-full rounded-full", barColor(row.percent))}
+                            className={cn("h-full rounded-full", shareMode ? "bg-euro-gold" : barColor(row.percent))}
                             style={{ width: `${row.target > 0 ? Math.min(Math.max(row.percent, 0), 100) : 0}%` }}
                           />
                         </div>
                       </div>
                     </td>
-                    <td className={cn("py-3 px-4 text-right", row.gap > 0 ? "text-red-400" : "text-green-400")}>
+                    <td className={cn("py-3 px-4 text-right", shareMode ? "text-white/60" : row.gap > 0 ? "text-red-400" : "text-green-400")}>
                       {row.gap > 0 ? "-" : "+"}
                       {formatCurrency(Math.abs(row.gap))}
                     </td>

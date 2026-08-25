@@ -30,6 +30,8 @@ export interface AssessorResumo {
   receita_previdencia: number;
   receita_consorcios: number;
   receita_cambio: number;
+  receita_cambio_pf: number;
+  receita_cambio_pj: number;
   receita_compromissadas: number;
   receitas_offshore: number;
   receita_total: number;

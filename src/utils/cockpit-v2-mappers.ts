@@ -13,14 +13,32 @@ import { AssessorResumo } from "@/types/dashboard";
 export const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 export const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 
+export function isCockpitAssessor(d: AssessorResumo): boolean {
+  const name = (d.nome_assessor || "").trim().toLowerCase();
+  if (!d.cod_assessor || !name || name === "null" || name === "undefined") return false;
+  if (d.time && BLOCKED_TEAMS.includes(d.time)) return false;
+  if (BLOCKED_ASSESSORS.includes(d.cod_assessor)) return false;
+  return true;
+}
+
+export function cockpitUniverse(data: AssessorResumo[] | undefined | null): AssessorResumo[] {
+  return (data || []).filter(isCockpitAssessor);
+}
+
+export function metaReceitaShare(assessor: AssessorResumo, universe: AssessorResumo[]): number {
+  const total = universe.reduce((acc, d) => acc + (d.meta_receita || 0), 0);
+  if (total <= 0) return 0;
+  return (assessor.meta_receita || 0) / total;
+}
+
 type MetricType = "funding" | "allocation" | "variable" | "banking" | "insurance";
 type DisplayMode = "meta" | "proportional" | "pace";
 
 const METRIC_CONFIG: Record<MetricType, { fields: string[]; targetField?: keyof AssessorResumo; isRoaBased: boolean; roaTarget?: number }> = {
   funding: { fields: ["captacao_liquida_total"], targetField: "meta_captacao", isRoaBased: false },
-  allocation: { label: "Alocacao", fields: ["receita_renda_fixa", "asset_m_1", "receita_previdencia", "receita_cetipados", "receitas_ofertas_fundos", "receitas_ofertas_rf", "receitas_offshore"], isRoaBased: true, roaTarget: 0.0015 + 0.0002 + 0.0001 + 0.0005 + 0.0010 + 0.0002 } as any,
+  allocation: { label: "Alocacao", fields: ["receita_renda_fixa", "asset_m_1", "receita_previdencia", "receita_cetipados", "receitas_ofertas_fundos", "receitas_ofertas_rf", "receitas_offshore", "receita_cambio_pf"], isRoaBased: true, roaTarget: 0.0015 + 0.0002 + 0.0001 + 0.0005 + 0.0010 + 0.0002 + 0.0001 } as any,
   variable: { fields: ["receitas_estruturadas", "receita_b3"], isRoaBased: true, roaTarget: 0.0035 + 0.0020 },
-  banking: { fields: ["receita_consorcios", "receita_compromissadas", "receita_cambio"], isRoaBased: true, roaTarget: 0.0009 + 0.0001 + 0.0001 },
+  banking: { fields: ["receita_consorcios", "receita_compromissadas", "receita_cambio_pj"], isRoaBased: true, roaTarget: 0.0009 + 0.0001 + 0.0001 },
   insurance: { fields: ["receita_seguros"], isRoaBased: true, roaTarget: 0.0007 },
 };
 
@@ -32,13 +50,14 @@ const PRODUCT_METRICS = {
     { label: "Cetipados", fields: ["receita_cetipados"], roa: 0.0005 },
     { label: "Ofertas", fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"], roa: 0.0010 },
     { label: "Offshore", fields: ["receitas_offshore"], roa: 0.0002 },
+    { label: "Cambio PF", fields: ["receita_cambio_pf"], roa: 0.0001 },
     { label: "Estruturas", fields: ["receitas_estruturadas"], roa: 0.0035 },
     { label: "B3", fields: ["receita_b3"], roa: 0.0020 },
   ],
   cross_sell: [
     { label: "Consor.", fields: ["receita_consorcios"], roa: 0.0009 },
     { label: "Comprom.", fields: ["receita_compromissadas"], roa: 0.0001 },
-    { label: "Cambio", fields: ["receita_cambio"], roa: 0.0001 },
+    { label: "Cambio PJ", fields: ["receita_cambio_pj"], roa: 0.0001 },
     { label: "Seguros", fields: ["receita_seguros"], roa: 0.0007 },
   ],
 };
@@ -135,14 +154,15 @@ const REVENUE_SERIES_CONFIG: Record<
       "receitas_ofertas_fundos",
       "receitas_ofertas_rf",
       "receitas_offshore",
+      "receita_cambio_pf",
       "receitas_estruturadas",
       "receita_b3",
       "receita_consorcios",
       "receita_compromissadas",
-      "receita_cambio",
+      "receita_cambio_pj",
       "receita_seguros",
     ],
-    roaTarget: 0.0108,
+    roaTarget: 0.0109,
   },
   investimentos: {
     label: "Investimentos",
@@ -154,14 +174,15 @@ const REVENUE_SERIES_CONFIG: Record<
       "receitas_ofertas_fundos",
       "receitas_ofertas_rf",
       "receitas_offshore",
+      "receita_cambio_pf",
       "receitas_estruturadas",
       "receita_b3",
     ],
-    roaTarget: 0.0089,
+    roaTarget: 0.0090,
   },
   cross_sell: {
     label: "Cross-Sell",
-    fields: ["receita_consorcios", "receita_compromissadas", "receita_cambio", "receita_seguros"],
+    fields: ["receita_consorcios", "receita_compromissadas", "receita_cambio_pj", "receita_seguros"],
     roaTarget: 0.0018,
   },
   captação: {
