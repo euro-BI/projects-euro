@@ -3,6 +3,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { BarChart3, Download, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
+import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,14 +78,6 @@ function toClientLabel(row: ParetoRow) {
   return name || code || "—";
 }
 
-function chunkArray<T>(items: T[], size: number) {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
 function monthKeyToSortKey(monthKey: string) {
   const [m, y] = monthKey.split("/").map((p) => parseInt(p, 10));
   const year = Number.isFinite(y) ? y : 0;
@@ -110,61 +103,64 @@ function getSortedMonthsFromHistorico(historico: Record<string, unknown> | null 
   return keys;
 }
 
-async function fetchClientNameMap(codes: string[]) {
-  const map = new Map<string, string>();
-  const cleanCodes = Array.from(new Set(codes.map((c) => String(c ?? "").trim()).filter(Boolean)));
-  if (cleanCodes.length === 0) return map;
-
-  const chunks = chunkArray(cleanCodes, 500);
-  for (const chunk of chunks) {
-    const { data, error } = await supabase
-      .from("vw_resumo_clientes_posicao" as any)
-      .select("cod_cliente, nome_cliente")
-      .in("cod_cliente", chunk)
-      .range(0, 10000);
-
-    if (error) continue;
-
-    (data || []).forEach((row: any) => {
-      const code = String(row?.cod_cliente ?? "").trim();
-      const name = String(row?.nome_cliente ?? "").trim();
-      if (!code || !name) return;
-      if (!map.has(code)) map.set(code, name);
-    });
-  }
-
-  return map;
-}
-
 interface ParetoClientes12mDashProps {
   selectedAssessorId?: string[];
+  selectedTeam?: string[];
 }
 
-export default function ParetoClientes12mDash({ selectedAssessorId = [] }: ParetoClientes12mDashProps) {
+export default function ParetoClientes12mDash({
+  selectedAssessorId = [],
+  selectedTeam = [],
+}: ParetoClientes12mDashProps) {
   const [metric, setMetric] = useState<ParetoMetric>("bruta");
   const [tableSearch, setTableSearch] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "receita", direction: "desc" });
   const [selectedClient, setSelectedClient] = useState<ParetoRow | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["pareto-clientes-12m", selectedAssessorId],
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ["pareto-clientes-12m", selectedTeam, selectedAssessorId],
     placeholderData: keepPreviousData,
     queryFn: async () => {
+      let assessorFilter: string[] | null =
+        selectedAssessorId.length > 0 ? selectedAssessorId : null;
+
+      if (!assessorFilter && selectedTeam.length > 0) {
+        const { data: latestMvRows, error: latestMvError } = await supabase
+          .from("mv_resumo_assessor" as any)
+          .select("data_posicao")
+          .order("data_posicao", { ascending: false })
+          .limit(1);
+
+        if (latestMvError) throw latestMvError;
+
+        const latestMvDate = latestMvRows?.[0]?.data_posicao as string | undefined;
+        if (!latestMvDate) return [] as ParetoRow[];
+
+        const { data: teamRows, error: teamError } = await supabase
+          .from("mv_resumo_assessor" as any)
+          .select("cod_assessor")
+          .eq("data_posicao", latestMvDate)
+          .in("time", selectedTeam);
+
+        if (teamError) throw teamError;
+
+        assessorFilter = Array.from(
+          new Set(
+            (teamRows || [])
+              .map((row: any) => String(row.cod_assessor || "").toUpperCase())
+              .filter(Boolean),
+          ),
+        );
+      }
+
       const { data: rows, error: rowsError } = await supabase
-        .rpc("rpc_get_pareto_clientes_12m", { p_assessores: selectedAssessorId.length > 0 ? selectedAssessorId : null } as any)
+        .rpc("rpc_get_pareto_clientes_12m", { p_assessores: assessorFilter } as any)
         .select("*")
         .range(0, 20000);
 
       if (rowsError) throw rowsError;
 
-      const typedRows = (rows || []) as ParetoRow[];
-      const codes = typedRows.map((r) => String(r.cod_cliente ?? "").trim()).filter(Boolean);
-      const nameMap = await fetchClientNameMap(codes);
-
-      return typedRows.map((row) => ({
-        ...row,
-        nome_cliente: nameMap.get(String(row.cod_cliente ?? "").trim()) || null,
-      })) as ParetoRow[];
+      return (rows || []) as ParetoRow[];
     },
   });
 
@@ -378,6 +374,7 @@ export default function ParetoClientes12mDash({ selectedAssessorId = [] }: Paret
 
   return (
     <div className="space-y-6">
+      <LoadingOverlay isLoading={isLoading || isFetching} />
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-1">
           <h2 className="text-white font-display text-xl tracking-wide flex items-center gap-2">
@@ -418,13 +415,7 @@ export default function ParetoClientes12mDash({ selectedAssessorId = [] }: Paret
         </div>
       </div>
 
-      {isLoading && (
-        <Card className="bg-[#0F1218]/60 backdrop-blur-xl border-white/10 p-8 text-center">
-          <div className="text-white/60 font-data text-sm">Carregando Pareto...</div>
-        </Card>
-      )}
-
-      {!isLoading && error && (
+      {error && (
         <Card className="bg-[#0F1218]/60 backdrop-blur-xl border-white/10 p-8 text-center">
           <div className="text-white/60 font-data text-sm">Não foi possível carregar o Pareto.</div>
         </Card>

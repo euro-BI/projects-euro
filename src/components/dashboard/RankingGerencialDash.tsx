@@ -5,6 +5,7 @@ import { AssessorResumo } from "@/types/dashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import {
   Dialog,
   DialogContent,
@@ -599,6 +600,20 @@ export default function RankingGerencialDash({
       return data as any[];
     },
   });
+
+  const isRankingLoading =
+    isLoadingClientesPosicaoRv ||
+    isLoadingClientesPosicaoRvBase ||
+    isLoadingConsorciosCreditoPen ||
+    isLoadingConsorciosCreditoSales ||
+    isLoadingConsorciosCreditoSalesYear ||
+    isLoadingCambioReceitaYear ||
+    isLoadingAtivacoesPjMonth ||
+    isLoadingAtivacoesPjYear ||
+    isLoadingSegurosWindow ||
+    isLoadingSegurosYear ||
+    isLoadingSegurosHistory ||
+    isLoadingEstrelasCliente;
 
   const assessoresComCredito = useMemo(() => {
     const set = new Set<string>();
@@ -1464,6 +1479,7 @@ export default function RankingGerencialDash({
 
   return (
     <div className="space-y-6">
+      <LoadingOverlay isLoading={isRankingLoading} />
       <div className="sr-only">
         Ranking gerencial de indicadores estratégicos
       </div>
@@ -1599,37 +1615,6 @@ export default function RankingGerencialDash({
             Nenhum assessor encontrado para os filtros atuais.
           </div>
         </Card>
-      )}
-
-      {(isLoadingClientesPosicaoRv || isLoadingClientesPosicaoRvBase) && (
-        <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-          Carregando Penetrações RV…
-        </div>
-      )}
-      {isLoadingConsorciosCreditoPen && (
-        <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-          Carregando Penetração Crédito…
-        </div>
-      )}
-      {(isLoadingConsorciosCreditoSalesYear || isLoadingCambioReceitaYear) && (
-        <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-          Carregando Receita Banco…
-        </div>
-      )}
-      {(isLoadingAtivacoesPjMonth || isLoadingAtivacoesPjYear) && (
-        <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-          Carregando Aberturas PJ…
-        </div>
-      )}
-      {(isLoadingSegurosWindow || isLoadingSegurosYear || isLoadingSegurosHistory) && (
-        <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-          Carregando Seguros…
-        </div>
-      )}
-      {isLoadingEstrelasCliente && (
-        <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-          Carregando Estrelas de Clientes…
-        </div>
       )}
 
       <Dialog open={!!productModal} onOpenChange={(open) => (!open ? setProductModal(null) : null)}>
@@ -1918,12 +1903,6 @@ export default function RankingGerencialDash({
 
           {kpiModal?.kpi === "pen_credito" && (
             <div className="space-y-5">
-              {isLoadingConsorciosCreditoSales && (
-                <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                  Carregando histórico de consórcios…
-                </div>
-              )}
-
               {(() => {
                 const base = (data || []).filter(
                   (d) =>
@@ -2062,12 +2041,6 @@ export default function RankingGerencialDash({
 
           {kpiModal?.kpi === "abertura_pj" && (
             <div className="space-y-4">
-              {(isLoadingAtivacoesPjMonth || isLoadingAtivacoesPjYear) && (
-                <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                  Carregando ativações PJ…
-                </div>
-              )}
-
               {(() => {
                 const totalMes = ativacoesPjMonthRows.length;
                 const totalAno = ativacoesPjYearRows.length;
@@ -2248,12 +2221,6 @@ export default function RankingGerencialDash({
 
           {kpiModal?.product === "seguros" && kpiModal?.kpi === "pen_seguros" && (
             <div className="space-y-5">
-              {(isLoadingSegurosWindow || isLoadingSegurosHistory) && (
-                <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                  Carregando histórico de seguros…
-                </div>
-              )}
-
               {(() => {
                 const base = (data || []).filter(
                   (d) =>
@@ -2387,12 +2354,6 @@ export default function RankingGerencialDash({
 
           {kpiModal?.product === "seguros" && kpiModal?.kpi === "receita" && (
             <div className="space-y-4">
-              {(isLoadingSegurosYear || isLoadingSegurosHistory) && (
-                <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                  Carregando seguros…
-                </div>
-              )}
-
               {(() => {
                 const totalMes = segurosReceitaRows.reduce((acc, r) => acc + r.valorMes, 0);
                 const totalAno = segurosReceitaRows.reduce((acc, r) => acc + r.valorAno, 0);
@@ -2633,12 +2594,6 @@ export default function RankingGerencialDash({
 
           {kpiModal?.product === "seguros" && kpiModal?.kpi === "apolices" && (
             <div className="space-y-4">
-              {isLoadingSegurosYear && (
-                <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
-                  Carregando apólices…
-                </div>
-              )}
-
               {(() => {
                 const totalMes = segurosApolicesRows.reduce((acc, r) => acc + r.qtdMes, 0);
                 const totalAno = segurosApolicesRows.reduce((acc, r) => acc + r.qtdAno, 0);

@@ -38,6 +38,38 @@ const formatPercent = (value: number, total: number) => {
   return `(${Math.round((value / total) * 100)}%)`;
 };
 
+const normalizeAssessorCode = (raw: string | null | undefined) => {
+  const value = (raw || "").trim().toUpperCase();
+  if (!value) return "";
+  return value.startsWith("A") ? value : `A${value}`;
+};
+
+type AssessorInfo = {
+  cod_assessor?: string;
+  nome_assessor?: string;
+  time?: string;
+  foto_url?: string | null;
+  lider?: boolean;
+  cluster?: string;
+  custodia_net?: number | string | null;
+};
+
+type RfRow = {
+  produto: string | null;
+  net: string | null;
+  data_posicao: string | null;
+  assessor: string | null;
+  cliente: string | null;
+  subproduto: string | null;
+  cnpj: string | null;
+  fator_risco: string | null;
+  ativo: string | null;
+  data_vencimento: string | null;
+  codAssessorStr: string;
+  nome_assessor: string;
+  parsedNet: number;
+};
+
 export default function ProdutosRFDash({
   selectedMonth,
   selectedYear,
@@ -72,100 +104,96 @@ export default function ProdutosRFDash({
   const { data: diversificadorData, isLoading } = useQuery({
     queryKey: ["produtos-rf-data", selectedMonthKey, selectedTeam, selectedAssessorId],
     placeholderData: keepPreviousData,
+    enabled: !!selectedMonthEndDate,
     queryFn: async () => {
-      // If we have assessor filters, we first get their codes/names from mv_resumo_assessor
-      // to map them properly since vw_diversificador_rf has 'assessor' which might be name or code.
-      let validAssessors = new Set<string>();
-      const assessorMap = new Map<string, any>();
-      
-      // Always fetch assessor mapping for the table, regardless of filters
-      let mvQuery = supabase
+      const assessorMap = new Map<string, AssessorInfo>();
+
+      const { data: latestMvRows, error: latestMvError } = await supabase
         .from("mv_resumo_assessor" as any)
-        .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster, custodia_net, data_posicao")
+        .select("data_posicao")
         .gte("data_posicao", `${selectedMonthKey}-01`)
         .lte("data_posicao", selectedMonthEndDate)
-        .order("data_posicao", { ascending: true });
+        .order("data_posicao", { ascending: false })
+        .limit(1);
 
-      if (selectedTeam.length > 0) {
-        mvQuery = mvQuery.in("time", selectedTeam);
-      }
-      if (selectedAssessorId.length > 0) {
-        mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
-      }
+      if (latestMvError) throw latestMvError;
 
-      const { data: mvRows } = await mvQuery;
-      
-      (mvRows as any[] || []).forEach((r: any) => {
-        if (r.cod_assessor) {
-          const code = r.cod_assessor.toUpperCase();
-          validAssessors.add(code);
-          assessorMap.set(code, r);
+      const latestMvDate = latestMvRows?.[0]?.data_posicao as string | undefined;
+      if (latestMvDate) {
+        let mvQuery = supabase
+          .from("mv_resumo_assessor" as any)
+          .select("cod_assessor, nome_assessor, time, foto_url, lider, cluster, custodia_net")
+          .eq("data_posicao", latestMvDate);
+
+        if (selectedTeam.length > 0) {
+          mvQuery = mvQuery.in("time", selectedTeam);
         }
-      });// Fetch the full diversificador data up to the end of the selected month
-      const endDate = selectedMonthEndDate;
+        if (selectedAssessorId.length > 0) {
+          mvQuery = mvQuery.in("cod_assessor", selectedAssessorId);
+        }
 
-      let query = supabase
-        .from("vw_diversificador_rf" as any)
-        .select("produto, net, data_posicao, assessor, cliente, subproduto, cnpj, fator_risco, ativo, data_vencimento")
-        .lte("data_posicao", endDate);
+        const { data: mvRows, error: mvError } = await mvQuery;
+        if (mvError) throw mvError;
 
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      let filteredData = data || [];
-      // Filter by assessor if needed
-      if (selectedTeam.length > 0 || selectedAssessorId.length > 0) {
-        filteredData = filteredData.filter(row => {
-          const rawAssessor = (row.assessor || "").trim();
-          const codAssessorStr = rawAssessor.toUpperCase().startsWith("A") 
-            ? rawAssessor.toUpperCase() 
-            : `A${rawAssessor}`.toUpperCase();
-            
-          return validAssessors.has(codAssessorStr);
+        (mvRows as AssessorInfo[] || []).forEach((row) => {
+          if (!row.cod_assessor) return;
+          assessorMap.set(row.cod_assessor.toUpperCase(), row);
         });
       }
 
-      return { data: filteredData, assessorMap };
+      const assessorFilter =
+        selectedAssessorId.length > 0
+          ? selectedAssessorId
+          : selectedTeam.length > 0
+            ? Array.from(assessorMap.keys())
+            : null;
+
+      const { data, error } = await supabase
+        .rpc("rpc_get_diversificador_rf", {
+          p_assessores: assessorFilter,
+          p_data_max: selectedMonthEndDate,
+        } as any)
+        .select("produto, net, data_posicao, assessor, cliente, subproduto, cnpj, fator_risco, ativo, data_vencimento")
+        .range(0, 50000);
+
+      if (error) throw error;
+
+      const rows: RfRow[] = ((data || []) as Omit<RfRow, "codAssessorStr" | "nome_assessor" | "parsedNet">[]).map((row) => {
+        const codAssessorStr = normalizeAssessorCode(row.assessor);
+        return {
+          ...row,
+          codAssessorStr,
+          nome_assessor: assessorMap.get(codAssessorStr)?.nome_assessor || codAssessorStr,
+          parsedNet: parseNet(row.net),
+        };
+      });
+
+      return { data: rows, assessorMap };
     }
   });
 
-  const { totals, tableData, detailData, tableFooterTotalNet } = useMemo(() => {
+  const { totals, tableRows } = useMemo(() => {
     const result = {
       "Fundos": 0,
       "Previdência": 0,
       "Renda Fixa": 0,
       "Tesouro Direto": 0
     };
-    
-    if (!diversificadorData || !diversificadorData.data) return { totals: result, tableData: [], detailData: [], tableFooterTotalNet: 0 };
-    
-    // Usually position tables contain snapshots. Let's find the latest data_posicao first.
-    const latestDate = diversificadorData.data.reduce((max, row) => {
-      if (!row.data_posicao) return max;
-      return row.data_posicao > max ? row.data_posicao : max;
-    }, "");
 
-    // If we found a date, only sum rows from that date to avoid duplicating amounts across snapshots.
-    const rowsToSum = latestDate 
-      ? diversificadorData.data.filter(row => row.data_posicao === latestDate)
-      : diversificadorData.data;
-      
+    if (!diversificadorData?.data) return { totals: result, tableRows: [] as any[] };
+
     const byAssessor = new Map<string, any>();
-    
-    rowsToSum.forEach(row => {
-      const prod = (row.produto as string || "").toUpperCase().trim();
-      const val = parseNet(row.net);
-      
-      const rawAssessor = (row.assessor || "").trim();
-      const codAssessorStr = rawAssessor.toUpperCase().startsWith("A") 
-        ? rawAssessor.toUpperCase() 
-        : `A${rawAssessor}`.toUpperCase();
-        
+
+    diversificadorData.data.forEach((row) => {
+      const prod = (row.produto || "").toUpperCase().trim();
+      const val = row.parsedNet;
+      const codAssessorStr = row.codAssessorStr;
+
       if (!byAssessor.has(codAssessorStr)) {
         const info = diversificadorData.assessorMap?.get(codAssessorStr) || {};
         byAssessor.set(codAssessorStr, {
           cod_assessor: codAssessorStr,
-          nome_assessor: info.nome_assessor || codAssessorStr,
+          nome_assessor: info.nome_assessor || row.nome_assessor || codAssessorStr,
           time: info.time || "",
           foto_url: info.foto_url || null,
           lider: info.lider || false,
@@ -177,9 +205,9 @@ export default function ProdutosRFDash({
           total: Number(info.custodia_net) || 0
         });
       }
-      
+
       const stats = byAssessor.get(codAssessorStr)!;
-      
+
       if (prod === "FUNDOS" || prod === "FUNDO DE INVESTIMENTO") {
         result["Fundos"] += val;
         stats.Fundos += val;
@@ -194,11 +222,15 @@ export default function ProdutosRFDash({
         stats.TesouroDireto += val;
       }
     });
-    
-    const tableArray = Array.from(byAssessor.values())
+
+    return { totals: result, tableRows: Array.from(byAssessor.values()) };
+  }, [diversificadorData]);
+
+  const tableData = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return tableRows
       .filter((a) => {
-        if (!searchTerm) return true;
-        const term = searchTerm.toLowerCase();
+        if (!term) return true;
         return (
           (a.nome_assessor || "").toLowerCase().includes(term) ||
           (a.cod_assessor || "").toLowerCase().includes(term) ||
@@ -211,78 +243,54 @@ export default function ProdutosRFDash({
         let bVal: any = b[key as keyof typeof b];
         if (aVal == null) aVal = "";
         if (bVal == null) bVal = "";
-        if (typeof aVal === 'string') {
-          return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        if (typeof aVal === "string") {
+          return direction === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         }
-        return direction === 'asc' ? (aVal > bVal ? 1 : -1) : (bVal > aVal ? 1 : -1);
+        return direction === "asc" ? (aVal > bVal ? 1 : -1) : (bVal > aVal ? 1 : -1);
       });
-      
-    const detailArray = rowsToSum.map(row => {
-      const rawAssessor = (row.assessor || "").trim();
-      const codAssessorStr = rawAssessor.toUpperCase().startsWith("A") 
-        ? rawAssessor.toUpperCase() 
-        : `A${rawAssessor}`.toUpperCase();
-        
-      const info = diversificadorData.assessorMap?.get(codAssessorStr) || {};
-      
-      return {
-        ...row,
-        codAssessorStr,
-        nome_assessor: info.nome_assessor || codAssessorStr,
-        parsedNet: parseNet(row.net)
-      };
-    }).filter(row => {
-      if (!detailSearchTerm) return true;
-      const term = detailSearchTerm.toLowerCase();
-      return (
-        (row.cliente || "").toLowerCase().includes(term) ||
-        (row.cnpj || "").toLowerCase().includes(term) ||
-        (row.subproduto || "").toLowerCase().includes(term) ||
-        (row.ativo || "").toLowerCase().includes(term)
-      );
-    }).sort((a, b) => {
+  }, [tableRows, searchTerm, sortConfig]);
+
+  const tableFooterTotalNet = useMemo(
+    () => tableData.reduce((acc, curr) => acc + curr.total, 0),
+    [tableData]
+  );
+
+  const detailData = useMemo(() => {
+    const rows = diversificadorData?.data || [];
+    const term = detailSearchTerm.toLowerCase();
+    const filtered = term
+      ? rows.filter((row) =>
+          (row.cliente || "").toLowerCase().includes(term) ||
+          (row.cnpj || "").toLowerCase().includes(term) ||
+          (row.subproduto || "").toLowerCase().includes(term) ||
+          (row.ativo || "").toLowerCase().includes(term)
+        )
+      : rows;
+
+    return [...filtered].sort((a, b) => {
       const { key, direction } = detailSortConfig;
       let aVal: any = a[key as keyof typeof a];
       let bVal: any = b[key as keyof typeof b];
       if (aVal == null) aVal = "";
       if (bVal == null) bVal = "";
-      if (typeof aVal === 'string') {
-        return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      if (typeof aVal === "string") {
+        return direction === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
-      return direction === 'asc' ? (aVal > bVal ? 1 : -1) : (bVal > aVal ? 1 : -1);
+      return direction === "asc" ? (aVal > bVal ? 1 : -1) : (bVal > aVal ? 1 : -1);
     });
-    
-    const tableFooterTotalNet = tableArray.reduce((acc, curr) => acc + curr.total, 0);
-
-    return { totals: result, tableData: tableArray, detailData: detailArray, tableFooterTotalNet };
-  }, [diversificadorData, searchTerm, detailSearchTerm, sortConfig, detailSortConfig]);
+  }, [diversificadorData, detailSearchTerm, detailSortConfig]);
 
   const modalData = useMemo(() => {
     if (!selectedAssessorForDetails || !diversificadorData?.data) return [];
-    
-    const latestDate = diversificadorData.data.reduce((max, row) => {
-      if (!row.data_posicao) return max;
-      return row.data_posicao > max ? row.data_posicao : max;
-    }, "");
-
-    const rowsToSum = latestDate 
-      ? diversificadorData.data.filter(row => row.data_posicao === latestDate)
-      : diversificadorData.data;
 
     const subproductAgg = new Map<string, { produto: string, subproduto: string, net: number }>();
 
-    rowsToSum.forEach(row => {
-      const rawAssessor = (row.assessor || "").trim();
-      const codAssessorStr = rawAssessor.toUpperCase().startsWith("A") 
-        ? rawAssessor.toUpperCase() 
-        : `A${rawAssessor}`.toUpperCase();
-        
-      if (codAssessorStr !== selectedAssessorForDetails.cod_assessor) return;
+    diversificadorData.data.forEach((row) => {
+      if (row.codAssessorStr !== selectedAssessorForDetails.cod_assessor) return;
 
-      const prodRaw = (row.produto as string || "").toUpperCase().trim();
-      const subprod = (row.subproduto as string || "N/A").trim();
-      const val = parseNet(row.net);
-      
+      const prodRaw = (row.produto || "").toUpperCase().trim();
+      const subprod = (row.subproduto || "N/A").trim();
+
       let prodNormalized = prodRaw;
       if (prodRaw === "FUNDOS" || prodRaw === "FUNDO DE INVESTIMENTO") prodNormalized = "Fundos";
       else if (prodRaw === "PREVIDÊNCIA" || prodRaw === "PREVIDENCIA") prodNormalized = "Previdência";
@@ -295,7 +303,7 @@ export default function ProdutosRFDash({
       if (!subproductAgg.has(key)) {
         subproductAgg.set(key, { produto: prodNormalized, subproduto: subprod, net: 0 });
       }
-      subproductAgg.get(key)!.net += val;
+      subproductAgg.get(key)!.net += row.parsedNet;
     });
 
     return Array.from(subproductAgg.values()).sort((a, b) => b.net - a.net);

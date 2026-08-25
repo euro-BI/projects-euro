@@ -194,7 +194,7 @@ export default function ManagementDash() {
   }, [filteredMonths, selectedYear, selectedMonth]);
 
   // Fetch dashboard data
-  const { data: dashData, isLoading: isDashLoading } = useQuery({
+  const { data: dashData, isLoading: isDashLoading, isFetching: isDashFetching } = useQuery({
     queryKey: ["dash-mgmt-data", selectedMonth, selectedTeam, selectedAssessorId],
     placeholderData: keepPreviousData,
     enabled: !!selectedMonth,
@@ -223,7 +223,7 @@ export default function ManagementDash() {
     }
   });
 
-  const { data: yearlyData } = useQuery({
+  const { data: yearlyData, isFetching: isYearlyFetching } = useQuery({
     queryKey: ["dash-mgmt-yearly", selectedYear, selectedTeam, selectedAssessorId],
     placeholderData: keepPreviousData,
     enabled: !!selectedYear,
@@ -246,7 +246,7 @@ export default function ManagementDash() {
     }
   });
 
-  const isLoading = isFiltersLoading || isDashLoading;
+  const isLoading = isFiltersLoading || isDashLoading || isDashFetching || isYearlyFetching;
 
   return (
     <PageLayout className={cn(
@@ -386,6 +386,7 @@ export default function ManagementDash() {
           <TabsContent value="pareto-clientes-12m" className="space-y-6 mt-0 border-none p-0 outline-none">
             <ParetoClientes12mDash 
               selectedAssessorId={selectedAssessorId}
+              selectedTeam={selectedTeam}
             />
           </TabsContent>
         </Tabs>

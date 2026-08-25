@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { AssessorResumo } from "@/types/dashboard";
+import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 
 type CarteiraDistributionDashProps = {
   selectedMonth: string;
@@ -30,6 +30,7 @@ type DistribuicaoRow = {
   fator_risco: string | null;
   ativo: string | null;
   net: number | string | null;
+  parsedNet: number;
   data_posicao: string | null;
   distribuicao_carteira: string | null;
 };
@@ -85,14 +86,6 @@ function formatPercent(value: number) {
   return `${formatted}%`;
 }
 
-function normalizeAssessorCode(value: string) {
-  const raw = value.trim().toUpperCase();
-  if (!raw) return "";
-  if (raw.startsWith("A")) return raw;
-  if (/^\d+$/.test(raw)) return `A${raw}`;
-  return raw;
-}
-
 function parseNet(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
@@ -105,6 +98,7 @@ function parseNet(value: unknown) {
 
 export default function CarteiraDistributionDash({
   selectedMonth,
+  selectedTeam,
   selectedAssessorId,
 }: CarteiraDistributionDashProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -123,8 +117,8 @@ export default function CarteiraDistributionDash({
     return format(endOfMonth(parseISO(`${selectedMonthKey}-01`)), "yyyy-MM-dd");
   }, [selectedMonthKey]);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["gerencial-distribuicao-carteira", selectedMonthEnd, selectedAssessorId],
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ["gerencial-distribuicao-carteira", selectedMonthEnd, selectedTeam, selectedAssessorId],
     placeholderData: keepPreviousData,
     enabled: !!selectedMonthEnd,
     queryFn: async () => {
@@ -132,31 +126,61 @@ export default function CarteiraDistributionDash({
         return { latestDate: null as string | null, rows: [] as DistribuicaoRow[] };
       }
 
-      const { data: latestDateRows, error: latestDateError } = await supabase
-        .rpc("rpc_get_diversificador_full", { p_assessores: selectedAssessorId.length > 0 ? selectedAssessorId : null } as any)
-        .select("data_posicao")
-        .lte("data_posicao", selectedMonthEnd)
-        .order("data_posicao", { ascending: false })
-        .limit(1);
+      let assessorFilter: string[] | null =
+        selectedAssessorId.length > 0 ? selectedAssessorId : null;
 
-      if (latestDateError) throw latestDateError;
+      if (!assessorFilter && selectedTeam.length > 0) {
+        const { data: latestMvRows, error: latestMvError } = await supabase
+          .from("mv_resumo_assessor" as any)
+          .select("data_posicao")
+          .gte("data_posicao", `${selectedMonthKey}-01`)
+          .lte("data_posicao", selectedMonthEnd)
+          .order("data_posicao", { ascending: false })
+          .limit(1);
 
-      const latestDate = latestDateRows?.[0]?.data_posicao ?? null;
-      if (!latestDate) {
-        return { latestDate: null as string | null, rows: [] as DistribuicaoRow[] };
+        if (latestMvError) throw latestMvError;
+
+        const latestMvDate = latestMvRows?.[0]?.data_posicao as string | undefined;
+        if (!latestMvDate) {
+          return { latestDate: null as string | null, rows: [] as DistribuicaoRow[] };
+        }
+
+        const { data: teamRows, error: teamError } = await supabase
+          .from("mv_resumo_assessor" as any)
+          .select("cod_assessor")
+          .eq("data_posicao", latestMvDate)
+          .in("time", selectedTeam);
+
+        if (teamError) throw teamError;
+
+        assessorFilter = Array.from(
+          new Set(
+            (teamRows || [])
+              .map((row: any) => String(row.cod_assessor || "").toUpperCase())
+              .filter(Boolean),
+          ),
+        );
       }
 
       const { data: viewRows, error: viewError } = await supabase
-        .rpc("rpc_get_diversificador_full", { p_assessores: selectedAssessorId.length > 0 ? selectedAssessorId : null } as any)
+        .rpc("rpc_get_diversificador_full", {
+          p_assessores: assessorFilter,
+          p_data_max: selectedMonthEnd,
+        } as any)
         .select("assessor, cliente, produto, subproduto, fator_risco, ativo, net, data_posicao, distribuicao_carteira")
-        .eq("data_posicao", latestDate)
         .range(0, 50000);
 
       if (viewError) throw viewError;
 
-      const filteredRows = (viewRows || []) as DistribuicaoRow[];
+      const rows = ((viewRows || []) as Omit<DistribuicaoRow, "parsedNet">[]).map((row) => ({
+        ...row,
+        parsedNet: parseNet(row.net),
+      }));
 
-      return { latestDate, rows: filteredRows };
+      return {
+        latestDate: (rows[0]?.data_posicao ?? null) as string | null,
+        rows,
+      };
     },
   });
 
@@ -166,8 +190,7 @@ export default function CarteiraDistributionDash({
 
     (data?.rows || []).forEach((row) => {
       const category = String(row.distribuicao_carteira ?? "").trim() || "Não Classificado";
-      const net = parseNet(row.net);
-      totals.set(category, (totals.get(category) || 0) + net);
+      totals.set(category, (totals.get(category) || 0) + row.parsedNet);
       if (!rowsByCategory.has(category)) rowsByCategory.set(category, []);
       rowsByCategory.get(category)!.push(row);
     });
@@ -181,7 +204,7 @@ export default function CarteiraDistributionDash({
     const cards = orderedCategories.map((category) => {
       const value = totals.get(category) || 0;
       const percentage = grandTotal > 0 ? (value / grandTotal) * 100 : 0;
-      const rows = (rowsByCategory.get(category) || []).slice().sort((a, b) => parseNet(b.net) - parseNet(a.net));
+      const rows = (rowsByCategory.get(category) || []).slice().sort((a, b) => b.parsedNet - a.parsedNet);
       return { category, value, percentage, rows };
     });
 
@@ -211,7 +234,7 @@ export default function CarteiraDistributionDash({
     const rows = [...selectedCategoryRows];
     rows.sort((a, b) => {
       if (sortConfig.key === "net") {
-        const result = parseNet(a.net) - parseNet(b.net);
+        const result = a.parsedNet - b.parsedNet;
         return sortConfig.direction === "asc" ? result : -result;
       }
 
@@ -247,7 +270,7 @@ export default function CarteiraDistributionDash({
       Subproduto: row.subproduto || "",
       "Fator Risco": row.fator_risco || "",
       Ativo: row.ativo || "",
-      Net: parseNet(row.net),
+      Net: row.parsedNet,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows.length ? exportRows : [{}]);
@@ -275,6 +298,7 @@ export default function CarteiraDistributionDash({
 
   return (
     <div className="space-y-5">
+      <LoadingOverlay isLoading={isLoading || isFetching} />
       <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-1">
           <h2 className="text-white font-display text-xl tracking-wide">
@@ -297,15 +321,7 @@ export default function CarteiraDistributionDash({
         </div>
       </div>
 
-      {isLoading && (
-        <Card className="bg-[#0F1218]/60 backdrop-blur-xl border-white/10 p-8 text-center">
-          <div className="text-white/60 font-data text-sm">
-            Carregando distribuição da carteira...
-          </div>
-        </Card>
-      )}
-
-      {!isLoading && error && (
+      {error && (
         <Card className="bg-[#0F1218]/60 backdrop-blur-xl border-white/10 p-8 text-center">
           <div className="text-white/60 font-data text-sm">
             Não foi possível carregar a distribuição da carteira.
@@ -373,7 +389,7 @@ export default function CarteiraDistributionDash({
               Registros: {sortedCategoryRows.length}
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/75">
-              Total: {formatCurrency(sortedCategoryRows.reduce((acc, row) => acc + parseNet(row.net), 0))}
+              Total: {formatCurrency(sortedCategoryRows.reduce((acc, row) => acc + row.parsedNet, 0))}
             </span>
           </div>
             <Button
@@ -450,7 +466,7 @@ export default function CarteiraDistributionDash({
                       <td className="py-3 px-4 text-white/70 font-data text-xs">{row.fator_risco || "—"}</td>
                       <td className="py-3 px-4 text-white/70 font-data text-xs">{row.ativo || "—"}</td>
                       <td className="py-3 px-4 text-right text-white/85 font-data text-xs">
-                        {formatCurrency(parseNet(row.net))}
+                        {formatCurrency(row.parsedNet)}
                       </td>
                     </tr>
                   ))}
