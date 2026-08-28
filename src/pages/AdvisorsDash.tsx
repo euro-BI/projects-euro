@@ -1130,6 +1130,14 @@ function FechamentosCrossSellDialog({
 // Main Component
 // ==========================================================================
 
+const ADVISORS_ALLOWED_CODES = ["A50655"] as const;
+
+function scopeAdvisorCodes(selected: string[] | undefined) {
+  const allowed = new Set<string>(ADVISORS_ALLOWED_CODES);
+  const picked = (selected ?? []).filter((id) => allowed.has(id));
+  return picked.length > 0 ? picked : [...ADVISORS_ALLOWED_CODES];
+}
+
 export default function AdvisorsDash() {
   const persistKey = "filters:AdvisorsDash";
   const persisted = readSessionJson<{
@@ -1142,7 +1150,8 @@ export default function AdvisorsDash() {
   const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
   const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? ["ADVISORS"]);
-  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => persisted?.selectedAssessorId ?? []);
+  const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => scopeAdvisorCodes(persisted?.selectedAssessorId));
+  const scopedAssessorIds = useMemo(() => scopeAdvisorCodes(selectedAssessorId), [selectedAssessorId]);
 
   React.useEffect(() => {
     writeSessionJson(persistKey, {
@@ -1232,6 +1241,7 @@ export default function AdvisorsDash() {
       const assessors = Array.from(assessorMap.entries())
         .map(([id, info]) => ({ id, name: info.name, teams: Array.from(info.teams) }))
         .filter(a => a.teams.length > 0)
+        .filter(a => (ADVISORS_ALLOWED_CODES as readonly string[]).includes(a.id))
         .sort((a, b) => a.name.localeCompare(b.name));
       
       return { allMonths, years, teams, assessors };
@@ -1250,7 +1260,7 @@ export default function AdvisorsDash() {
   }, [filteredMonths, selectedYear, selectedMonth]);
 
   const { data: dashData, isLoading: isDashLoading } = useQuery({
-    queryKey: ["dash-advisors-data", selectedMonth, selectedTeam, selectedAssessorId],
+    queryKey: ["dash-advisors-data", selectedMonth, selectedTeam, scopedAssessorIds],
     enabled: !!selectedMonth,
     queryFn: async () => {
       let query = supabase
@@ -1259,7 +1269,7 @@ export default function AdvisorsDash() {
         .eq("data_posicao", selectedMonth);
       
       if (selectedTeam.length > 0) query = query.in("time", selectedTeam);
-      if (selectedAssessorId.length > 0) query = query.in("cod_assessor", selectedAssessorId);
+      query = query.in("cod_assessor", scopedAssessorIds);
 
       const { data, error } = await query.order("pontos_totais_acumulado", { ascending: false });
       if (error) throw error;
@@ -1282,7 +1292,7 @@ export default function AdvisorsDash() {
         .eq("data_posicao", prevMonth);
 
       if (selectedTeam.length > 0) prevQuery = prevQuery.in("time", selectedTeam);
-      if (selectedAssessorId.length > 0) prevQuery = prevQuery.in("cod_assessor", selectedAssessorId);
+      prevQuery = prevQuery.in("cod_assessor", scopedAssessorIds);
 
       const { data: prevData, error: prevError } = await prevQuery;
       if (prevError) throw prevError;
@@ -1297,15 +1307,14 @@ export default function AdvisorsDash() {
 
   // Query para buscar dados de relacionamento da vw_esforcos_consolidado
   const { data: relacionamentoData, isLoading: isRelacionamentoLoading } = useQuery({
-    queryKey: ["dash-advisors-relacionamento", selectedMonth, selectedAssessorId],
+    queryKey: ["dash-advisors-relacionamento", selectedMonth, scopedAssessorIds],
     enabled: !!selectedMonth,
     queryFn: async () => {
       let query = supabase
         .from("vw_esforcos_consolidado" as any)
         .select("cliente, tipo_pessoa, net_em_m, data_posicao, nome_assessor, cod_assessor, id_atividade, tipo, pipe, data_esforco, tipo_esforco, data_ultimo_contato, status_relacionamento")
-        .eq("data_posicao", selectedMonth);
-
-      if (selectedAssessorId.length > 0) query = query.in("cod_assessor", selectedAssessorId);
+        .eq("data_posicao", selectedMonth)
+        .in("cod_assessor", scopedAssessorIds);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -1338,7 +1347,7 @@ export default function AdvisorsDash() {
 
   // Query para buscar dados de volume consultivo (KPI 3)
   const { data: volumeConsultivoData, isLoading: isVolumeLoading } = useQuery({
-    queryKey: ["dash-advisors-volume-consultivo", selectedMonth, selectedAssessorId],
+    queryKey: ["dash-advisors-volume-consultivo", selectedMonth, scopedAssessorIds],
     enabled: !!selectedMonth,
     queryFn: async () => {
       // Calcula o range do mês selecionado para filtrar data_esforco
@@ -1352,9 +1361,8 @@ export default function AdvisorsDash() {
         .select("cliente, tipo_pessoa, net_em_m, data_posicao, nome_assessor, cod_assessor, id_atividade, pipe, data_esforco")
         .in("pipe", ["Revis\u00e3o de Carteira", "Reuni\u00e3o de Apresenta\u00e7\u00e3o FP"])
         .gte("data_esforco", startStr)
-        .lt("data_esforco", endStr);
-
-      if (selectedAssessorId.length > 0) query = query.in("cod_assessor", selectedAssessorId);
+        .lt("data_esforco", endStr)
+        .in("cod_assessor", scopedAssessorIds);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -1376,7 +1384,7 @@ export default function AdvisorsDash() {
   const MIN_AMOSTRAS_NPS = 3;
 
   const { data: npsData, isLoading: isNpsLoading } = useQuery({
-    queryKey: ["dash-advisors-nps", selectedMonth, selectedAssessorId, selectedTeam],
+    queryKey: ["dash-advisors-nps", selectedMonth, scopedAssessorIds],
     enabled: !!selectedMonth && !!filtersData,
     queryFn: async () => {
       const startDate = parseISO(selectedMonth);
@@ -1384,13 +1392,7 @@ export default function AdvisorsDash() {
       const startStr = format(startDate, "yyyy-MM-dd");
       const endStr = format(endDate, "yyyy-MM-dd");
 
-      // Determina quais assessores filtrar (formato A26969)
-      const assessorCodes = selectedAssessorId.length > 0
-        ? selectedAssessorId
-        : (filtersData?.assessors ?? [])
-            .filter(a => a.teams.some((t: string) => selectedTeam.includes(t)))
-            .map(a => a.id)
-            .filter(Boolean);
+      const assessorCodes = scopedAssessorIds;
 
       if (assessorCodes.length === 0) return [];
 
@@ -1461,21 +1463,15 @@ export default function AdvisorsDash() {
 
   // Query para buscar dados de captação líquida PF (Bônus 02)
   const { data: captacaoData, isLoading: isCaptacaoLoading } = useQuery({
-    queryKey: ["dash-advisors-captacao", selectedMonth, selectedAssessorId, selectedTeam],
+    queryKey: ["dash-advisors-captacao", selectedMonth, scopedAssessorIds],
     enabled: !!selectedMonth && !!filtersData,
     queryFn: async () => {
       const startDate = parseISO(selectedMonth);
       const endDate = addMonths(startDate, 1);
 
       // Determina os códigos de assessor a filtrar (sem prefixo 'A')
-      // Se há seleção específica usa ela; senão usa todos do time ADVISORS via filtersData
       const normalize = (id: string) => id.startsWith("A") ? id.slice(1) : id;
-      const assessorCodes = selectedAssessorId.length > 0
-        ? selectedAssessorId.map(normalize)
-        : (filtersData?.assessors ?? [])
-            .filter(a => a.teams.some((t: string) => selectedTeam.includes(t)))
-            .map(a => normalize(a.id))
-            .filter(Boolean);
+      const assessorCodes = scopedAssessorIds.map(normalize).filter(Boolean);
 
       if (assessorCodes.length === 0) return [];
 
@@ -1505,7 +1501,7 @@ export default function AdvisorsDash() {
   }, [captacaoData]);
 
   const { data: indicacoesData, isLoading: isIndicacoesLoading } = useQuery({
-    queryKey: ["dash-advisors-indicacoes", selectedMonth, selectedAssessorId, selectedTeam],
+    queryKey: ["dash-advisors-indicacoes", selectedMonth, scopedAssessorIds],
     enabled: !!selectedMonth && !!filtersData,
     queryFn: async () => {
       const startDate = parseISO(selectedMonth);
@@ -1513,12 +1509,7 @@ export default function AdvisorsDash() {
       const startStr = format(startDate, "yyyy-MM-dd");
       const endStr = format(endDate, "yyyy-MM-dd");
 
-      const assessorCodes = selectedAssessorId.length > 0
-        ? selectedAssessorId
-        : (filtersData?.assessors ?? [])
-            .filter(a => a.teams.some((t: string) => selectedTeam.includes(t)))
-            .map(a => a.id)
-            .filter(Boolean);
+      const assessorCodes = scopedAssessorIds;
 
       if (assessorCodes.length === 0) return [];
 
@@ -1559,7 +1550,7 @@ export default function AdvisorsDash() {
   }, [indicacoesData]);
 
   const { data: crossSellData, isLoading: isCrossSellLoading } = useQuery({
-    queryKey: ["dash-advisors-crosssell", selectedMonth, selectedAssessorId, selectedTeam],
+    queryKey: ["dash-advisors-crosssell", selectedMonth, scopedAssessorIds],
     enabled: !!selectedMonth && !!filtersData,
     queryFn: async () => {
       const startDate = parseISO(selectedMonth);
@@ -1567,12 +1558,7 @@ export default function AdvisorsDash() {
       const startStr = format(startDate, "yyyy-MM-dd");
       const endStr = format(endDate, "yyyy-MM-dd");
 
-      const assessorCodes = selectedAssessorId.length > 0
-        ? selectedAssessorId
-        : (filtersData?.assessors ?? [])
-            .filter(a => a.teams.some((t: string) => selectedTeam.includes(t)))
-            .map(a => a.id)
-            .filter(Boolean);
+      const assessorCodes = scopedAssessorIds;
 
       if (assessorCodes.length === 0) return [] as CrossSellItem[];
 
@@ -1840,6 +1826,7 @@ export default function AdvisorsDash() {
                   userRole={userRole}
                   isMultiSelect={true}
                   disableTeamSelection={true}
+                  disableAssessorSelection={true}
                 />
               </div>
             </div>
@@ -2553,7 +2540,7 @@ export default function AdvisorsDash() {
                         </CardTitle>
                         <ActivationDetailsDialog
                           selectedMonth={selectedMonth}
-                          assessorId={selectedAssessorId}
+                          assessorId={scopedAssessorIds}
                           team={selectedTeam}
                         >
                           <button className="text-white hover:text-euro-gold transition-colors">

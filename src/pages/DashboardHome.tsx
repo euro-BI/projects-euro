@@ -8,6 +8,7 @@ import { Briefcase, ShoppingBag, ArrowRight, Settings, User, TrendingUp, Calenda
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useReducedMotion } from "framer-motion";
+import { isAdvisorsOnlyUser } from "@/lib/access";
 
 export default function DashboardHome() {
   const navigate = useNavigate();
@@ -20,7 +21,8 @@ export default function DashboardHome() {
   const isProdutosOnly = userRole === "produtos";
   const isAdminOrMaster = userRole === "admin" || userRole === "admin_master";
   const isRegularUser = userRole === "user" || userRole === "lider" || userRole === "consorcio" || userRole === "seguros";
-  const canAccessAdvisors = isAdminOrMaster || userCode === "A39869";
+  const isAdvisorsOnly = isAdvisorsOnlyUser(userCode);
+  const canAccessAdvisors = isAdminOrMaster || isAdvisorsOnly;
   const enableBackground = showBackground && !isMobile && !reduceMotion;
 
   React.useEffect(() => {
@@ -48,7 +50,7 @@ export default function DashboardHome() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
           {/* Card Comercial */}
-          {(!isMarketing && !isProdutosOnly && userRole !== "consorcio" && userRole !== "seguros") && (
+          {(!isAdvisorsOnly && !isMarketing && !isProdutosOnly && userRole !== "consorcio" && userRole !== "seguros") && (
             <div 
               onClick={() => navigate("/dash/comercial")}
               className="cursor-pointer"
@@ -108,7 +110,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Meu Cockpit */}
-          {(!isMarketing && !isProdutosOnly && userRole !== "consorcio" && userRole !== "seguros") && (
+          {(!isAdvisorsOnly && !isMarketing && !isProdutosOnly && userRole !== "consorcio" && userRole !== "seguros") && (
             <div
               onClick={() => navigate("/dash/meu-cockpit")}
               className="cursor-pointer"
@@ -138,7 +140,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Gerencial */}
-          {(!isMarketing && !isRegularUser && !isProdutosOnly) && (
+          {(!isAdvisorsOnly && !isMarketing && !isRegularUser && !isProdutosOnly) && (
             <div 
               onClick={() => navigate("/dash/gerencial")}
               className="cursor-pointer"
@@ -168,7 +170,7 @@ export default function DashboardHome() {
           )}
 
           {/* Card Produtos */}
-          {(!isMarketing) && (
+          {(!isAdvisorsOnly && !isMarketing) && (
             <div 
               onClick={() => navigate("/dash/produtos")}
               className="cursor-pointer"

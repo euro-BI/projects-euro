@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Header } from "@/components/Header";
 import AssessorCockpitV2 from "./pages/AssessorCockpitV2";
+import { ADVISORS_VIEWER_CODE } from "@/lib/access";
 const Auth = lazy(() => import("./pages/Auth"));
 const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Welcome = lazy(() => import("./pages/Welcome"));
@@ -41,6 +42,8 @@ const HeaderWrapper = () => {
   return !isChatPage ? <Header /> : null;
 };
 
+const ADVISORS_ONLY_BLOCK = [ADVISORS_VIEWER_CODE];
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -58,7 +61,7 @@ const App = () => (
               <Route
                 path="/"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <Welcome />
                   </ProtectedRoute>
                 }
@@ -66,7 +69,7 @@ const App = () => (
               <Route
                 path="/users"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master"]}>
+                  <ProtectedRoute allowedRoles={["admin_master"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <Users />
                   </ProtectedRoute>
                 }
@@ -74,7 +77,7 @@ const App = () => (
               <Route
                 path="/atualizacao"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master"]}>
+                  <ProtectedRoute allowedRoles={["admin_master"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <Atualizacao />
                   </ProtectedRoute>
                 }
@@ -82,7 +85,7 @@ const App = () => (
               <Route
                 path="/bi-dashboard"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master"]}>
+                  <ProtectedRoute allowedRoles={["admin_master"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <Navigate to="/atualizacao" replace />
                   </ProtectedRoute>
                 }
@@ -90,7 +93,7 @@ const App = () => (
               <Route
                 path="/consorcios"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "consorcio"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "consorcio"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <Consorcios />
                   </ProtectedRoute>
                 }
@@ -98,7 +101,7 @@ const App = () => (
               <Route
                 path="/seguros"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "seguros"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "seguros"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <Seguros />
                   </ProtectedRoute>
                 }
@@ -106,7 +109,7 @@ const App = () => (
               <Route
                 path="/chat"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <Chat />
                   </ProtectedRoute>
                 }
@@ -114,7 +117,7 @@ const App = () => (
               <Route
                 path="/dash"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]} allowedUserCodes={[ADVISORS_VIEWER_CODE]}>
                     <DashboardHome />
                   </ProtectedRoute>
                 }
@@ -122,7 +125,7 @@ const App = () => (
               <Route
                 path="/dash/comercial"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <PerformanceDash />
                   </ProtectedRoute>
                 }
@@ -130,7 +133,7 @@ const App = () => (
               <Route
                 path="/dash/produtos"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "produtos", "seguros"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "produtos", "seguros"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <ProductsDashboard />
                   </ProtectedRoute>
                 }
@@ -138,7 +141,7 @@ const App = () => (
               <Route
                 path="/dash/esforco-semanal"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "consorcio", "marketing", "produtos", "seguros"]} allowedUserCodes={[ADVISORS_VIEWER_CODE]}>
                     <WeeklyEffortsDash />
                   </ProtectedRoute>
                 }
@@ -146,7 +149,7 @@ const App = () => (
               <Route
                 path="/dash/gerencial"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <ManagementDash />
                   </ProtectedRoute>
                 }
@@ -154,7 +157,7 @@ const App = () => (
               <Route
                 path="/dash/meu-cockpit"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "produtos"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "lider", "produtos"]} blockedUserCodes={ADVISORS_ONLY_BLOCK}>
                     <AssessorCockpitV2 />
                   </ProtectedRoute>
                 }
@@ -162,7 +165,7 @@ const App = () => (
               <Route
                 path="/dash/advisors"
                 element={
-                  <ProtectedRoute allowedRoles={["admin_master", "admin"]} allowedUserCodes={["A39869"]}>
+                  <ProtectedRoute allowedRoles={["admin_master", "admin"]} allowedUserCodes={[ADVISORS_VIEWER_CODE]}>
                     <AdvisorsDash />
                   </ProtectedRoute>
                 }

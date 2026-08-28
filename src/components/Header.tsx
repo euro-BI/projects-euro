@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isAdvisorsOnlyUser } from "@/lib/access";
 import {
   Sheet,
   SheetContent,
@@ -30,7 +31,7 @@ interface UserProfile {
 }
 
 export const Header = () => {
-  const { user, signOut, userRole } = useAuth();
+  const { user, signOut, userRole, userCode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -46,6 +47,7 @@ export const Header = () => {
   const isMarketing = userRole === "marketing";
   const isSeguros = userRole === "seguros";
   const isProdutos = userRole === "produtos";
+  const isAdvisorsOnly = isAdvisorsOnlyUser(userCode);
 
   // Combine roles for easier checks
   const canAccessAdminFeatures = isAdminMaster || isAdmin;
@@ -219,7 +221,7 @@ export const Header = () => {
       >
         <div className="flex h-full w-full items-center justify-between px-5 sm:px-8 lg:px-10 xl:px-12">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(isAdvisorsOnly ? "/dash" : "/")}
             className="flex items-center gap-3 text-lg md:text-xl font-bold text-gradient-cyan hover:opacity-80 transition-opacity"
           >
             <img
@@ -235,7 +237,7 @@ export const Header = () => {
           {/* Desktop actions */}
           <div className="hidden md:flex items-center gap-4">
             {/* Dropdown de Navegação */}
-            {isAdminMaster && (
+            {isAdminMaster && !isAdvisorsOnly && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -338,7 +340,7 @@ export const Header = () => {
                     Ações
                   </DropdownMenuLabel>
 
-                  {isAdminMaster && (
+                  {isAdminMaster && !isAdvisorsOnly && (
                     <DropdownMenuItem
                       onClick={() => navigate("/users")}
                       className="cursor-pointer hover:bg-primary/10"

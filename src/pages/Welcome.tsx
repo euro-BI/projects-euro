@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/PageLayout";
 import { HubAtmosphere } from "@/components/home/HubAtmosphere";
 import { cn } from "@/lib/utils";
+import { isAdvisorsOnlyUser } from "@/lib/access";
 
 type HubRole =
   | "admin_master"
@@ -110,7 +111,7 @@ function cardClass(isFeatured: boolean, total: number) {
 }
 
 export default function Welcome() {
-  const { user, userRole } = useAuth();
+  const { user, userRole, userCode } = useAuth();
   const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
 
@@ -142,10 +143,10 @@ export default function Welcome() {
   });
 
   useEffect(() => {
-    if (userRole === "user" || userRole === "lider" || userRole === "admin") {
+    if (isAdvisorsOnlyUser(userCode) || userRole === "user" || userRole === "lider" || userRole === "admin") {
       navigate("/dash", { replace: true });
     }
-  }, [navigate, userRole]);
+  }, [navigate, userCode, userRole]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -157,7 +158,7 @@ export default function Welcome() {
     ? `${greetingForHour(now.getHours())}, ${firstName}`
     : greetingForHour(now.getHours());
 
-  if (userRole === "user" || userRole === "lider" || userRole === "admin") {
+  if (isAdvisorsOnlyUser(userCode) || userRole === "user" || userRole === "lider" || userRole === "admin") {
     return null;
   }
 
