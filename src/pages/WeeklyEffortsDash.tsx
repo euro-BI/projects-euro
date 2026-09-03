@@ -23,6 +23,10 @@ import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Toolti
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth" | "prevMonth";
 const FIXED_MONTH_WEEKS = 4;
 
+function monthAnchorFromRange(start: string, end: string) {
+  return start.slice(0, 7) !== end.slice(0, 7) ? end : start;
+}
+
 function buildDashboardStory(current: any, month: any, today: Date, monthAnchor: Date) {
   const monthStart = startOfMonth(monthAnchor);
   const monthEnd = endOfMonth(monthAnchor);
@@ -387,33 +391,36 @@ export default function WeeklyEffortsDash() {
   const periodDates = useMemo(() => {
     const now = new Date();
     // Use weekStartsOn: 1 for Monday
+    let start: string;
+    let end: string;
+    let label: string;
+
     if (period === "currentWeek") {
-      return {
-        start: format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
-        end: format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
-        label: "Semana Atual"
-      };
+      start = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      end = format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      label = "Semana Atual";
     } else if (period === "prevWeek") {
       const prevWeek = subWeeks(now, 1);
-      return {
-        start: format(startOfWeek(prevWeek, { weekStartsOn: 1 }), "yyyy-MM-dd"),
-        end: format(endOfWeek(prevWeek, { weekStartsOn: 1 }), "yyyy-MM-dd"),
-        label: "Semana Anterior"
-      };
+      start = format(startOfWeek(prevWeek, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      end = format(endOfWeek(prevWeek, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      label = "Semana Anterior";
     } else if (period === "prevMonth") {
       const prevMonth = subMonths(now, 1);
-      return {
-        start: format(startOfMonth(prevMonth), "yyyy-MM-dd"),
-        end: format(endOfMonth(prevMonth), "yyyy-MM-dd"),
-        label: "Mês Anterior"
-      };
+      start = format(startOfMonth(prevMonth), "yyyy-MM-dd");
+      end = format(endOfMonth(prevMonth), "yyyy-MM-dd");
+      label = "Mês Anterior";
     } else {
-      return {
-        start: format(startOfMonth(now), "yyyy-MM-dd"),
-        end: format(endOfMonth(now), "yyyy-MM-dd"),
-        label: "Mês Atual"
-      };
+      start = format(startOfMonth(now), "yyyy-MM-dd");
+      end = format(endOfMonth(now), "yyyy-MM-dd");
+      label = "Mês Atual";
     }
+
+    return {
+      start,
+      end,
+      label,
+      monthAnchor: monthAnchorFromRange(start, end),
+    };
   }, [period]);
 
   const toggleMaximize = async () => {
@@ -501,7 +508,7 @@ export default function WeeklyEffortsDash() {
       const prevMonthStart = format(startOfMonth(prevMonthDate), "yyyy-MM-dd");
       const prevMonthEnd = format(endOfMonth(prevMonthDate), "yyyy-MM-dd");
 
-      const targetMonthDate = parseISO(periodDates.start);
+      const targetMonthDate = parseISO(periodDates.monthAnchor);
       const targetMonthStart = format(startOfMonth(targetMonthDate), "yyyy-MM-dd");
       const targetMonthEnd = format(endOfMonth(targetMonthDate), "yyyy-MM-dd");
 
@@ -690,7 +697,7 @@ export default function WeeklyEffortsDash() {
     // Selected Period Data
     const current = processRange(periodDates.start, periodDates.end);
     
-    const targetMonthDate = parseISO(periodDates.start);
+    const targetMonthDate = parseISO(periodDates.monthAnchor);
     const targetMonthStart = format(startOfMonth(targetMonthDate), "yyyy-MM-dd");
     const targetMonthEnd = format(endOfMonth(targetMonthDate), "yyyy-MM-dd");
     const selectedMonth = processRange(targetMonthStart, targetMonthEnd);
@@ -757,7 +764,7 @@ export default function WeeklyEffortsDash() {
       processedData.current,
       processedData.selectedMonth,
       today,
-      parseISO(periodDates.start),
+      parseISO(periodDates.monthAnchor),
     );
   }, [processedData, today, periodDates]);
 
