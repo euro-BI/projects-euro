@@ -1130,12 +1130,20 @@ function FechamentosCrossSellDialog({
 // Main Component
 // ==========================================================================
 
+const ADVISORS_ALLOWED_TEAMS = ["ADVISORS", "PRIVATE"] as const;
 const ADVISORS_ALLOWED_CODES = ["A50655"] as const;
 
-function scopeAdvisorCodes(selected: string[] | undefined) {
-  const allowed = new Set<string>(ADVISORS_ALLOWED_CODES);
-  const picked = (selected ?? []).filter((id) => allowed.has(id));
-  return picked.length > 0 ? picked : [...ADVISORS_ALLOWED_CODES];
+function scopeAdvisorTeams(_selected?: string[]) {
+  return [...ADVISORS_ALLOWED_TEAMS];
+}
+
+function isAdvisorsDashAssessor(id: string, teams: string[]) {
+  if ((ADVISORS_ALLOWED_CODES as readonly string[]).includes(id)) return true;
+  return teams.some((team) => team.toUpperCase() === "PRIVATE");
+}
+
+function scopeAdvisorCodes(_selected: string[] | undefined, extraCodes: string[] = []) {
+  return Array.from(new Set([...ADVISORS_ALLOWED_CODES, ...extraCodes]));
 }
 
 export default function AdvisorsDash() {
@@ -1149,9 +1157,8 @@ export default function AdvisorsDash() {
 
   const [selectedYear, setSelectedYear] = useState<string>(() => persisted?.selectedYear ?? new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(() => persisted?.selectedMonth ?? "");
-  const [selectedTeam, setSelectedTeam] = useState<string[]>(() => persisted?.selectedTeam ?? ["ADVISORS"]);
+  const [selectedTeam, setSelectedTeam] = useState<string[]>(() => scopeAdvisorTeams(persisted?.selectedTeam));
   const [selectedAssessorId, setSelectedAssessorId] = useState<string[]>(() => scopeAdvisorCodes(persisted?.selectedAssessorId));
-  const scopedAssessorIds = useMemo(() => scopeAdvisorCodes(selectedAssessorId), [selectedAssessorId]);
 
   React.useEffect(() => {
     writeSessionJson(persistKey, {
@@ -1224,8 +1231,8 @@ export default function AdvisorsDash() {
       
       const allMonths = Array.from(new Set(monthData?.map((d: any) => d.data_posicao) || []));
       const years = Array.from(new Set(allMonths.map(m => parseISO(m).getFullYear().toString()))).sort((a, b) => b.localeCompare(a));
-      const teams = Array.from(new Set(latestData.map((d: any) => d.time)))
-        .filter(teamName => teamName && activeTeamNames.has(teamName));
+      const allowedTeams = new Set<string>(ADVISORS_ALLOWED_TEAMS);
+      const teams = [...ADVISORS_ALLOWED_TEAMS];
       
       const assessorMap = new Map<string, { name: string, teams: Set<string> }>();
       latestData.forEach((d: any) => {
@@ -1233,15 +1240,16 @@ export default function AdvisorsDash() {
           if (!assessorMap.has(d.cod_assessor)) {
             assessorMap.set(d.cod_assessor, { name: d.nome_assessor, teams: new Set() });
           }
-          if (d.time && activeTeamNames.has(d.time)) {
-            assessorMap.get(d.cod_assessor)?.teams.add(d.time);
+          const teamName = String(d.time ?? "");
+          if (teamName && (activeTeamNames.has(teamName) || allowedTeams.has(teamName.toUpperCase()))) {
+            assessorMap.get(d.cod_assessor)?.teams.add(teamName);
           }
         }
       });
       const assessors = Array.from(assessorMap.entries())
         .map(([id, info]) => ({ id, name: info.name, teams: Array.from(info.teams) }))
         .filter(a => a.teams.length > 0)
-        .filter(a => (ADVISORS_ALLOWED_CODES as readonly string[]).includes(a.id))
+        .filter(a => isAdvisorsDashAssessor(a.id, a.teams))
         .sort((a, b) => a.name.localeCompare(b.name));
       
       return { allMonths, years, teams, assessors };
@@ -1258,6 +1266,11 @@ export default function AdvisorsDash() {
       setSelectedMonth(filteredMonths[0]);
     }
   }, [filteredMonths, selectedYear, selectedMonth]);
+
+  const scopedAssessorIds = useMemo(() => {
+    const extraCodes = (filtersData?.assessors ?? []).map((a) => a.id);
+    return scopeAdvisorCodes(selectedAssessorId, extraCodes);
+  }, [filtersData, selectedAssessorId]);
 
   const { data: dashData, isLoading: isDashLoading } = useQuery({
     queryKey: ["dash-advisors-data", selectedMonth, selectedTeam, scopedAssessorIds],
