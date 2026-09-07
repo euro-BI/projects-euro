@@ -15,6 +15,7 @@ const MANUAL_ID_CEILING = 999000;
 type TuringAtividade = {
   id: string;
   data_atividade: string | null;
+  lead_origem: string | null;
   assessor_codigo: string | null;
   assessor_nome: string | null;
   assessor_email: string | null;
@@ -96,6 +97,10 @@ function readDate(value: unknown, fallback: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : fallback;
 }
 
+function isOrigemSdr(value: string | null | undefined) {
+  return String(value ?? "").toUpperCase().includes("SDR");
+}
+
 async function fetchAtividades(params: {
   de: string;
   ate: string;
@@ -165,7 +170,8 @@ Deno.serve(async (req) => {
       return json(500, { error: "Credenciais internas do Supabase ausentes" });
     }
 
-    const atividades = await fetchAtividades({ de, ate, tipo, resultado, apiKey, bypass });
+    const atividadesBuscadas = await fetchAtividades({ de, ate, tipo, resultado, apiKey, bypass });
+    const atividades = atividadesBuscadas.filter((atividade) => !isOrigemSdr(atividade.lead_origem));
 
     const supabase = createClient(supabaseUrl, serviceKey, {
       db: { schema: "euro_dash" },
@@ -224,7 +230,8 @@ Deno.serve(async (req) => {
       ok: true,
       de,
       ate,
-      buscadas: atividades.length,
+      buscadas: atividadesBuscadas.length,
+      ignoradas_sdr: atividadesBuscadas.length - atividades.length,
       gravadas: rows.length,
       id_inicial: rows[0]?.id_atividade ?? null,
       id_final: rows.at(-1)?.id_atividade ?? null,
