@@ -22,7 +22,7 @@ const PerformanceDash = lazy(() => import("./pages/PerformanceDash"));
 const ProductsDashboard = lazy(() => import("./pages/ProductsDashboard"));
 const WeeklyEffortsDash = lazy(() => import("./pages/WeeklyEffortsDash"));
 const ManagementDash = lazy(() => import("./pages/ManagementDash"));
-const AdvisorsDash = lazy(() => import("./pages/AdvisorsDash"));
+const PrivateDash = lazy(() => import("./pages/PrivateDash"));
 const Seguros = lazy(() => import("./pages/Seguros"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -163,13 +163,14 @@ const App = () => (
                 }
               />
               <Route
-                path="/dash/advisors"
+                path="/dash/private"
                 element={
                   <ProtectedRoute allowedRoles={["admin_master", "admin"]} allowedUserCodes={[ADVISORS_VIEWER_CODE]}>
-                    <AdvisorsDash />
+                    <PrivateDash />
                   </ProtectedRoute>
                 }
               />
+              <Route path="/dash/advisors" element={<Navigate to="/dash/private" replace />} />
               <Route path="/tv/esforco-semanal" element={<WeeklyEffortsDash />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

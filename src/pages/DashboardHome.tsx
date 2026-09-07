@@ -22,7 +22,7 @@ export default function DashboardHome() {
   const isAdminOrMaster = userRole === "admin" || userRole === "admin_master";
   const isRegularUser = userRole === "user" || userRole === "lider" || userRole === "consorcio" || userRole === "seguros";
   const isAdvisorsOnly = isAdvisorsOnlyUser(userCode);
-  const canAccessAdvisors = isAdminOrMaster || isAdvisorsOnly;
+  const canAccessPrivate = isAdminOrMaster || isAdvisorsOnly;
   const enableBackground = showBackground && !isMobile && !reduceMotion;
 
   React.useEffect(() => {
@@ -79,10 +79,10 @@ export default function DashboardHome() {
             </div>
           )}
 
-          {/* Card Advisors — visível apenas para admin_master */}
-          {canAccessAdvisors && (
+          {/* Card Private — visível apenas para admin_master */}
+          {canAccessPrivate && (
             <div 
-              onClick={() => navigate("/dash/advisors")}
+              onClick={() => navigate("/dash/private")}
               className="cursor-pointer"
             >
               <Card className="h-[340px] bg-gradient-to-br from-white/[0.08] to-transparent bg-euro-card/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
@@ -94,15 +94,15 @@ export default function DashboardHome() {
                   </div>
                   
                   <h2 className="text-3xl font-display text-white mb-3 tracking-wide">
-                    Advisors
+                    Private
                   </h2>
                   
                   <p className="text-[#A0A090] text-center font-light mb-auto max-w-xs line-clamp-3 min-h-[4.5rem]">
-                    Dashboard exclusivo para o time de Advisors com indicadores de performance.
+                    Dashboard exclusivo do time Private com captação, repasse e ROA por segmento.
                   </p>
                   
                   <div className="flex items-center gap-2 text-euro-gold font-data text-xs uppercase tracking-widest mt-4">
-                    Acessar Dash Advisors <ArrowRight className="w-4 h-4" />
+                    Acessar Dash Private <ArrowRight className="w-4 h-4" />
                   </div>
                 </CardContent>
               </Card>
