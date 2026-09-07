@@ -13,6 +13,42 @@ import { AssessorResumo } from "@/types/dashboard";
 export const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 export const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 
+export type ProductMetric = {
+  key: string;
+  label: string;
+  fields: string[];
+  /** Meta de ROA anual do produto. */
+  roa: number;
+};
+
+/**
+ * Produtos por vertente de receita — Eurostock (investimentos) e Affare (cross-sell).
+ * Categorias e metas de ROA do gerencial, compartilhadas com a dash Private.
+ */
+export const REVENUE_PRODUCTS: Record<"eurostock" | "affare", ProductMetric[]> = {
+  eurostock: [
+    { key: "rf", label: "RF", fields: ["receita_renda_fixa"], roa: 0.0015 },
+    { key: "asset", label: "Asset", fields: ["asset_m_1"], roa: 0.0002 },
+    { key: "previdencia", label: "Previdência", fields: ["receita_previdencia"], roa: 0.0001 },
+    { key: "cetipados", label: "Cetipados", fields: ["receita_cetipados"], roa: 0.0005 },
+    { key: "ofertas", label: "Ofertas", fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"], roa: 0.0010 },
+    { key: "offshore", label: "Offshore", fields: ["receitas_offshore"], roa: 0.0002 },
+    { key: "cambio_pf", label: "Câmbio PF", fields: ["receita_cambio_pf"], roa: 0.0001 },
+    { key: "estruturadas", label: "Estruturadas", fields: ["receitas_estruturadas"], roa: 0.0035 },
+    { key: "b3", label: "B3", fields: ["receita_b3"], roa: 0.0020 },
+  ],
+  affare: [
+    { key: "consorcios", label: "Consórcios", fields: ["receita_consorcios"], roa: 0.0009 },
+    { key: "compromissadas_pj", label: "Compromissadas PJ", fields: ["receita_compromissadas"], roa: 0.0001 },
+    { key: "cambio", label: "Câmbio PJ", fields: ["receita_cambio_pj"], roa: 0.0001 },
+    { key: "seguros", label: "Seguros", fields: ["receita_seguros"], roa: 0.0007 },
+  ],
+};
+
+export function productRoaTarget(products: ProductMetric[]) {
+  return products.reduce((acc, product) => acc + product.roa, 0);
+}
+
 export function isCockpitAssessor(d: AssessorResumo): boolean {
   const name = (d.nome_assessor || "").trim().toLowerCase();
   if (!d.cod_assessor || !name || name === "null" || name === "undefined") return false;

@@ -72,7 +72,7 @@ import { FundingMonthDialog } from "./FundingMonthDialog";
 import { AssessorIndicatorDialog } from "./AssessorIndicatorDialog";
 import { CockpitGlobalPulse } from "./CockpitGlobalPulse";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cockpitUniverse, metaReceitaShare } from "@/utils/cockpit-v2-mappers";
+import { cockpitUniverse, metaReceitaShare, REVENUE_PRODUCTS as PRODUCT_METRICS } from "@/utils/cockpit-v2-mappers";
 
 interface CockpitDashProps {
   currentData: AssessorResumo[];
@@ -202,26 +202,6 @@ function formatShare(percent: number) {
   if (!Number.isFinite(percent) || percent <= 0) return "—";
   return `${percent.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
-
-const PRODUCT_METRICS = {
-  eurostock: [
-    { key: "rf", label: "RF", fields: ["receita_renda_fixa"], roa: 0.0015 },
-    { key: "asset", label: "Asset", fields: ["asset_m_1"], roa: 0.0002 },
-    { key: "previdencia", label: "Previdência", fields: ["receita_previdencia"], roa: 0.0001 },
-    { key: "cetipados", label: "Cetipados", fields: ["receita_cetipados"], roa: 0.0005 },
-    { key: "ofertas", label: "Ofertas", fields: ["receitas_ofertas_fundos", "receitas_ofertas_rf"], roa: 0.0010 },
-    { key: "offshore", label: "Offshore", fields: ["receitas_offshore"], roa: 0.0002 },
-    { key: "cambio_pf", label: "Câmbio PF", fields: ["receita_cambio_pf"], roa: 0.0001 },
-    { key: "estruturadas", label: "Estruturadas", fields: ["receitas_estruturadas"], roa: 0.0035 },
-    { key: "b3", label: "B3", fields: ["receita_b3"], roa: 0.0020 },
-  ],
-  affare: [
-    { key: "consorcios", label: "Consórcios", fields: ["receita_consorcios"], roa: 0.0009 },
-    { key: "compromissadas_pj", label: "Compromissadas PJ", fields: ["receita_compromissadas"], roa: 0.0001 },
-    { key: "cambio", label: "Câmbio PJ", fields: ["receita_cambio_pj"], roa: 0.0001 },
-    { key: "seguros", label: "Seguros", fields: ["receita_seguros"], roa: 0.0007 },
-  ]
-};
 
 const ALL_PRODUCTS = [...PRODUCT_METRICS.eurostock, ...PRODUCT_METRICS.affare];
 
