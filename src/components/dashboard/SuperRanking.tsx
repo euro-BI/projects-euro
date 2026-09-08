@@ -46,11 +46,19 @@ import {
 } from "@/components/ui/dialog";
 import { format, parseISO, getMonth, getYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import InelegibilityDetailDialog from "@/components/dashboard/InelegibilityDetailDialog";
 
 const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
+/** A partir desta data a elegibilidade usa regras v2 (Servir + NPS + clientes). */
+const ELIGIBILITY_V2_START = "2026-07-01";
 
 type PeriodType = "year" | "s1" | "s2" | "month";
+
+const isEligibilityV2 = (dataPosicao: string | null | undefined) => {
+  if (!dataPosicao) return false;
+  return String(dataPosicao).slice(0, 10) >= ELIGIBILITY_V2_START;
+};
 
 export interface SuperRankingProps {
   data: AssessorResumo[];
@@ -79,9 +87,30 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
   const setSelectedMonth = onMonthChange || setInternalSelectedMonth;
   const [mobileDetailAssessor, setMobileDetailAssessor] = useState<any | null>(null);
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
+  const [inelegDetailAssessor, setInelegDetailAssessor] = useState<any | null>(null);
+  const [isInelegDetailOpen, setIsInelegDetailOpen] = useState(false);
 
   const isAssessorInelegivel = (elegibilidade: AssessorResumo["elegibilidade"]) =>
     elegibilidade === false || elegibilidade === "false";
+
+  const handleAssessorCardClick = (assessor: any) => {
+    if (isAssessorInelegivel(assessor?.elegibilidade)) {
+      setInelegDetailAssessor(assessor);
+      setIsInelegDetailOpen(true);
+      return;
+    }
+    onAssessorClick?.(assessor);
+  };
+
+  const handleMobileRowClick = (assessor: any) => {
+    if (isAssessorInelegivel(assessor?.elegibilidade)) {
+      setInelegDetailAssessor(assessor);
+      setIsInelegDetailOpen(true);
+      return;
+    }
+    setMobileDetailAssessor(assessor);
+    setIsMobileDetailOpen(true);
+  };
 
   // Get available months for the selectedYear
   const availableMonths = useMemo(() => {
@@ -185,7 +214,10 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
           media_movel_clientes_6m: curr.media_movel_clientes_6m,
           media_movel_rupturas_6m: curr.media_movel_rupturas_6m,
           total_fp_300k: curr.total_fp_300k,
-          meta_fp300k: curr.meta_fp300k
+          meta_fp300k: curr.meta_fp300k,
+          media_servir_semestre: curr.media_servir_semestre,
+          nps_semestre: curr.nps_semestre,
+          nps_respostas_semestre: curr.nps_respostas_semestre,
         };
       }
       
@@ -204,6 +236,9 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
         acc[key].media_movel_rupturas_6m = curr.media_movel_rupturas_6m;
         acc[key].total_fp_300k = curr.total_fp_300k;
         acc[key].meta_fp300k = curr.meta_fp300k;
+        acc[key].media_servir_semestre = curr.media_servir_semestre;
+        acc[key].nps_semestre = curr.nps_semestre;
+        acc[key].nps_respostas_semestre = curr.nps_respostas_semestre;
       }
       
       return acc;
@@ -216,28 +251,43 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     if (!isAssessorInelegivel(assessor.elegibilidade)) return null;
 
     const reasons: string[] = [];
-    
-    // Regra 1: Média Clientes >= 120
+    const useV2 = isEligibilityV2(assessor.lastDataPosicao);
+
     if (assessor.media_movel_clientes_6m !== undefined && assessor.media_movel_clientes_6m >= 120) {
       reasons.push(`Média Clientes (${Math.round(assessor.media_movel_clientes_6m)}) ≥ 120`);
     }
 
-    // Regra 2: Atingimento FP 300k+ > 50%
-    const percFP = (assessor.total_fp_300k && assessor.meta_fp300k) 
-      ? (assessor.total_fp_300k / assessor.meta_fp300k) * 100 
-      : 0;
-      
-    if (percFP <= 50) {
-      reasons.push(`Atingimento FP (${percFP.toFixed(0)}%) ≤ 50%`);
+    if (useV2) {
+      const mediaServir = assessor.media_servir_semestre;
+      if (mediaServir == null || Number(mediaServir) < 60) {
+        reasons.push(
+          mediaServir == null
+            ? "Modelo de Servir sem lançamento no semestre"
+            : `Modelo de Servir (${Number(mediaServir).toFixed(1)}) < 60`
+        );
+      }
+
+      const npsRespostas = Number(assessor.nps_respostas_semestre ?? 0);
+      const npsScore = assessor.nps_semestre;
+      if (npsRespostas > 0 && (npsScore == null || Number(npsScore) < 80)) {
+        reasons.push(`NPS semestre (${Number(npsScore ?? 0).toFixed(0)}) < 80`);
+      }
+    } else {
+      const percFP = (assessor.total_fp_300k && assessor.meta_fp300k)
+        ? (assessor.total_fp_300k / assessor.meta_fp300k) * 100
+        : 0;
+
+      if (percFP <= 50) {
+        reasons.push(`Atingimento FP (${percFP.toFixed(0)}%) ≤ 50%`);
+      }
+
+      if (assessor.media_movel_rupturas_6m !== undefined && assessor.media_movel_rupturas_6m > 5) {
+        reasons.push(`Média Rupturas (${assessor.media_movel_rupturas_6m.toFixed(1)}) > 5`);
+      }
     }
 
-    // Regra 3: Média Rupturas <= 5
-    if (assessor.media_movel_rupturas_6m !== undefined && assessor.media_movel_rupturas_6m > 5) {
-      reasons.push(`Média Rupturas (${assessor.media_movel_rupturas_6m.toFixed(1)}) > 5`);
-    }
-    
     if (reasons.length === 0) return "Critérios de elegibilidade não atingidos";
-    
+
     return (
       <div className="flex flex-col gap-1">
         <span className="font-bold text-red-400 mb-1 text-xs uppercase tracking-wider">Inelegível ao Super Ranking</span>
@@ -284,7 +334,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     const content = (
       <div 
         key={assessor.cod_assessor}
-        onClick={() => onAssessorClick?.(assessor)}
+        onClick={() => handleAssessorCardClick(assessor)}
         className={cn(
           "flex flex-col items-center justify-end flex-1 transition-all duration-500 hover:scale-105 cursor-pointer group relative",
           order[position as 1|2|3]
@@ -460,15 +510,27 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
           <h3 className="flex items-center gap-2 text-sm font-data uppercase tracking-wider text-white">
             <Medal className="w-4 h-4 text-euro-gold" /> Elegibilidade (Top 100)
           </h3>
-          <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-3 relative overflow-hidden">
+          <div className="bg-euro-gold/5 p-4 rounded-lg border border-euro-gold/20 text-sm space-y-4 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-euro-gold opacity-50" />
-            <p className="text-white/90 font-medium">Para concorrer, o assessor deve atender a todos os critérios:</p>
-            <ul className="space-y-2 text-white/80">
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> NPS ≥ 80</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 5 clientes em ruptura (média semestral)</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> FP 300k+ ≥ 50%</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média semestral)</li>
-            </ul>
+
+            <div className="space-y-2">
+              <p className="text-white/90 font-medium">Até o 1º semestre de 2026</p>
+              <ul className="space-y-2 text-white/80">
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média móvel 6m)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> FP 300k+ &gt; 50%</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 5 clientes em ruptura (média móvel 6m)</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2 border-t border-white/10 pt-3">
+              <p className="text-white/90 font-medium">A partir do 2º semestre de 2026</p>
+              <ul className="space-y-2 text-white/80">
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média móvel 6m)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Modelo de Servir com média semestral ≥ 60</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> NPS do semestre ≥ 80 (sem respostas ainda não derruba)</li>
+              </ul>
+            </div>
+
             <p className="text-[10px] text-white/50 mt-2">* Casos de conta PJ com grande volume podem ser analisados individualmente.</p>
           </div>
         </div>
@@ -720,8 +782,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                       <tr 
                         key={assessor.cod_assessor}
                         onClick={() => {
-                          setMobileDetailAssessor(assessor);
-                          setIsMobileDetailOpen(true);
+                          handleMobileRowClick(assessor);
                         }}
                         tabIndex={0}
                         className={cn(
@@ -771,7 +832,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                     const rowContent = (
                       <tr 
                         key={assessor.cod_assessor}
-                        onClick={() => onAssessorClick?.(assessor)}
+                        onClick={() => handleAssessorCardClick(assessor)}
                         tabIndex={0}
                         className={cn(
                           "group hover:bg-white/[0.05] transition-colors cursor-pointer outline-none focus:bg-white/[0.1]",
@@ -940,11 +1001,17 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
               {/* Elegibilidade */}
               {(() => {
                 const isInelegivel = isAssessorInelegivel(mobileDetailAssessor.elegibilidade);
+                const useV2 = isEligibilityV2(mobileDetailAssessor.lastDataPosicao || mobileDetailAssessor.data_posicao);
                 const percFP = (mobileDetailAssessor.total_fp_300k && mobileDetailAssessor.meta_fp300k)
                   ? (mobileDetailAssessor.total_fp_300k / mobileDetailAssessor.meta_fp300k) * 100
                   : 0;
                 const mediaClientes = mobileDetailAssessor.media_movel_clientes_6m;
                 const mediaRupturas = mobileDetailAssessor.media_movel_rupturas_6m;
+                const mediaServir = mobileDetailAssessor.media_servir_semestre;
+                const npsScore = mobileDetailAssessor.nps_semestre;
+                const npsRespostas = Number(mobileDetailAssessor.nps_respostas_semestre ?? 0);
+                const servirFail = mediaServir == null || Number(mediaServir) < 60;
+                const npsFail = npsRespostas > 0 && (npsScore == null || Number(npsScore) < 80);
 
                 return (
                   <div className="mt-2 space-y-2">
@@ -994,43 +1061,87 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                         </div>
                       </div>
 
-                      <div className="bg-white/3 border border-white/10 rounded-xl px-3 py-2">
-                        <span className="block uppercase tracking-[0.16em] text-white/50 mb-1">
-                          FP 300k+
-                        </span>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-white">
-                            {percFP.toFixed(0)}%
-                          </span>
-                          <span className={cn(
-                            "px-2 py-0.5 rounded-full text-[9px]",
-                            percFP <= 50
-                              ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                              : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                          )}>
-                            {percFP <= 50 ? "≤ 50% (mín.)" : "> 50% OK"}
-                          </span>
-                        </div>
-                      </div>
+                      {useV2 ? (
+                        <>
+                          <div className="bg-white/3 border border-white/10 rounded-xl px-3 py-2">
+                            <span className="block uppercase tracking-[0.16em] text-white/50 mb-1">
+                              Servir (sem.)
+                            </span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">
+                                {mediaServir == null ? "—" : Number(mediaServir).toFixed(1)}
+                              </span>
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[9px]",
+                                servirFail
+                                  ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                                  : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                              )}>
+                                {servirFail ? "< 60" : "≥ 60 OK"}
+                              </span>
+                            </div>
+                          </div>
 
-                      <div className="bg-white/3 border border-white/10 rounded-xl px-3 py-2 col-span-2">
-                        <span className="block uppercase tracking-[0.16em] text-white/50 mb-1">
-                          Média Rupturas (6m)
-                        </span>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-white">
-                            {(mediaRupturas ?? 0).toFixed(1)}
-                          </span>
-                          <span className={cn(
-                            "px-2 py-0.5 rounded-full text-[9px]",
-                            mediaRupturas !== undefined && mediaRupturas > 5
-                              ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                              : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                          )}>
-                            {mediaRupturas !== undefined && mediaRupturas > 5 ? "> 5 (limite)" : "≤ 5 OK"}
-                          </span>
-                        </div>
-                      </div>
+                          <div className="bg-white/3 border border-white/10 rounded-xl px-3 py-2 col-span-2">
+                            <span className="block uppercase tracking-[0.16em] text-white/50 mb-1">
+                              NPS semestre
+                            </span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">
+                                {npsRespostas === 0 ? "sem respostas" : `${Number(npsScore ?? 0).toFixed(0)} (${npsRespostas})`}
+                              </span>
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[9px]",
+                                npsFail
+                                  ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                                  : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                              )}>
+                                {npsRespostas === 0 ? "não aplica" : npsFail ? "< 80" : "≥ 80 OK"}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="bg-white/3 border border-white/10 rounded-xl px-3 py-2">
+                            <span className="block uppercase tracking-[0.16em] text-white/50 mb-1">
+                              FP 300k+
+                            </span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">
+                                {percFP.toFixed(0)}%
+                              </span>
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[9px]",
+                                percFP <= 50
+                                  ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                                  : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                              )}>
+                                {percFP <= 50 ? "≤ 50% (mín.)" : "> 50% OK"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="bg-white/3 border border-white/10 rounded-xl px-3 py-2 col-span-2">
+                            <span className="block uppercase tracking-[0.16em] text-white/50 mb-1">
+                              Média Rupturas (6m)
+                            </span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">
+                                {(mediaRupturas ?? 0).toFixed(1)}
+                              </span>
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[9px]",
+                                mediaRupturas !== undefined && mediaRupturas > 5
+                                  ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                                  : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                              )}>
+                                {mediaRupturas !== undefined && mediaRupturas > 5 ? "> 5 (limite)" : "≤ 5 OK"}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -1039,6 +1150,16 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
           )}
         </DialogContent>
       </Dialog>
+
+      <InelegibilityDetailDialog
+        open={isInelegDetailOpen}
+        onOpenChange={(open) => {
+          setIsInelegDetailOpen(open);
+          if (!open) setInelegDetailAssessor(null);
+        }}
+        assessor={inelegDetailAssessor}
+        yearData={data}
+      />
     </div>
   );
 }

@@ -22,7 +22,9 @@ import {
   ArrowUpDown, 
   ArrowUp, 
   ArrowDown,
-  Download
+  Download,
+  UserPlus,
+  Wallet,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -79,6 +81,15 @@ const formatCurrency = (value: number, decimals: number = 0) =>
 
 const formatNumber = (value: number) =>
   value.toLocaleString("pt-BR");
+
+const normalizeAssessorCode = (raw: string | null | undefined) => {
+  const value = (raw || "").trim().toUpperCase();
+  if (!value) return "";
+  return value.startsWith("A") ? value : `A${value}`;
+};
+
+const isContaAtivada = (value: string | null | undefined) =>
+  ["sim", "true", "1", "s"].includes((value || "").trim().toLowerCase());
 
 const formatMetaLabel = (value: number) => {
   if (Math.abs(value) >= 1000000) {
@@ -294,6 +305,204 @@ function KpiCard({ title, value, rawValue, metaValue, subtitle, icon: Icon, colo
   );
 }
 
+type HaRow = {
+  id: string;
+  fonte: string;
+  conta: string;
+  cod_assessor: string;
+  data: string;
+  faixa: string;
+  conta_ativada: string | null;
+  time: string;
+  nome_assessor: string;
+  foto_url: string | null;
+};
+
+function HaDetailTable({
+  title,
+  subtitle,
+  rows,
+  showAtivada,
+  search,
+  onSearch,
+  sort,
+  onSort,
+  monthKey,
+  filename,
+  teamPhotos,
+}: {
+  title: string;
+  subtitle: string;
+  rows: HaRow[];
+  showAtivada?: boolean;
+  search: string;
+  onSearch: (value: string) => void;
+  sort: { key: string; direction: "asc" | "desc" };
+  onSort: (key: string) => void;
+  monthKey: string;
+  filename: string;
+  teamPhotos?: Map<string, string>;
+}) {
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sort.key !== column) return <ArrowUpDown className="w-3 h-3 opacity-20 ml-auto" />;
+    return sort.direction === "asc"
+      ? <ArrowUp className="w-3 h-3 text-euro-navy ml-auto" />
+      : <ArrowDown className="w-3 h-3 text-euro-navy ml-auto" />;
+  };
+
+  const colSpan = showAtivada ? 7 : 6;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col xl:flex-row items-center justify-between gap-6">
+        <div>
+          <h3 className="text-lg font-data text-euro-gold tracking-widest uppercase flex items-center gap-2">
+            {title}
+          </h3>
+          <p className="text-[10px] text-white/30 font-data uppercase tracking-widest mt-1">
+            {subtitle}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative w-full md:w-80 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C5C50] group-focus-within:text-euro-gold transition-colors" />
+            <Input
+              type="text"
+              placeholder="Buscar por assessor, conta ou faixa..."
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              className="pl-10 bg-euro-elevated border-white/5 text-white placeholder:text-[#5C5C50] focus:border-euro-gold/50 transition-all h-10"
+            />
+          </div>
+          <Button
+            onClick={() => {
+              const exportRows = rows.map((r) => ({
+                Time: r.time || "",
+                "Cód. Assessor": r.cod_assessor || "",
+                Assessor: r.nome_assessor || "",
+                Conta: r.conta || "",
+                Data: r.data || "",
+                Faixa: r.faixa || "",
+                ...(showAtivada ? { "Conta Ativada": r.conta_ativada || "" } : {}),
+              }));
+              const worksheet = XLSX.utils.json_to_sheet(exportRows);
+              const workbook = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(workbook, worksheet, title.slice(0, 31));
+              XLSX.writeFile(workbook, `${filename}_${monthKey}.xlsx`);
+            }}
+            className="bg-euro-gold hover:bg-euro-gold/80 text-euro-navy font-bold h-10 gap-2 px-4 shadow-lg shadow-euro-gold/10"
+          >
+            <Download className="w-4 h-4" />
+            XLSX
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-euro-gold/5 to-transparent pointer-events-none opacity-20" />
+        <div className="overflow-auto custom-scrollbar relative max-h-[520px]">
+          <table className="w-full text-left border-collapse whitespace-nowrap">
+            <thead className="sticky top-0 z-30">
+              <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest border-b border-euro-navy/20">
+                <th onClick={() => onSort("time")} className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-0 bg-euro-gold z-40 w-[80px] min-w-[80px] cursor-pointer hover:bg-euro-gold/80">
+                  <div className="flex items-center gap-2">Time <SortIcon column="time" /></div>
+                </th>
+                <th onClick={() => onSort("nome_assessor")} className="py-4 px-4 font-bold border-r border-euro-navy/10 sticky left-[80px] bg-euro-gold z-40 min-w-[220px] cursor-pointer hover:bg-euro-gold/80">
+                  <div className="flex items-center gap-2">Assessor <SortIcon column="nome_assessor" /></div>
+                </th>
+                <th onClick={() => onSort("conta")} className="py-4 px-4 font-bold border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80">
+                  <div className="flex items-center gap-2">Conta <SortIcon column="conta" /></div>
+                </th>
+                <th onClick={() => onSort("data")} className="py-4 px-4 font-bold border-r border-euro-navy/5 cursor-pointer hover:bg-euro-gold/80">
+                  <div className="flex items-center gap-2">Data <SortIcon column="data" /></div>
+                </th>
+                <th onClick={() => onSort("faixa")} className={cn("py-4 px-4 font-bold cursor-pointer hover:bg-euro-gold/80", showAtivada && "border-r border-euro-navy/5")}>
+                  <div className="flex items-center gap-2">Faixa <SortIcon column="faixa" /></div>
+                </th>
+                {showAtivada && (
+                  <th onClick={() => onSort("conta_ativada")} className="py-4 px-4 font-bold text-right cursor-pointer hover:bg-euro-gold/80">
+                    <div className="flex items-center justify-end gap-2">Conta Ativada <SortIcon column="conta_ativada" /></div>
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {rows.map((item) => (
+                <tr key={item.id} className="group even:bg-white/[0.02] hover:bg-euro-gold/10 transition-all text-xs font-data">
+                  <td className="py-3 px-4 border-r border-white/5 sticky left-0 z-20 bg-[#171B26] group-hover:bg-[#1E2331] w-[80px] min-w-[80px]">
+                    <div className="flex items-center justify-center">
+                      {teamPhotos?.has(item.time.toUpperCase()) ? (
+                        <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden shadow-lg group-hover:border-euro-gold transition-colors bg-black/40 p-1">
+                          <img src={teamPhotos.get(item.time.toUpperCase())} alt={item.time} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-euro-elevated flex items-center justify-center text-[10px] text-euro-gold/40 border border-white/5 group-hover:border-euro-gold">
+                          {(item.time || "-").substring(0, 3).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 border-r border-white/5 sticky left-[80px] z-20 bg-[#171B26] group-hover:bg-[#1E2331]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-euro-inset flex items-center justify-center text-xs font-bold text-euro-gold/40 border border-white/10 overflow-hidden">
+                        {item.foto_url ? (
+                          <img src={item.foto_url} alt={item.nome_assessor} className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-5 h-5 opacity-20" />
+                        )}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-white font-bold truncate group-hover:text-euro-gold uppercase tracking-tight">{item.nome_assessor}</span>
+                        <span className="text-xs text-white/90 font-mono">{item.cod_assessor}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 border-r border-white/5 text-white font-mono">{item.conta}</td>
+                  <td className="py-3 px-4 border-r border-white/5 text-white/80">
+                    {item.data ? format(parseISO(item.data), "dd/MM/yyyy") : "—"}
+                  </td>
+                  <td className={cn("py-3 px-4 text-white", showAtivada && "border-r border-white/5")}>{item.faixa || "—"}</td>
+                  {showAtivada && (
+                    <td className="py-3 px-4 text-right">
+                      <span className={cn(
+                        "px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest",
+                        isContaAtivada(item.conta_ativada)
+                          ? "bg-[#22C55E]/10 text-[#22C55E]"
+                          : "bg-white/5 text-white/50"
+                      )}>
+                        {item.conta_ativada || "—"}
+                      </span>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={colSpan} className="py-16 text-center opacity-20">
+                    <div className="flex flex-col items-center gap-3">
+                      <Search className="w-8 h-8" />
+                      <p className="text-sm font-data uppercase tracking-widest">Nenhum registro no período</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot className="sticky bottom-0 z-30">
+              <tr className="bg-black/80 backdrop-blur-md text-xs font-bold font-data border-t-2 border-euro-gold">
+                <td className="py-4 px-4 text-euro-gold uppercase tracking-widest sticky left-0 bg-black/90 z-40 border-r border-white/10">Total</td>
+                <td className="sticky left-[80px] bg-black/90 z-40 border-r border-white/10"></td>
+                <td className="py-4 px-4 text-white bg-black/80" colSpan={showAtivada ? 4 : 3}>
+                  {rows.length} {rows.length === 1 ? "registro" : "registros"}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ==========================================================================
 // Main Component
 // ==========================================================================
@@ -310,6 +519,10 @@ export default function ConsorciosDash({
   const [chartMetric, setChartMetric] = React.useState<ChartMetric>("contratos_ativos");
   const [searchTerm, setSearchTerm] = React.useState("");
   const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'comissao_total_num', direction: 'desc' });
+  const [habSearch, setHabSearch] = React.useState("");
+  const [atiSearch, setAtiSearch] = React.useState("");
+  const [habSort, setHabSort] = React.useState<{ key: string; direction: "asc" | "desc" }>({ key: "data", direction: "desc" });
+  const [atiSort, setAtiSort] = React.useState<{ key: string; direction: "asc" | "desc" }>({ key: "data", direction: "desc" });
 
   // Convert selectedMonth to guaranteed YYYY-MM
   const selectedMonthKey = selectedMonth ? selectedMonth.substring(0, 7) : `${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
@@ -394,6 +607,20 @@ export default function ConsorciosDash({
         .select("id, data_vencimento, cod_assessor, valor_comissao_mensal")
         .gte("data_vencimento", `${selectedYear}-01-01`)
         .lte("data_vencimento", `${selectedYear}-12-31`);
+      return (data as any[]) || [];
+    }
+  });
+
+  const { data: haData } = useQuery({
+    queryKey: ["consorcios-habilitacao-ativacao", selectedYear],
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dados_habilitacao_ativacao" as any)
+        .select("id, fonte, conta, cod_assessor, data, faixa, conta_ativada")
+        .gte("data", `${selectedYear}-01-01`)
+        .lte("data", `${selectedYear}-12-31`);
+      if (error) throw error;
       return (data as any[]) || [];
     }
   });
@@ -494,6 +721,94 @@ export default function ConsorciosDash({
       metaReceitaMes
     };
   }, [consorcioData, comissoesDataMes, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey, breakEvenMap]);
+
+  const prevHaMonthKey = useMemo(() => {
+    const [y, m] = selectedMonthKey.split("-").map(Number);
+    const prev = new Date(y, m - 2, 1);
+    return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+  }, [selectedMonthKey]);
+
+  const matchesHaFilters = (row: any, monthKey: string) => {
+    if (!row.data || String(row.data).substring(0, 7) !== monthKey) return false;
+    const cod = normalizeAssessorCode(row.cod_assessor);
+    const assessor = activeAssessorsData?.get(cod);
+    if (selectedTeam.length > 0 && assessor?.time && !selectedTeam.includes(assessor.time)) return false;
+    if (selectedAssessorId.length > 0 && !selectedAssessorId.map((id) => id.toUpperCase()).includes(cod)) return false;
+    return true;
+  };
+
+  const mapHaRow = (row: any): HaRow => {
+    const cod = normalizeAssessorCode(row.cod_assessor);
+    const assessor = activeAssessorsData?.get(cod);
+    return {
+      id: row.id,
+      fonte: row.fonte,
+      conta: row.conta || "",
+      cod_assessor: cod,
+      data: row.data,
+      faixa: row.faixa || "",
+      conta_ativada: row.conta_ativada ?? null,
+      time: assessor?.time || "NÃO INFORMADO",
+      nome_assessor: assessor?.nome_assessor || cod,
+      foto_url: assessor?.foto_url || null,
+    };
+  };
+
+  const sortHaRows = (rows: HaRow[], sort: { key: string; direction: "asc" | "desc" }, term: string) => {
+    const filtered = rows.filter((r) => {
+      if (!term) return true;
+      const q = term.toLowerCase();
+      return (
+        r.nome_assessor.toLowerCase().includes(q) ||
+        r.cod_assessor.toLowerCase().includes(q) ||
+        r.conta.toLowerCase().includes(q) ||
+        r.faixa.toLowerCase().includes(q) ||
+        (r.conta_ativada || "").toLowerCase().includes(q)
+      );
+    });
+    return filtered.sort((a, b) => {
+      const aVal = (a as any)[sort.key] ?? "";
+      const bVal = (b as any)[sort.key] ?? "";
+      const cmp = String(aVal).localeCompare(String(bVal), "pt-BR", { numeric: true });
+      return sort.direction === "asc" ? cmp : -cmp;
+    });
+  };
+
+  const haMetrics = useMemo(() => {
+    const current = (haData || []).filter((row) => matchesHaFilters(row, selectedMonthKey));
+    const previous = (haData || []).filter((row) => matchesHaFilters(row, prevHaMonthKey));
+    const hab = current.filter((r) => r.fonte === "habilitacao");
+    const ati = current.filter((r) => r.fonte === "ativacao");
+    const habPrev = previous.filter((r) => r.fonte === "habilitacao").length;
+    const atiPrev = previous.filter((r) => r.fonte === "ativacao").length;
+    const habAtivadas = hab.filter((r) => isContaAtivada(r.conta_ativada)).length;
+    return {
+      habilitacoes: hab.length,
+      habilitacoesAtivadas: habAtivadas,
+      habilitacoesTrend: hab.length - habPrev,
+      ativacoes: ati.length,
+      ativacoesTrend: ati.length - atiPrev,
+      conversao: hab.length > 0 ? (habAtivadas / hab.length) * 100 : 0,
+    };
+  }, [haData, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey, prevHaMonthKey]);
+
+  const habTableRows = useMemo(
+    () => sortHaRows(
+      (haData || []).filter((row) => row.fonte === "habilitacao" && matchesHaFilters(row, selectedMonthKey)).map(mapHaRow),
+      habSort,
+      habSearch
+    ),
+    [haData, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey, habSort, habSearch]
+  );
+
+  const atiTableRows = useMemo(
+    () => sortHaRows(
+      (haData || []).filter((row) => row.fonte === "ativacao" && matchesHaFilters(row, selectedMonthKey)).map(mapHaRow),
+      atiSort,
+      atiSearch
+    ),
+    [haData, activeAssessorsData, selectedTeam, selectedAssessorId, selectedMonthKey, atiSort, atiSearch]
+  );
 
   // ==========================================================================
   // Chart Data Preparation
@@ -828,6 +1143,38 @@ export default function ConsorciosDash({
                 icon={FileText}
                 color="#10B981" // Verde Esmeralda
                 delay={0.2}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-data text-euro-gold uppercase tracking-[0.2em] opacity-80 pl-2">
+              Habilitações e Ativações ({format(parseISO(`${selectedMonthKey}-01`), "MMM/yyyy", { locale: ptBR })})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <KpiCard
+                title="Habilitações"
+                value={formatNumber(haMetrics.habilitacoes)}
+                subtitle={`${formatNumber(haMetrics.habilitacoesAtivadas)} já com conta ativada`}
+                icon={UserPlus}
+                color="#3B82F6"
+                delay={0.25}
+                tooltipInfo="Abertura de contas no mês selecionado."
+                trend={{ value: haMetrics.habilitacoesTrend, label: "vs mês anterior" }}
+                ring={{
+                  percent: haMetrics.conversao,
+                  color: haMetrics.conversao >= 50 ? "#22C55E" : "#3B82F6",
+                }}
+              />
+              <KpiCard
+                title="Ativações"
+                value={formatNumber(haMetrics.ativacoes)}
+                subtitle="Contas que receberam aporte e deixaram de estar zeradas"
+                icon={Wallet}
+                color="#10B981"
+                delay={0.3}
+                tooltipInfo="Contas que receberam aporte e saíram de saldo zerado."
+                trend={{ value: haMetrics.ativacoesTrend, label: "vs mês anterior" }}
               />
             </div>
           </div>
@@ -1358,6 +1705,42 @@ export default function ConsorciosDash({
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {!isLoading && (
+        <div className="space-y-10 mt-10">
+          <HaDetailTable
+            title="Detalhamento de Habilitações"
+            subtitle={`${format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR })} • abertura de contas`}
+            rows={habTableRows}
+            showAtivada
+            search={habSearch}
+            onSearch={setHabSearch}
+            sort={habSort}
+            onSort={(key) => setHabSort((prev) => ({
+              key,
+              direction: prev.key === key && prev.direction === "desc" ? "asc" : "desc",
+            }))}
+            monthKey={selectedMonthKey}
+            filename="habilitacoes_consorcio"
+            teamPhotos={teamPhotos}
+          />
+          <HaDetailTable
+            title="Detalhamento de Ativações"
+            subtitle={`${format(parseISO(`${selectedMonthKey}-01`), "MMMM yyyy", { locale: ptBR })} • contas que receberam aporte`}
+            rows={atiTableRows}
+            search={atiSearch}
+            onSearch={setAtiSearch}
+            sort={atiSort}
+            onSort={(key) => setAtiSort((prev) => ({
+              key,
+              direction: prev.key === key && prev.direction === "desc" ? "asc" : "desc",
+            }))}
+            monthKey={selectedMonthKey}
+            filename="ativacoes_consorcio"
+            teamPhotos={teamPhotos}
+          />
         </div>
       )}
 

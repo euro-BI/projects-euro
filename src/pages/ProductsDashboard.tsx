@@ -319,13 +319,13 @@ export default function ProductsDashboard() {
 
   return (
     <PageLayout className={cn(
-      "bg-transparent text-[#E8E8E0] font-ui px-4 sm:px-8 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative transition-all duration-500",
+      "bg-transparent text-[#E8E8E0] font-ui px-3 sm:px-4 pb-8 selection:bg-euro-gold/30 custom-scrollbar relative transition-all duration-500",
       isMaximized ? "pt-4 sm:pt-8" : "pt-20 sm:pt-24"
     )}>
       <LoadingOverlay isLoading={isFiltersLoading} />
       <ImpactfulBackground opacity={0.3} />
 
-      <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-12 relative z-10">
+      <div className="w-full space-y-6 sm:space-y-12 relative z-10">
         {/* HEADER */}
         <div className="relative flex items-center justify-center w-full mb-4 sm:mb-8 px-2 min-h-[32px]">
           {/* Back Action */}

@@ -20,17 +20,25 @@ import {
   ArrowDown,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Briefcase,
   Info,
   Download,
   Shield,
   Search,
+  DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
@@ -111,6 +119,38 @@ interface RendaVariavelDashProps {
   teamPhotos?: Map<string, string>;
 }
 
+type RvMetricKey = "total_rv" | "estruturadas" | "b3";
+
+const RV_METRICS: Record<RvMetricKey, {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  fields: string[];
+  productKeys: readonly string[];
+}> = {
+  total_rv: {
+    label: "Total Renda Variável",
+    icon: <BarChart3 className="w-3.5 h-3.5" />,
+    color: "#FAC017",
+    fields: ["receitas_estruturadas", "receita_b3"],
+    productKeys: BREAK_EVEN_GROUPS.rendaVariavel,
+  },
+  estruturadas: {
+    label: "Receitas Estruturadas",
+    icon: <TrendingUp className="w-3.5 h-3.5" />,
+    color: "#3B82F6",
+    fields: ["receitas_estruturadas"],
+    productKeys: ["estruturadas"],
+  },
+  b3: {
+    label: "Receita B3",
+    icon: <Activity className="w-3.5 h-3.5" />,
+    color: "#8B5CF6",
+    fields: ["receita_b3"],
+    productKeys: ["b3"],
+  },
+};
+
 // ==========================================================================
 // Helpers
 // ==========================================================================
@@ -123,6 +163,13 @@ const formatNumber = (value: number) =>
 
 const formatPercent = (value: number) =>
   `${value.toFixed(1)}%`;
+
+const formatMetaLabel = (value: number) => {
+  if (Math.abs(value) >= 1000000) {
+    return (value / 1000000).toFixed(2).replace(".", ",") + "M";
+  }
+  return (value / 1000).toFixed(2).replace(".", ",") + "K";
+};
 
 // ==========================================================================
 // Sub-components
@@ -273,6 +320,7 @@ export default function RendaVariavelDash({
 }: RendaVariavelDashProps) {
   const isMobile = useIsMobile();
   const { map: breakEvenMap } = useBreakEvenTargets(selectedYear);
+  const [chartMetric, setChartMetric] = useState<RvMetricKey>("total_rv");
 
   // ── Table state ──
   const [rvSortConfig, setRvSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'data_inclusao', direction: 'desc' });
@@ -369,7 +417,7 @@ export default function RendaVariavelDash({
 
       let query = supabase
         .from("mv_resumo_assessor" as any)
-        .select("data_posicao, cod_assessor, nome_assessor, time, receitas_estruturadas, custodia_net, meta_receita, foto_url, lider")
+        .select("data_posicao, cod_assessor, nome_assessor, time, receitas_estruturadas, receita_b3, custodia_net, meta_receita, foto_url, lider")
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
 
@@ -468,11 +516,19 @@ export default function RendaVariavelDash({
     const receitaEstruturas = currentMonthMv.reduce(
       (acc: number, d: any) => acc + (d.receitas_estruturadas || 0), 0
     );
+    const receitaB3 = currentMonthMv.reduce(
+      (acc: number, d: any) => acc + (d.receita_b3 || 0), 0
+    );
     const custodiaTotal = currentMonthMv.reduce(
       (acc: number, d: any) => acc + (d.custodia_net || 0), 0
     );
-    const receitaTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaVariavel);
+    const receitaTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, ["estruturadas"]);
+    const receitaB3Target = getBreakEvenSum(breakEvenMap, selectedMonthKey, ["b3"]);
     const receitaAchievement = receitaTarget > 0 ? (receitaEstruturas / receitaTarget) * 100 : 0;
+    const receitaB3Achievement = receitaB3Target > 0 ? (receitaB3 / receitaB3Target) * 100 : 0;
+    const receitaTotal = receitaEstruturas + receitaB3;
+    const receitaTotalTarget = receitaTarget + receitaB3Target;
+    const receitaTotalAchievement = receitaTotalTarget > 0 ? (receitaTotal / receitaTotalTarget) * 100 : 0;
     const roaAtual = custodiaTotal > 0 ? ((receitaEstruturas * 12) / custodiaTotal) * 100 : 0;
 
     // Previous month receita for trend
@@ -591,6 +647,12 @@ export default function RendaVariavelDash({
       receitaEstruturas,
       receitaTarget,
       receitaAchievement,
+      receitaB3,
+      receitaB3Target,
+      receitaB3Achievement,
+      receitaTotal,
+      receitaTotalTarget,
+      receitaTotalAchievement,
       roaAtual,
       receitaTrend: receitaEstruturas - receitaPrevMonth,
       engagedAssessors,
@@ -612,13 +674,16 @@ export default function RendaVariavelDash({
   const chartData = useMemo(() => {
     if (!mvData || mvData.length === 0) return [];
 
+    const metric = RV_METRICS[chartMetric];
+
     const grouped = mvData.reduce((acc: Record<string, { realized: number; custody: number }>, curr: any) => {
       const monthKey = curr.data_posicao?.substring(0, 7);
       if (!monthKey) return acc;
       // Only include months from the selected year in the chart
       if (!monthKey.startsWith(selectedYear)) return acc;
       if (!acc[monthKey]) acc[monthKey] = { realized: 0, custody: 0 };
-      acc[monthKey].realized += curr.receitas_estruturadas || 0;
+      const value = metric.fields.reduce((sum, field) => sum + ((curr as any)[field] || 0), 0);
+      acc[monthKey].realized += value;
       acc[monthKey].custody += curr.custodia_net || 0;
       return acc;
     }, {});
@@ -631,10 +696,10 @@ export default function RendaVariavelDash({
           monthKey,
           monthName: format(parseISO(`${monthKey}-01`), "MMM", { locale: ptBR }),
           realized: d.realized,
-          target: getBreakEvenSum(breakEvenMap, monthKey, BREAK_EVEN_GROUPS.rendaVariavel),
+          target: getBreakEvenSum(breakEvenMap, monthKey, metric.productKeys),
         };
       });
-  }, [mvData, selectedYear, breakEvenMap]);
+  }, [mvData, selectedYear, chartMetric, breakEvenMap]);
 
   // ────────────────────────────────────────────────────────────────────────
   // Donut chart data - Clientes s/ Engajamento por Status
@@ -912,6 +977,7 @@ export default function RendaVariavelDash({
   // ────────────────────────────────────────────────────────────────────────
 
   const isLoading = isRvLoading || isMvLoading || isOppsLoading;
+  const currentMetric = RV_METRICS[chartMetric];
 
   if (isLoading) {
     return <LoadingOverlay isLoading={true} />;
@@ -924,8 +990,53 @@ export default function RendaVariavelDash({
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" style={{ gridAutoRows: '1fr' }}>
-        {/* 1. Receitas Estruturadas com Meta */}
+      <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style={{ gridAutoRows: '1fr' }}>
+        {/* 1. Receita Total Renda Variável */}
+        <Card className="bg-gradient-to-b from-euro-gold/[0.05] to-transparent bg-euro-card/60 backdrop-blur-xl border border-euro-gold/30 rounded-2xl shadow-2xl relative overflow-hidden group hover:border-euro-gold/40 transition-all duration-300 h-full">
+          <div className="absolute top-0 left-0 w-1 h-full bg-[#FAC017] opacity-50 hidden md:block" />
+          <CardHeader className="pb-1 pt-4 pl-6 flex flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[10px] font-data text-euro-gold/80 uppercase tracking-widest">
+                Receita Total Renda Variável
+              </CardTitle>
+            </div>
+            <div className="w-8 h-8 rounded-xl bg-[#FAC017]15 flex items-center justify-center -mt-2">
+              <DollarSign className="w-4 h-4 text-[#FAC017]" />
+            </div>
+          </CardHeader>
+          <CardContent className="pb-4 pt-0 pl-6">
+            <div className="flex flex-col items-center justify-center py-2 border-b border-[#FAC017]/20 mb-3">
+              <span className="text-2xl font-display text-euro-gold text-center leading-tight truncate px-1">
+                {formatCurrency(kpis.receitaTotal)}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <span className="text-[10px] font-data text-white/50 uppercase font-bold tracking-widest">
+                  META: R$ {formatMetaLabel(kpis.receitaTotalTarget)}
+                </span>
+                <span className={cn(
+                  "text-[10px] font-data font-bold tracking-widest",
+                  kpis.receitaTotalAchievement >= 100 ? "text-green-500" : kpis.receitaTotalAchievement >= 70 ? "text-euro-gold" : "text-red-500"
+                )}>
+                  {kpis.receitaTotalAchievement.toFixed(0)}%
+                </span>
+              </div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-1000",
+                    kpis.receitaTotalAchievement >= 100 ? "bg-green-500" : kpis.receitaTotalAchievement >= 70 ? "bg-euro-gold" : "bg-red-500"
+                  )}
+                  style={{ width: `${Math.min(kpis.receitaTotalAchievement, 100)}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 2. Receitas Estruturadas com Meta */}
         <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative overflow-hidden group hover:border-euro-gold/40 transition-all duration-300 h-full">
           <div className="absolute top-0 left-0 w-1 h-full bg-[#3B82F6] opacity-50 hidden md:block" />
           <CardHeader className="pb-1 pt-4 pl-6 flex flex-row items-center justify-between space-y-0">
@@ -947,7 +1058,7 @@ export default function RendaVariavelDash({
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
                 <span className="text-[10px] font-data text-white/50 uppercase font-bold tracking-widest">
-                  META: R$ {kpis.receitaTarget >= 1000000 ? (kpis.receitaTarget / 1000000).toFixed(2).replace('.', ',') + 'M' : (kpis.receitaTarget / 1000).toFixed(2).replace('.', ',') + 'K'}
+                  META: R$ {formatMetaLabel(kpis.receitaTarget)}
                 </span>
                 <span className={cn(
                   "text-[10px] font-data font-bold tracking-widest",
@@ -969,7 +1080,53 @@ export default function RendaVariavelDash({
           </CardContent>
         </Card>
 
-        {/* 2. Total de Boletas */}
+        {/* 2. Receita B3 com Meta */}
+        <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative overflow-hidden group hover:border-euro-gold/40 transition-all duration-300 h-full">
+          <div className="absolute top-0 left-0 w-1 h-full bg-[#8B5CF6] opacity-50 hidden md:block" />
+          <CardHeader className="pb-1 pt-4 pl-6 flex flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[10px] font-data text-white/50 uppercase tracking-widest">
+                Receita B3
+              </CardTitle>
+            </div>
+            <div className="w-8 h-8 rounded-xl bg-[#8B5CF6]15 flex items-center justify-center -mt-2">
+              <Activity className="w-4 h-4 text-[#8B5CF6]" />
+            </div>
+          </CardHeader>
+          <CardContent className="pb-4 pt-0 pl-6">
+            <div className="flex flex-col items-center justify-center py-2 border-b border-[#8B5CF6]/20 mb-3">
+              <span className="text-2xl font-display text-white text-center leading-tight truncate px-1">
+                {formatCurrency(kpis.receitaB3)}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <span className="text-[10px] font-data text-white/50 uppercase font-bold tracking-widest">
+                  META: R$ {formatMetaLabel(kpis.receitaB3Target)}
+                </span>
+                <span className={cn(
+                  "text-[10px] font-data font-bold tracking-widest",
+                  kpis.receitaB3Achievement >= 100 ? "text-green-500" : kpis.receitaB3Achievement >= 70 ? "text-euro-gold" : "text-red-500"
+                )}>
+                  {kpis.receitaB3Achievement.toFixed(0)}%
+                </span>
+              </div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-1000",
+                    kpis.receitaB3Achievement >= 100 ? "bg-green-500" : kpis.receitaB3Achievement >= 70 ? "bg-euro-gold" : "bg-red-500"
+                  )}
+                  style={{ width: `${Math.min(kpis.receitaB3Achievement, 100)}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" style={{ gridAutoRows: '1fr' }}>
+        {/* 4. Total de Boletas */}
         <KpiCard
           title="Total de Boletas"
           value={formatNumber(kpis.totalBoletas)}
@@ -1036,19 +1193,47 @@ export default function RendaVariavelDash({
           action={{ label: "Detalhes", onClick: () => setIsEngagedModalOpen(true) }}
         />
       </div>
+      </div>
 
-      {/* ── Chart: Receitas Estruturadas ao Longo do Tempo ── */}
+      {/* ── Chart: Evolução mensal da métrica selecionada ── */}
       <Card className="bg-[#11141D]/80 backdrop-blur-md border-white/10 p-6 hidden sm:block">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
           <div>
             <h3 className="text-lg font-display text-white flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-euro-gold" />
-              Receitas Estruturadas — Evolução {selectedYear}
+              {currentMetric.label} — Evolução {selectedYear}
             </h3>
             <p className="text-[11px] text-white/70 font-data mt-1 uppercase tracking-widest">
               Acompanhamento mensal vs meta breakeven
             </p>
           </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="bg-euro-elevated border-white/10 text-[#E8E8E0] font-data text-xs h-10 gap-3 min-w-[220px] justify-between hover:bg-white/10 hover:text-white hover:border-white/20">
+                <div className="flex items-center gap-2">
+                  <span className="text-euro-gold">{currentMetric.icon}</span>
+                  {currentMetric.label}
+                </div>
+                <ChevronDown className="w-4 h-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-euro-elevated border-white/10 text-[#E8E8E0] w-[260px]">
+              {(Object.keys(RV_METRICS) as RvMetricKey[]).map((key) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => setChartMetric(key)}
+                  className={cn(
+                    "gap-2 cursor-pointer text-xs hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white",
+                    chartMetric === key && "bg-white/10 text-euro-gold"
+                  )}
+                >
+                  <span className="text-euro-gold/80">{RV_METRICS[key].icon}</span>
+                  {RV_METRICS[key].label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="h-[400px] w-full">
@@ -1056,8 +1241,8 @@ export default function RendaVariavelDash({
             <ComposedChart data={chartData} margin={{ top: 40, right: 30, left: 20, bottom: 20 }}>
               <defs>
                 <linearGradient id="rvBarPositive" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.85} />
-                  <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.2} />
+                  <stop offset="0%" stopColor={currentMetric.color} stopOpacity={0.85} />
+                  <stop offset="100%" stopColor={currentMetric.color} stopOpacity={0.2} />
                 </linearGradient>
                 <linearGradient id="rvBarSuccess" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#22C55E" stopOpacity={0.85} />
@@ -1290,7 +1475,9 @@ export default function RendaVariavelDash({
           if (!d.cod_assessor) return;
           const existing = assessorMapLocal.get(d.cod_assessor);
           if (existing) {
-            existing.receita_total_rv += d.receitas_estruturadas || 0;
+            existing.receitas_estruturadas += d.receitas_estruturadas || 0;
+            existing.receita_b3 += d.receita_b3 || 0;
+            existing.receita_total_rv += (d.receitas_estruturadas || 0) + (d.receita_b3 || 0);
             existing.custodia_net += d.custodia_net || 0;
             if (!existing.meta_receita) existing.meta_receita = d.meta_receita || 0;
           } else {
@@ -1300,7 +1487,9 @@ export default function RendaVariavelDash({
               time: d.time || "",
               foto_url: d.foto_url || null,
               lider: d.lider || false,
-              receita_total_rv: d.receitas_estruturadas || 0,
+              receitas_estruturadas: d.receitas_estruturadas || 0,
+              receita_b3: d.receita_b3 || 0,
+              receita_total_rv: (d.receitas_estruturadas || 0) + (d.receita_b3 || 0),
               custodia_net: d.custodia_net || 0,
               meta_receita: d.meta_receita || 0,
             });
@@ -1321,7 +1510,8 @@ export default function RendaVariavelDash({
 
         const rvAssessorTableData = rvRows
           .map((a: any) => {
-            const meta_rv = houseTarget * metaReceitaShare(a.meta_receita, rvRows);
+            const share = metaReceitaShare(a.meta_receita, rvRows);
+            const meta_rv = houseTarget * share;
             const pct_meta = meta_rv > 0 ? (a.receita_total_rv / meta_rv) * 100 : 0;
             const clientes_engajados = engagementByAssessor.get(a.cod_assessor) || 0;
             return { ...a, meta_rv, pct_meta, clientes_engajados };
@@ -1347,14 +1537,18 @@ export default function RendaVariavelDash({
         const rvAssessorTotals = rvAssessorTableData.reduce((acc: any, curr: any) => ({
           receita_total_rv: acc.receita_total_rv + curr.receita_total_rv,
           meta_rv: acc.meta_rv + curr.meta_rv,
+          receitas_estruturadas: acc.receitas_estruturadas + curr.receitas_estruturadas,
+          receita_b3: acc.receita_b3 + curr.receita_b3,
           clientes_engajados: acc.clientes_engajados + curr.clientes_engajados,
-        }), { receita_total_rv: 0, meta_rv: 0, clientes_engajados: 0 });
+        }), { receita_total_rv: 0, meta_rv: 0, receitas_estruturadas: 0, receita_b3: 0, clientes_engajados: 0 });
         const rvAssessorPctMetaTotal = rvAssessorTotals.meta_rv > 0 ? (rvAssessorTotals.receita_total_rv / rvAssessorTotals.meta_rv) * 100 : 0;
 
         const rvAssessorColumns = [
           { key: "receita_total_rv", label: "Receita Total RV" },
           { key: "meta_rv", label: "Meta R$" },
           { key: "pct_meta", label: "% Meta" },
+          { key: "receitas_estruturadas", label: "Estruturadas" },
+          { key: "receita_b3", label: "B3" },
           { key: "clientes_engajados", label: "Clientes Engajados" },
         ];
 
@@ -1385,6 +1579,8 @@ export default function RendaVariavelDash({
                       "Receita Total RV": r.receita_total_rv || 0,
                       "Meta R$": r.meta_rv || 0,
                       "% Meta": r.pct_meta ? `${r.pct_meta.toFixed(0)}%` : "0%",
+                      "Estruturadas": r.receitas_estruturadas || 0,
+                      "B3": r.receita_b3 || 0,
                       "Clientes Engajados": r.clientes_engajados || 0,
                     }));
                     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -1503,6 +1699,14 @@ export default function RendaVariavelDash({
                             {item.pct_meta.toFixed(0)}%
                           </span>
                         </td>
+                        {/* Estruturadas */}
+                        <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                          {formatCurrencyAssessor(item.receitas_estruturadas)}
+                        </td>
+                        {/* B3 */}
+                        <td className="py-3 px-4 text-right text-white border-r border-white/5">
+                          {formatCurrencyAssessor(item.receita_b3)}
+                        </td>
                         {/* Clientes Engajados */}
                         <td className="py-3 px-4 text-right text-white">
                           <span className="font-bold">{item.clientes_engajados}</span>
@@ -1511,7 +1715,7 @@ export default function RendaVariavelDash({
                     ))}
                     {rvAssessorTableData.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-20 text-center opacity-20">
+                        <td colSpan={8} className="py-20 text-center opacity-20">
                           <div className="flex flex-col items-center gap-4">
                             <Search className="w-10 h-10" />
                             <p className="text-sm font-data uppercase tracking-widest">Nenhum assessor encontrado</p>
@@ -1535,6 +1739,8 @@ export default function RendaVariavelDash({
                           {rvAssessorPctMetaTotal.toFixed(0)}%
                         </span>
                       </td>
+                      <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrencyAssessor(rvAssessorTotals.receitas_estruturadas)}</td>
+                      <td className="py-4 px-4 text-right text-white border-r border-white/5 bg-black/80">{formatCurrencyAssessor(rvAssessorTotals.receita_b3)}</td>
                       <td className="py-4 px-4 text-right text-white bg-black/80">{rvAssessorTotals.clientes_engajados}</td>
                     </tr>
                   </tfoot>

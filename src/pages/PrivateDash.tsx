@@ -28,6 +28,7 @@ import {
   PieChart,
   ReferenceLine,
   ResponsiveContainer,
+  Tooltip as ChartTooltip,
   XAxis,
   YAxis,
 } from "recharts";
@@ -47,6 +48,11 @@ import { isAdvisorsOnlyUser } from "@/lib/access";
 import { PageLayout } from "@/components/PageLayout";
 import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
+import { ActivationDetailsDialog } from "@/components/dashboard/ActivationDetailsDialog";
+import { PrivateCaptacaoDialog } from "@/components/dashboard/private/PrivateCaptacaoDialog";
+import { PrivateClientesDialog } from "@/components/dashboard/private/PrivateClientesDialog";
+import { PrivateFpDialog } from "@/components/dashboard/private/PrivateFpDialog";
+import { PrivateReceitaDialog } from "@/components/dashboard/private/PrivateReceitaDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -142,6 +148,38 @@ function formatMonthFull(month: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+function ChartBarTooltip({
+  active,
+  payload,
+  label,
+  seriesLabel,
+  metaLabel,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: { raw?: number; rawMeta?: number } }>;
+  label?: string;
+  seriesLabel: string;
+  metaLabel?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  if (!point || point.raw === undefined) return null;
+
+  return (
+    <div className="rounded-lg border border-white/15 bg-euro-elevated px-3 py-2 shadow-xl">
+      <p className="font-data text-[10px] uppercase tracking-widest text-white/45 mb-1.5">{label}</p>
+      <p className="font-ui text-xs text-white/70">{seriesLabel}</p>
+      <p className="font-display text-sm text-white leading-none mt-0.5">{formatBRL(point.raw)}</p>
+      {metaLabel && point.rawMeta !== undefined && point.rawMeta > 0 && (
+        <div className="mt-2 pt-2 border-t border-white/10">
+          <p className="font-ui text-xs text-white/70">{metaLabel}</p>
+          <p className="font-display text-sm text-white/80 leading-none mt-0.5">{formatBRL(point.rawMeta)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function deltaPct(current: number, previous: number) {
   if (!previous) return null;
   return ((current - previous) / Math.abs(previous)) * 100;
@@ -224,19 +262,29 @@ function MiniStat({
   value,
   color = "#FFFFFF",
   className,
+  interactive = false,
 }: {
   label: string;
   value: string;
   color?: string;
   className?: string;
+  interactive?: boolean;
 }) {
+  const Comp = interactive ? "button" : "div";
   return (
-    <div className={cn("px-3 py-2.5 text-center", className)}>
+    <Comp
+      type={interactive ? "button" : undefined}
+      className={cn(
+        "px-3 py-2.5 text-center",
+        interactive && "w-full cursor-pointer hover:bg-white/[0.04] transition-colors",
+        className,
+      )}
+    >
       <p className="font-data text-[9px] uppercase tracking-widest text-white/35 mb-1">{label}</p>
       <p className="font-display text-sm leading-none" style={{ color }}>
         {value}
       </p>
-    </div>
+    </Comp>
   );
 }
 
@@ -282,6 +330,8 @@ function RevenueSegmentCard({
   roa,
   roaMeta,
   categories,
+  selectedMonth,
+  assessorCodes,
 }: {
   title: string;
   icon: React.ElementType;
@@ -289,7 +339,9 @@ function RevenueSegmentCard({
   total: number;
   roa: number;
   roaMeta: number;
-  categories: Array<{ label: string; value: number }>;
+  categories: Array<{ key: string; label: string; value: number }>;
+  selectedMonth: string;
+  assessorCodes: string[];
 }) {
   const achievement = roaMeta > 0 ? (roa / roaMeta) * 100 : 0;
   const gap = Math.max(roaMeta - roa, 0) * 100;
@@ -344,21 +396,28 @@ function RevenueSegmentCard({
         </div>
         <div className="divide-y divide-dashed divide-white/[0.07]">
           {categories.map((category) => (
-            <div
-              key={category.label}
-              className="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center py-2"
+            <PrivateReceitaDialog
+              key={category.key}
+              productKey={category.key}
+              selectedMonth={selectedMonth}
+              assessorCodes={assessorCodes}
             >
-              <span className="flex items-center gap-2 font-ui text-xs text-white/75">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: GOLD }} />
-                {category.label}
-              </span>
-              <span className="font-data text-xs text-white/85 text-right">
-                {formatCompactBRL(category.value)}
-              </span>
-              <span className="font-data text-xs text-white/50 text-right w-16">
-                {total > 0 ? formatPercent((category.value / total) * 100) : "0,0%"}
-              </span>
-            </div>
+              <button
+                type="button"
+                className="w-full grid grid-cols-[1fr_auto_auto] gap-x-6 items-center py-2 text-left hover:bg-white/[0.03] rounded-md transition-colors"
+              >
+                <span className="flex items-center gap-2 font-ui text-xs text-white/75">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: GOLD }} />
+                  {category.label}
+                </span>
+                <span className="font-data text-xs text-white/85 text-right">
+                  {formatCompactBRL(category.value)}
+                </span>
+                <span className="font-data text-xs text-white/50 text-right w-16">
+                  {total > 0 ? formatPercent((category.value / total) * 100) : "0,0%"}
+                </span>
+              </button>
+            </PrivateReceitaDialog>
           ))}
         </div>
       </div>
@@ -500,6 +559,10 @@ export default function PrivateDash() {
   }, [rows]);
 
   const currentRows = useMemo(() => rowsByMonth.get(selectedMonth) ?? [], [rowsByMonth, selectedMonth]);
+  const assessorCodes = useMemo(
+    () => [...new Set(currentRows.map((row) => String(row.cod_assessor ?? "").trim()).filter(Boolean))],
+    [currentRows],
+  );
   const previousMonth = useMemo(
     () => (selectedMonth ? format(addMonths(parseISO(selectedMonth), -1), "yyyy-MM-01") : ""),
     [selectedMonth],
@@ -526,12 +589,15 @@ export default function PrivateDash() {
     const build = (data: AssessorResumo[]) => {
       const clients = sumField(data, "total_clientes");
       const custody = sumField(data, "custodia_net");
+      // Cobertura de FP é sobre o universo elegível (clientes PF 300K+), não sobre a
+      // carteira inteira — mesma conta usada no gerencial, no comercial e no super ranking.
       const fp = sumField(data, "total_fp_300k");
+      const fpElegiveis = sumField(data, "meta_fp300k");
       return {
         clients,
         custody,
         ticket: clients > 0 ? custody / clients : 0,
-        fpCoverage: clients > 0 ? (fp / clients) * 100 : 0,
+        fpCoverage: fpElegiveis > 0 ? (fp / fpElegiveis) * 100 : 0,
       };
     };
 
@@ -568,11 +634,15 @@ export default function PrivateDash() {
     () =>
       chartMonths.map((month) => {
         const monthRows = rowsByMonth.get(month) ?? [];
+        const raw = sumField(monthRows, "captacao_liquida_total");
+        const rawMeta = sumField(monthRows, "meta_captacao");
         return {
           month,
           label: formatMonthLabel(month),
-          value: sumField(monthRows, "captacao_liquida_total") / 1_000_000,
-          meta: sumField(monthRows, "meta_captacao") / 1_000_000,
+          value: raw / 1_000_000,
+          meta: rawMeta / 1_000_000,
+          raw,
+          rawMeta,
         };
       }),
     [chartMonths, rowsByMonth],
@@ -636,10 +706,12 @@ export default function PrivateDash() {
     const custody = sumField(currentRows, "custodia_net");
 
     const investCategories = INVEST_CATEGORIES.map((config) => ({
+      key: config.key,
       label: config.label,
       value: sumCategory(currentRows, config),
     }));
     const crossCategories = CROSSSELL_CATEGORIES.map((config) => ({
+      key: config.key,
       label: config.label,
       value: sumCategory(currentRows, config),
     }));
@@ -667,10 +739,12 @@ export default function PrivateDash() {
     () =>
       chartMonths.map((month) => {
         const monthRows = rowsByMonth.get(month) ?? [];
+        const raw = sumField(monthRows, "receita_total");
         return {
           month,
           label: formatMonthLabel(month),
-          value: sumField(monthRows, "receita_total") / 1_000,
+          value: raw / 1_000,
+          raw,
         };
       }),
     [chartMonths, rowsByMonth],
@@ -810,77 +884,125 @@ export default function PrivateDash() {
 
         {/* ── Bloco operacional ───────────────────────────────────────── */}
 
-        <PanelCard title="Clientes Ativos" icon={Users}>
+        <PanelCard
+          title="Clientes Ativos"
+          icon={Users}
+          tooltipInfo="Cobertura Financial Planning = clientes PF 300K+ com FP 100% preenchido dividido pelo total de clientes PF 300K+ do assessor."
+        >
           <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-dashed divide-white/10">
             {[
               {
+                key: "clientes",
                 label: "Clientes ativos",
                 value: clientsStats.current.clients.toLocaleString("pt-BR"),
                 delta: clientsStats.deltas.clients,
                 suffix: "%",
               },
               {
+                key: "volume",
                 label: "Volume financeiro",
                 value: formatCompactBRL(clientsStats.current.custody),
                 delta: clientsStats.deltas.custody,
                 suffix: "%",
               },
               {
+                key: "ticket",
                 label: "Ticket médio",
                 value: formatCompactBRL(clientsStats.current.ticket),
                 delta: clientsStats.deltas.ticket,
                 suffix: "%",
               },
               {
+                key: "fp",
                 label: "Cobertura Financial Planning",
                 value: formatPercent(clientsStats.current.fpCoverage, 0),
                 delta: clientsStats.deltas.fpCoverage,
                 suffix: " p.p.",
               },
-            ].map((kpi) => (
-              <div key={kpi.label} className="px-4 first:pl-0 text-center">
-                <p className="font-data text-[10px] uppercase tracking-widest text-white/35 mb-2">{kpi.label}</p>
-                <p className="font-display text-3xl leading-none text-white mb-2">{kpi.value}</p>
-                <DeltaBadge value={kpi.delta} suffix={kpi.suffix} />
-              </div>
-            ))}
+            ].map((kpi) => {
+              const cell = (
+                <div
+                  className={cn(
+                    "px-4 first:pl-0 text-center w-full",
+                    kpi.key !== "ticket" && "cursor-pointer hover:bg-white/[0.03] rounded-lg py-1 transition-colors",
+                  )}
+                >
+                  <p className="font-data text-[10px] uppercase tracking-widest text-white/35 mb-2">{kpi.label}</p>
+                  <p className="font-display text-3xl leading-none text-white mb-2">{kpi.value}</p>
+                  <DeltaBadge value={kpi.delta} suffix={kpi.suffix} />
+                </div>
+              );
+
+              if (kpi.key === "ticket") return <div key={kpi.key}>{cell}</div>;
+
+              if (kpi.key === "fp") {
+                return (
+                  <PrivateFpDialog key={kpi.key} selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                    <button type="button" className="w-full text-left">{cell}</button>
+                  </PrivateFpDialog>
+                );
+              }
+
+              return (
+                <PrivateClientesDialog key={kpi.key} selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                  <button type="button" className="w-full text-left">{cell}</button>
+                </PrivateClientesDialog>
+              );
+            })}
           </div>
         </PanelCard>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <PanelCard title="Captação" icon={DollarSign}>
             <div className="flex flex-col sm:flex-row gap-4 sm:items-center flex-1">
-              <div className="flex-1 min-w-0">
-                <p className="font-data text-[10px] uppercase tracking-widest text-white/35 mb-2">
-                  Captação líquida do mês
-                </p>
-                <p
-                  className="font-display text-4xl leading-none"
-                  style={{ color: fundingStats.liquida >= 0 ? GREEN : RED }}
-                >
-                  {formatCompactBRL(fundingStats.liquida)}
-                </p>
-              </div>
+              <PrivateCaptacaoDialog kind="liquida" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                <button type="button" className="flex-1 min-w-0 text-left rounded-lg hover:bg-white/[0.03] transition-colors -m-1 p-1">
+                  <p className="font-data text-[10px] uppercase tracking-widest text-white/35 mb-2">
+                    Captação líquida do mês
+                  </p>
+                  <p
+                    className="font-display text-4xl leading-none"
+                    style={{ color: fundingStats.liquida >= 0 ? GREEN : RED }}
+                  >
+                    {formatCompactBRL(fundingStats.liquida)}
+                  </p>
+                </button>
+              </PrivateCaptacaoDialog>
 
               <div className="sm:w-[190px] shrink-0">
                 <p className="font-data text-[10px] uppercase tracking-widest text-white/35 mb-2 text-center">
                   Ativações de contas
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: "300K+", value: fundingStats.ativacoes300k },
-                    { label: "1M+", value: fundingStats.ativacoes1kk },
-                  ].map((tile) => (
-                    <div
-                      key={tile.label}
-                      className="rounded-xl border border-white/10 bg-black/25 py-3 text-center"
+                  <ActivationDetailsDialog
+                    selectedMonth={selectedMonth}
+                    assessorId={assessorCodes}
+                    team={[]}
+                    title="Detalhamento de Ativações 300k+"
+                  >
+                    <button
+                      type="button"
+                      className="rounded-xl border border-white/10 bg-black/25 py-3 text-center hover:bg-white/[0.05] transition-colors"
                     >
-                      <p className="font-data text-[9px] uppercase tracking-widest text-white/35 mb-1">
-                        {tile.label}
-                      </p>
-                      <p className="font-display text-xl leading-none text-white">{tile.value}</p>
-                    </div>
-                  ))}
+                      <p className="font-data text-[9px] uppercase tracking-widest text-white/35 mb-1">300K+</p>
+                      <p className="font-display text-xl leading-none text-white">{fundingStats.ativacoes300k}</p>
+                    </button>
+                  </ActivationDetailsDialog>
+                  <ActivationDetailsDialog
+                    selectedMonth={selectedMonth}
+                    assessorId={assessorCodes}
+                    team={[]}
+                    minValue={1_000_000}
+                    title="Detalhamento de Ativações 1M+"
+                  >
+                    <button
+                      type="button"
+                      className="rounded-xl border border-white/10 bg-black/25 py-3 text-center hover:bg-white/[0.05] transition-colors"
+                    >
+                      <p className="font-data text-[9px] uppercase tracking-widest text-white/35 mb-1">1M+</p>
+                      <p className="font-display text-xl leading-none text-white">{fundingStats.ativacoes1kk}</p>
+                    </button>
+                  </ActivationDetailsDialog>
                 </div>
               </div>
             </div>
@@ -888,34 +1010,51 @@ export default function PrivateDash() {
             <div className="mt-auto pt-4">
               <div className="rounded-xl border border-white/10 overflow-hidden">
                 <div className="grid grid-cols-3 divide-x divide-white/10">
-                  <MiniStat label="Bruta" value={formatCompactBRL(fundingStats.bruta)} color={GREEN} />
-                  <MiniStat
-                    label="Net New Money"
-                    value={formatCompactBRL(fundingStats.netNewMoney)}
-                    color={fundingStats.netNewMoney >= 0 ? GREEN : RED}
-                  />
-                  <MiniStat
-                    label="Saídas"
-                    value={formatCompactBRL(-Math.abs(fundingStats.saidas))}
-                    color={RED}
-                  />
+                  <PrivateCaptacaoDialog kind="bruta" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                    <MiniStat interactive label="Bruta" value={formatCompactBRL(fundingStats.bruta)} color={GREEN} />
+                  </PrivateCaptacaoDialog>
+                  <PrivateCaptacaoDialog kind="nnm" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                    <MiniStat
+                      interactive
+                      label="Net New Money"
+                      value={formatCompactBRL(fundingStats.netNewMoney)}
+                      color={fundingStats.netNewMoney >= 0 ? GREEN : RED}
+                    />
+                  </PrivateCaptacaoDialog>
+                  <PrivateCaptacaoDialog kind="saidas" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                    <MiniStat
+                      interactive
+                      label="Saídas"
+                      value={formatCompactBRL(-Math.abs(fundingStats.saidas))}
+                      color={RED}
+                    />
+                  </PrivateCaptacaoDialog>
                 </div>
                 <div className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10">
-                  <MiniStat
-                    label="Transferências"
-                    value={formatCompactBRL(fundingStats.transferencias)}
-                    color={fundingStats.transferencias >= 0 ? GREEN : RED}
-                  />
-                  <MiniStat
-                    label="PF"
-                    value={formatCompactBRL(fundingStats.pf)}
-                    color={fundingStats.pf >= 0 ? GREEN : RED}
-                  />
-                  <MiniStat
-                    label="PJ"
-                    value={formatCompactBRL(fundingStats.pj)}
-                    color={fundingStats.pj >= 0 ? GREEN : RED}
-                  />
+                  <PrivateCaptacaoDialog kind="transferencias" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                    <MiniStat
+                      interactive
+                      label="Transferências"
+                      value={formatCompactBRL(fundingStats.transferencias)}
+                      color={fundingStats.transferencias >= 0 ? GREEN : RED}
+                    />
+                  </PrivateCaptacaoDialog>
+                  <PrivateCaptacaoDialog kind="pf" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                    <MiniStat
+                      interactive
+                      label="PF"
+                      value={formatCompactBRL(fundingStats.pf)}
+                      color={fundingStats.pf >= 0 ? GREEN : RED}
+                    />
+                  </PrivateCaptacaoDialog>
+                  <PrivateCaptacaoDialog kind="pj" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                    <MiniStat
+                      interactive
+                      label="PJ"
+                      value={formatCompactBRL(fundingStats.pj)}
+                      color={fundingStats.pj >= 0 ? GREEN : RED}
+                    />
+                  </PrivateCaptacaoDialog>
                 </div>
               </div>
             </div>
@@ -949,6 +1088,12 @@ export default function PrivateDash() {
                     tickLine={false}
                     width={34}
                   />
+                  <ChartTooltip
+                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    content={
+                      <ChartBarTooltip seriesLabel="Captação líquida" metaLabel="Meta de captação" />
+                    }
+                  />
                   {fundingMeta !== null && (
                     <ReferenceLine y={fundingMeta} stroke="rgba(255,255,255,0.7)" strokeDasharray="5 4" />
                   )}
@@ -976,14 +1121,16 @@ export default function PrivateDash() {
             tooltipInfo="R$ 1.000 por cada R$ 1 milhão de captação líquida PF, apurado por assessor e condicionado a Modelo de Servir acima de 70 pontos. Pontuação vem de euro_dash.dados_modelo_servir (carga manual)."
           >
             <div className="grid grid-cols-3 divide-x divide-dashed divide-white/10 flex-1 items-center">
-              <div className="pr-3">
-                <p className="font-data text-[9px] uppercase tracking-widest text-white/35 mb-1.5">
-                  Captação líquida PF
-                </p>
-                <p className="font-display text-xl leading-none" style={{ color: GREEN }}>
-                  {formatCompactBRL(fundingStats.pf)}
-                </p>
-              </div>
+              <PrivateCaptacaoDialog kind="pf" selectedMonth={selectedMonth} assessorCodes={assessorCodes}>
+                <button type="button" className="pr-3 text-left w-full rounded-lg hover:bg-white/[0.03] transition-colors">
+                  <p className="font-data text-[9px] uppercase tracking-widest text-white/35 mb-1.5">
+                    Captação líquida PF
+                  </p>
+                  <p className="font-display text-xl leading-none" style={{ color: GREEN }}>
+                    {formatCompactBRL(fundingStats.pf)}
+                  </p>
+                </button>
+              </PrivateCaptacaoDialog>
               <div className="px-3">
                 <p className="font-data text-[9px] uppercase tracking-widest text-white/35 mb-1.5">
                   Modelo de Servir
@@ -1160,6 +1307,10 @@ export default function PrivateDash() {
                     tickLine={false}
                     width={40}
                   />
+                  <ChartTooltip
+                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    content={<ChartBarTooltip seriesLabel="Receita total" />}
+                  />
                   <Bar dataKey="value" fill={GOLD} radius={[3, 3, 0, 0]} maxBarSize={40}>
                     <LabelList
                       dataKey="value"
@@ -1189,6 +1340,8 @@ export default function PrivateDash() {
             roa={revenueStats.invest.roa}
             roaMeta={ROA_META_INVEST}
             categories={revenueStats.invest.categories}
+            selectedMonth={selectedMonth}
+            assessorCodes={assessorCodes}
           />
           <RevenueSegmentCard
             title="Receita Cross-sell"
@@ -1201,6 +1354,8 @@ export default function PrivateDash() {
             roa={revenueStats.cross.roa}
             roaMeta={ROA_META_CROSSSELL}
             categories={revenueStats.cross.categories}
+            selectedMonth={selectedMonth}
+            assessorCodes={assessorCodes}
           />
         </div>
       </div>

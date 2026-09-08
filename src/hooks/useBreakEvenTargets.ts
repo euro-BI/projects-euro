@@ -11,7 +11,7 @@ export type BreakEvenTargetRow = {
 
 export const BREAK_EVEN_GROUPS = {
   rendaFixa: ["rf", "ofertas", "cetipados", "offshore"],
-  rendaVariavel: ["estruturadas"],
+  rendaVariavel: ["estruturadas", "b3"],
   consorcios: ["consorcios"],
   seguros: ["seguros"],
 } as const;

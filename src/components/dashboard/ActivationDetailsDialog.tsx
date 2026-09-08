@@ -11,7 +11,6 @@ import { FileSpreadsheet, Target, Search, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import * as XLSX from "xlsx";
 
@@ -28,9 +27,20 @@ interface ActivationDetailsProps {
   selectedMonth: string;
   assessorId: string[];
   team: string[];
+  /** Quando informado, filtra ativações a partir desse valor (ex.: 1M+). */
+  minValue?: number;
+  title?: string;
 }
 
-export function ActivationDetailsDialog({ children, selectedMonth, assessorId, team }: ActivationDetailsProps) {
+export function ActivationDetailsDialog({
+  children,
+  selectedMonth,
+  assessorId,
+  team,
+  minValue,
+  title = "Detalhamento de Ativações 300k+",
+}: ActivationDetailsProps) {
+  const [open, setOpen] = React.useState(false);
   const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const PAGE_SIZE = 500;
 
@@ -52,23 +62,26 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery({
-    queryKey: ["activation-details", selectedMonth, assessorId, team, sortKey, sortDirection],
+    queryKey: ["activation-details", selectedMonth, assessorId, team, sortKey, sortDirection, minValue],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const from = pageParam * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      let query = supabase
-        .from("mv_detalhamento_ativacoes" as any)
+      // A MV não existe nos tipos gerados do Supabase.
+      let query = (supabase.from("mv_detalhamento_ativacoes" as any) as any)
         .select("cod_assessor,cliente,net_original_texto,valor_ativacao_final,data_posicao")
         .eq("data_posicao", selectedMonth);
+
+      if (minValue && minValue > 0) {
+        query = query.gte("valor_ativacao_final", minValue);
+      }
 
       if (assessorId.length > 0) {
         const normalizedCodes = assessorId.map((id) => (id.startsWith("A") ? id : `A${id}`));
         query = query.in("cod_assessor", normalizedCodes);
       } else if (team.length > 0) {
-        const { data: teamAssessors, error: teamError } = await supabase
-          .from("mv_resumo_assessor" as any)
+        const { data: teamAssessors, error: teamError } = await (supabase.from("mv_resumo_assessor" as any) as any)
           .select("cod_assessor")
           .eq("data_posicao", selectedMonth)
           .in("time", team);
@@ -101,7 +114,7 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
       if (lastPage.rows.length < PAGE_SIZE) return undefined;
       return lastPage.pageParam + 1;
     },
-    enabled: !!selectedMonth,
+    enabled: open && !!selectedMonth,
   });
 
   const details = React.useMemo(() => {
@@ -138,7 +151,7 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -150,7 +163,7 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
             </div>
             <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
               <DialogTitle className="text-2xl font-display text-euro-gold tracking-tight">
-                Detalhamento de Ativações 300k+
+                {title}
               </DialogTitle>
               <Button
                 type="button"
@@ -165,23 +178,23 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh]">
-          <div className="p-6">
-            <div className="bg-euro-card/40 border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
-              {(isLoading || isFetchingNextPage) && <LoadingOverlay isLoading={true} />}
+        <div className="p-6">
+          <div className="bg-euro-card/40 border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
+            {(isLoading || isFetchingNextPage) && <LoadingOverlay isLoading={true} />}
+            <div className="max-h-[52vh] overflow-auto">
               <table className="w-full text-left border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest">
-                    <th className="py-3 px-4 font-bold border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('cod_assessor')}>
+                    <th className="py-3 px-4 font-bold bg-euro-gold border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('cod_assessor')}>
                       <div className="flex items-center gap-1">Assessor <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
                     </th>
-                    <th className="py-3 px-4 font-bold border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('cliente')}>
+                    <th className="py-3 px-4 font-bold bg-euro-gold border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('cliente')}>
                       <div className="flex items-center gap-1">Cliente <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
                     </th>
-                    <th className="py-3 px-4 font-bold text-right border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('net_original_texto')}>
+                    <th className="py-3 px-4 font-bold bg-euro-gold text-right border-r border-euro-navy/10 cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('net_original_texto')}>
                       <div className="flex items-center justify-end gap-1">Net Original <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
                     </th>
-                    <th className="py-3 px-4 font-bold text-right cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('valor_ativacao_final')}>
+                    <th className="py-3 px-4 font-bold bg-euro-gold text-right cursor-pointer hover:bg-euro-navy/5 transition-colors" onClick={() => handleSort('valor_ativacao_final')}>
                       <div className="flex items-center justify-end gap-1">Vlr Ativação <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
                     </th>
                   </tr>
@@ -222,22 +235,22 @@ export function ActivationDetailsDialog({ children, selectedMonth, assessorId, t
                 </tbody>
               </table>
             </div>
-
-            {hasNextPage && (
-              <div className="pt-4 flex justify-center">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="bg-white/5 hover:bg-white/10 text-white border border-white/10"
-                  disabled={isFetchingNextPage}
-                  onClick={() => fetchNextPage()}
-                >
-                  {isFetchingNextPage ? "Carregando..." : "Carregar mais"}
-                </Button>
-              </div>
-            )}
           </div>
-        </ScrollArea>
+
+          {hasNextPage && (
+            <div className="pt-4 flex justify-center">
+              <Button
+                type="button"
+                variant="secondary"
+                className="bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                disabled={isFetchingNextPage}
+                onClick={() => fetchNextPage()}
+              >
+                {isFetchingNextPage ? "Carregando..." : "Carregar mais"}
+              </Button>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

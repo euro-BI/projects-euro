@@ -855,7 +855,7 @@ export default function PerformanceDash() {
                   value="financial" 
                   className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none"
                 >
-                  Financial
+                  FP & Servir
                 </TabsTrigger>
                 <TabsTrigger 
                   value="ranking" 

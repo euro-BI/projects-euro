@@ -71,6 +71,9 @@ export interface AssessorResumo {
   total_clientes_ruptura?: number;
   media_movel_clientes_6m?: number;
   media_movel_rupturas_6m?: number;
+  media_servir_semestre?: number | null;
+  nps_semestre?: number | null;
+  nps_respostas_semestre?: number | null;
   elegibilidade?: boolean;
 }
 

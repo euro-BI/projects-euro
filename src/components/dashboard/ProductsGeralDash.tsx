@@ -477,7 +477,7 @@ export default function ProductsGeralDash({
         .select(
           "data_posicao, cod_assessor, time, custodia_net," +
           "receita_renda_fixa, receitas_ofertas_fundos, receitas_ofertas_rf, receita_cetipados, receitas_offshore," +
-          "receitas_estruturadas"
+          "receitas_estruturadas, receita_b3"
         )
         .gte("data_posicao", startDate)
         .lte("data_posicao", endDate);
@@ -626,9 +626,9 @@ export default function ProductsGeralDash({
     const rfPrev = sumMvFields(prevMv, rfFields);
     const rfTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaFixa);
 
-    // Renda Variável (Estruturadas)
-    const rvRealized = sumMvFields(curMv, ["receitas_estruturadas"]);
-    const rvPrev = sumMvFields(prevMv, ["receitas_estruturadas"]);
+    // Renda Variável (Estruturadas + B3)
+    const rvRealized = sumMvFields(curMv, ["receitas_estruturadas", "receita_b3"]);
+    const rvPrev = sumMvFields(prevMv, ["receitas_estruturadas", "receita_b3"]);
     const rvTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.rendaVariavel);
 
     // Consórcios — filter month from year data
@@ -719,7 +719,7 @@ export default function ProductsGeralDash({
       const mk = d.data_posicao?.substring(0, 7);
       if (!mk || !buckets[mk]) return;
       rfFields.forEach((f) => { buckets[mk].rfRealized += d[f] || 0; });
-      buckets[mk].rvRealized += d.receitas_estruturadas || 0;
+      buckets[mk].rvRealized += (d.receitas_estruturadas || 0) + (d.receita_b3 || 0);
       buckets[mk].custody += d.custodia_net || 0;
     });
 
@@ -817,7 +817,7 @@ export default function ProductsGeralDash({
         />
         <RevenueCard
           title="Renda Variável"
-          subtitle="Receitas Estruturadas"
+          subtitle="Estruturadas + B3"
           realized={kpis.rv.realized}
           target={kpis.rv.target}
           prevRealized={kpis.rv.prev}
