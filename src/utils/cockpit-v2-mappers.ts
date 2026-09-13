@@ -67,6 +67,13 @@ export function metaReceitaShare(assessor: AssessorResumo, universe: AssessorRes
   return (assessor.meta_receita || 0) / total;
 }
 
+/** Fatia do assessor no AUC (custódia) do universo — usada no rateio do breakeven. */
+export function custodiaShare(assessor: AssessorResumo, universe: AssessorResumo[]): number {
+  const total = universe.reduce((acc, d) => acc + (d.custodia_net || 0), 0);
+  if (total <= 0) return 0;
+  return (assessor.custodia_net || 0) / total;
+}
+
 type MetricType = "funding" | "allocation" | "variable" | "banking" | "insurance";
 type DisplayMode = "meta" | "proportional" | "pace";
 

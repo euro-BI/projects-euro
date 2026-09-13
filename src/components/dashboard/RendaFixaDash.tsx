@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, custodiaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import {
   BarChart,
   Bar,
@@ -1489,7 +1489,7 @@ function RFAssessorTable({
     return rows
       .map((a) => {
         const receita_total_rf = a.receita_renda_fixa + a.receitas_ofertas_rf + a.receitas_ofertas_fundos + a.receita_cetipados + a.receitas_offshore;
-        const meta_rf = houseTarget * metaReceitaShare(a.meta_receita, rows);
+        const meta_rf = houseTarget * custodiaShare(a.custodia_net, rows);
         const pct_meta = meta_rf > 0 ? (receita_total_rf / meta_rf) * 100 : 0;
         return { ...a, receita_total_rf, meta_rf, pct_meta };
       })

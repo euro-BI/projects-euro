@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, custodiaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -473,18 +473,18 @@ export default function SegurosDash({ selectedMonth, selectedYear, selectedTeam,
   const tableData = useMemo(() => {
     if (!activeAssessorsData || !segurosDataMes) return [];
     const rows: any[] = [];
-    const visible: { cod: string; info: any; meta_receita: number }[] = [];
+    const visible: { cod: string; info: any; custodia_net: number }[] = [];
     activeAssessorsData.forEach((info: any, cod: string) => {
       if (selectedTeam.length > 0 && info.time && !selectedTeam.includes(info.time)) return;
       if (selectedAssessorId.length > 0 && !selectedAssessorId.includes(cod)) return;
       const mvHist = (mvDataAno || []).find((mv: any) => (mv.cod_assessor || "").toUpperCase() === cod && mv.data_posicao?.startsWith(selectedMonthKey));
-      visible.push({ cod, info, meta_receita: Number(mvHist?.meta_receita || info.meta_receita || 0) });
+      visible.push({ cod, info, custodia_net: Number(mvHist?.custodia_net || info.custodia_net || 0) });
     });
     const houseTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.seguros);
-    visible.forEach(({ cod, info, meta_receita }) => {
+    visible.forEach(({ cod, info, custodia_net }) => {
       const myRows = segurosDataMes.filter((r: any) => normalizeAssessor(r.cod_assessor) === cod);
       const receita = myRows.reduce((acc: number, r: any) => acc + parseValor(r.valor_comissao), 0);
-      const meta = houseTarget * metaReceitaShare(meta_receita, visible);
+      const meta = houseTarget * custodiaShare(custodia_net, visible);
       if (receita > 0 || meta > 0) {
         rows.push({ cod_assessor: cod, nome: info.nome_assessor, foto_url: info.foto_url, meta, receita, atingimento: meta > 0 ? (receita / meta) * 100 : 0 });
       }

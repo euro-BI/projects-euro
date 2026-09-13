@@ -39,7 +39,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, custodiaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import {
@@ -1510,7 +1510,7 @@ export default function RendaVariavelDash({
 
         const rvAssessorTableData = rvRows
           .map((a: any) => {
-            const share = metaReceitaShare(a.meta_receita, rvRows);
+            const share = custodiaShare(a.custodia_net, rvRows);
             const meta_rv = houseTarget * share;
             const pct_meta = meta_rv > 0 ? (a.receita_total_rv / meta_rv) * 100 : 0;
             const clientes_engajados = engagementByAssessor.get(a.cod_assessor) || 0;

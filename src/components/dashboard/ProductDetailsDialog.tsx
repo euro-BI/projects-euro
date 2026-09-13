@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AssessorResumo } from "@/types/dashboard";
 import { ArrowUpDown, ArrowUp, ArrowDown, User, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { cockpitUniverse, metaReceitaShare } from "@/utils/cockpit-v2-mappers";
+import { cockpitUniverse, custodiaShare } from "@/utils/cockpit-v2-mappers";
 
 const formatCurrency = (value: number) => {
   return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -79,7 +79,7 @@ export function ProductDetailsDialog({
       const realized = getPaceValue(rawRealized);
       const rawTarget = targetKind === "roa"
         ? (assessor.custodia_net * product.roa) / 12
-        : houseBreakEvenTarget * metaReceitaShare(assessor, universe);
+        : houseBreakEvenTarget * custodiaShare(assessor, universe);
       const target = getProportionalTarget(rawTarget);
       const gap = target - realized;
 
@@ -125,7 +125,7 @@ export function ProductDetailsDialog({
           </DialogTitle>
           <DialogDescription className="text-white/60 font-data text-xs uppercase tracking-wider">
             {targetKind === "breakeven"
-              ? "Receita realizada vs meta breakeven rateada pela meta de receita"
+              ? "Receita realizada vs meta breakeven rateada pela custódia (AUC)"
               : `Receita realizada vs meta ROA (${((product.roa * 100).toFixed(4))}%)`}
           </DialogDescription>
         </DialogHeader>

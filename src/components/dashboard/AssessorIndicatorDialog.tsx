@@ -70,7 +70,7 @@ export function AssessorIndicatorDialog({
             {shareMode
               ? "Participação no total da casa"
               : targetKind === "breakeven"
-                ? "Receita vs meta breakeven rateada pela meta de receita"
+                ? "Receita vs meta breakeven rateada pela custódia (AUC)"
                 : "Receita vs meta ROA da custódia"}{" "}
             • {monthLabel}
           </DialogDescription>

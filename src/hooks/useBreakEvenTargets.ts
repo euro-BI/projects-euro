@@ -48,6 +48,13 @@ export function metaReceitaShare(value: number, universe: Array<{ meta_receita?:
   return (Number(value) || 0) / total;
 }
 
+/** Rateio do breakeven da casa pela fatia de custódia (AUC) no universo. */
+export function custodiaShare(value: number, universe: Array<{ custodia_net?: number }>) {
+  const total = universe.reduce((acc, item) => acc + (Number(item.custodia_net) || 0), 0);
+  if (total <= 0) return 0;
+  return (Number(value) || 0) / total;
+}
+
 export function useBreakEvenTargets(year: string) {
   const query = useQuery({
     queryKey: ["dashboard-breakeven-targets", year],

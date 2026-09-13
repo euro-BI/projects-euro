@@ -72,7 +72,7 @@ import { FundingMonthDialog } from "./FundingMonthDialog";
 import { AssessorIndicatorDialog } from "./AssessorIndicatorDialog";
 import { CockpitGlobalPulse } from "./CockpitGlobalPulse";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cockpitUniverse, metaReceitaShare, REVENUE_PRODUCTS as PRODUCT_METRICS } from "@/utils/cockpit-v2-mappers";
+import { cockpitUniverse, custodiaShare, REVENUE_PRODUCTS as PRODUCT_METRICS } from "@/utils/cockpit-v2-mappers";
 
 interface CockpitDashProps {
   currentData: AssessorResumo[];
@@ -1084,7 +1084,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
     };
 
     return base.map((assessor) => {
-      const share = metaReceitaShare(assessor, base);
+      const share = custodiaShare(assessor, base);
       const metrics = {
         funding: calcMetric(assessor, "funding", share),
         allocation: calcMetric(assessor, "allocation", share),
@@ -1169,7 +1169,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
           .filter((product): product is (typeof ALL_PRODUCTS)[number] => Boolean(product));
     const { assessor } = advisorMetricModal;
     const universe = cockpitUniverse(currentData);
-    const share = metaReceitaShare(assessor, universe);
+    const share = custodiaShare(assessor, universe);
 
     return products.map((product) => {
       const raw = product.fields.reduce((acc, field) => acc + ((assessor as any)[field] || 0), 0);
@@ -1669,10 +1669,10 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                        <div className="flex-1 space-y-2">
                          <h4 className="text-white font-display text-base">Meta Breakeven por assessor</h4>
                          <p className="text-sm text-white/60 font-data leading-relaxed">
-                           A meta da casa é a que você cadastra no modal, por <strong>mês e produto</strong>. No assessor, ela é rateada pela fatia da <strong>meta de receita</strong> dele no universo do Cockpit.
+                           A meta da casa é a que você cadastra no modal, por <strong>mês e produto</strong>. No assessor, ela é rateada pela fatia da <strong>custódia (AUC)</strong> dele no universo do Cockpit.
                          </p>
                          <p className="text-sm text-white/60 font-data leading-relaxed">
-                           Fatia = meta de receita do assessor ÷ soma das metas de receita dos assessores da tela. Essa % vale para todos os produtos.
+                           Fatia = custódia do assessor ÷ soma das custódias dos assessores da tela. Essa % vale para todos os produtos.
                          </p>
                          <div className="bg-black/40 p-4 rounded-lg border border-white/5 mt-3 space-y-2">
                           <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
@@ -1680,11 +1680,11 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                               Exemplo
                             </span>
                             <p className="text-xs text-white/80 font-data leading-relaxed">
-                              Pedro tem meta de receita de <span className="text-white font-bold">R$ 80k</span>. O grupo soma <span className="text-white font-bold">R$ 650k</span>. Ele representa <span className="text-white font-bold">12,3%</span>. Se a casa tem R$ 100k de breakeven em RF, a meta dele nesse produto é <span className="text-white font-bold">R$ 12,3k</span>.
+                              Pedro Couto tem <span className="text-white font-bold">R$ 99,6 mm</span> de custódia. O universo do Cockpit soma <span className="text-white font-bold">R$ 532,8 mm</span>. Ele representa <span className="text-white font-bold">18,69%</span>. Se a casa tem R$ 85k de breakeven em RF, a meta dele nesse produto é <span className="text-white font-bold">R$ 15,9k</span>.
                             </p>
                           </div>
                           <p className="text-[11px] text-white/45 font-data leading-relaxed">
-                            A meta de receita da MV é 1% a.a. da custódia ativa, dividido por 12. No seletor ROA, a meta do assessor volta a ser custódia × ROA do produto ÷ 12.
+                            No seletor ROA, a meta do assessor continua sendo custódia × ROA do produto ÷ 12 (sem rateio de breakeven).
                           </p>
                         </div>
                        </div>
@@ -2449,7 +2449,7 @@ export default function CockpitDash({ currentData, yearlyData, selectedYear }: C
                             <div className="text-white/40 font-data text-[10px] uppercase tracking-widest">
                               {row.assessor.cod_assessor} • {row.assessor.time}
                               {targetKind === "breakeven" && row.metaShare > 0 && (
-                                <span className="text-euro-gold/70"> • {formatShare(row.metaShare * 100)} da meta</span>
+                                <span className="text-euro-gold/70"> • {formatShare(row.metaShare * 100)} do AUC</span>
                               )}
                             </div>
                           </div>

@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { BREAK_EVEN_GROUPS, getBreakEvenSum, metaReceitaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
+import { BREAK_EVEN_GROUPS, getBreakEvenSum, custodiaShare, useBreakEvenTargets } from "@/hooks/useBreakEvenTargets";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -982,13 +982,13 @@ export default function ConsorciosDash({
          cod,
          info,
          mvHist,
-         meta_receita: Number(mvHist?.meta_receita || info.meta_receita || 0),
+         custodia_net: Number(mvHist?.custodia_net || info.custodia_net || 0),
        };
     });
     const houseTarget = getBreakEvenSum(breakEvenMap, selectedMonthKey, BREAK_EVEN_GROUPS.consorcios);
 
-    visible.forEach(({ cod, info, meta_receita }) => {
-       const meta = houseTarget * metaReceitaShare(meta_receita, visible);
+    visible.forEach(({ cod, info, custodia_net }) => {
+       const meta = houseTarget * custodiaShare(custodia_net, visible);
        
        // Calculate comissions for the selected month
        const comissions = comissoesDataMes.filter(c => (c.cod_assessor || "").toUpperCase() === cod);
