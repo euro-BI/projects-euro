@@ -33,3 +33,15 @@ verify_jwt = true
 
 [functions.ingest-transferencias]
 verify_jwt = true
+
+[functions.ingest-rupturas]
+verify_jwt = true
+
+[functions.ingest-fp]
+verify_jwt = true
+
+[functions.ingest-modelo-servir]
+verify_jwt = true
+
+[functions.ingest-habilitacao-ativacao]
+verify_jwt = true

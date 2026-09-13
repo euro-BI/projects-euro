@@ -27,6 +27,14 @@ const UPLOAD_TYPES = [
   { value: "dados_posicao_black", label: "Posição Black" },
   { value: "dados_fundos_novo", label: "Fundos" },
   { value: "dados_diversificador", label: "Diversificador" },
+  { value: "dados_rupturas", label: "Rupturas" },
+  { value: "dados_fp", label: "Financial Planning" },
+  { value: "dados_modelo_servir", label: "Modelo de servir" },
+  { value: "dados_habilitacoes", label: "Habilitações" },
+  { value: "dados_ativacoes", label: "Ativações" },
+  { value: "dados_nps", label: "NPS", pending: true },
+  { value: "dados_demonstrativo_full", label: "Demonstrativo", pending: true },
+  { value: "dados_cambio", label: "Câmbio", pending: true },
 ] as const;
 
 interface TabelaInfo {
@@ -163,6 +171,8 @@ export function DataUploadManagement() {
 
   const showConfirmation = () => {
     if (!webhookFile || !selectedUploadName || !user?.id) return;
+    const selected = UPLOAD_TYPES.find((item) => item.value === selectedUploadName);
+    if (selected && "pending" in selected && selected.pending) return;
     setShowConfirmationModal(true);
   };
 
@@ -252,7 +262,9 @@ export function DataUploadManagement() {
     }
   };
 
-  const selectedLabel = UPLOAD_TYPES.find((item) => item.value === selectedUploadName)?.label || selectedUploadName;
+  const selectedUpload = UPLOAD_TYPES.find((item) => item.value === selectedUploadName);
+  const selectedLabel = selectedUpload?.label || selectedUploadName;
+  const selectedPending = Boolean(selectedUpload && "pending" in selectedUpload && selectedUpload.pending);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -264,7 +276,9 @@ export function DataUploadManagement() {
               <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione a base" /></SelectTrigger>
               <SelectContent>
                 {UPLOAD_TYPES.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  <SelectItem key={item.value} value={item.value}>
+                    {"pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -297,7 +311,7 @@ export function DataUploadManagement() {
           <button
             type="button"
             onClick={showConfirmation}
-            disabled={!webhookFile || !selectedUploadName || isWebhookSending}
+            disabled={!webhookFile || !selectedUploadName || isWebhookSending || selectedPending}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy transition-colors hover:bg-euro-gold/90 disabled:pointer-events-none disabled:opacity-35"
           >
             {isWebhookSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -309,6 +323,9 @@ export function DataUploadManagement() {
           <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/55">
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">{webhookFile.name}</span>
             {selectedLabel && <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">{selectedLabel}</span>}
+            {selectedPending && (
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/45">Ainda falta configurar</span>
+            )}
             <span className="rounded-full border border-euro-gold/20 bg-euro-gold/10 px-3 py-1.5 text-euro-gold">
               {fileLineCount} {fileLineCount === 1 ? "linha" : "linhas"}
             </span>
@@ -520,6 +537,26 @@ function parseUploadDate(value: unknown): string | null {
   return null;
 }
 
+function parseUploadPeriod(value: unknown): string | null {
+  const date = parseUploadDate(value);
+  if (date) return `${date.slice(0, 7)}-01`;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const n = Math.round(value);
+    if (n >= 200001 && n <= 209912) {
+      const year = Math.floor(n / 100);
+      const month = n % 100;
+      if (month >= 1 && month <= 12) return `${year}-${String(month).padStart(2, "0")}-01`;
+    }
+  }
+  const raw = String(value ?? "").trim();
+  const yyyymm = raw.match(/^(\d{4})(\d{2})$/);
+  if (yyyymm) {
+    const month = Number(yyyymm[2]);
+    if (month >= 1 && month <= 12) return `${yyyymm[1]}-${yyyymm[2]}-01`;
+  }
+  return null;
+}
+
 const CETIPADOS_HEADERS = new Set([
   "data",
   "assessor",
@@ -725,6 +762,67 @@ function slimTransferenciasRows(rows: Record<string, unknown>[]) {
   return slimRowsByHeader(rows, TRANSFERENCIAS_HEADERS);
 }
 
+const RUPTURAS_HEADERS = new Set([
+  "ano mes",
+  "periodo",
+  "cod assessor",
+  "cod conta",
+  "cod cliente",
+  "pontuacao ruptura",
+  "pontuacao",
+]);
+
+const FP_HEADERS = new Set([
+  "mes",
+  "ano mes",
+  "periodo",
+  "cod conta",
+  "status da conta",
+  "status conta",
+  "segmento da conta",
+  "segmento conta",
+  "segmento comercial",
+  "cod assessor",
+  "data de criacao fp",
+  "data criacao fp",
+  "ultima data de atualizacao",
+  "ultima atualizacao",
+  "completude",
+]);
+
+const MODELO_SERVIR_HEADERS = new Set([
+  "ano mes",
+  "mes",
+  "periodo",
+  "cod assessor",
+  "indice modelo de servir",
+]);
+
+const HAB_ATIV_HEADERS = new Set([
+  "conta",
+  "assessor",
+  "cod assessor",
+  "data",
+  "faixa",
+  "conta ativada",
+]);
+
+function slimRupturasRows(rows: Record<string, unknown>[]) {
+  return slimRowsByHeader(rows, RUPTURAS_HEADERS);
+}
+
+function slimFpRows(rows: Record<string, unknown>[]) {
+  return slimRowsByHeader(rows, FP_HEADERS);
+}
+
+function slimModeloServirRows(rows: Record<string, unknown>[]) {
+  return slimRowsByHeader(rows, MODELO_SERVIR_HEADERS);
+}
+
+function slimHabAtivRows(rows: Record<string, unknown>[]) {
+  return slimRowsByHeader(rows, HAB_ATIV_HEADERS);
+}
+
 function isEdgeUpload(name: string) {
   return name === "dados_captacoes"
     || name === "positivador"
@@ -735,7 +833,12 @@ function isEdgeUpload(name: string) {
     || name === "dados_offshore_remessas"
     || name === "dados_offshore_operacoes"
     || name === "dados_posicao_black"
-    || name === "dados_transferencias";
+    || name === "dados_transferencias"
+    || name === "dados_rupturas"
+    || name === "dados_fp"
+    || name === "dados_modelo_servir"
+    || name === "dados_habilitacoes"
+    || name === "dados_ativacoes";
 }
 
 function chunkRows<T>(rows: T[], size: number) {
@@ -938,9 +1041,13 @@ function monthsFromIsoDates(dates: string[]) {
   return [...new Set(dates.filter(isIsoDate).map((date) => `${date.slice(0, 7)}-01`))];
 }
 
-function pickSlimDate(row: Record<string, unknown>, keys: string[]) {
+function pickSlimDate(
+  row: Record<string, unknown>,
+  keys: string[],
+  parser: (value: unknown) => string | null = parseUploadDate,
+) {
   for (const key of keys) {
-    const parsed = parseUploadDate(row[key]);
+    const parsed = parser(row[key]);
     if (parsed) return parsed;
   }
   return null;
@@ -951,8 +1058,13 @@ async function invokeChunkedIngest(
   slim: Record<string, unknown>[],
   dateKeys: string[],
   onProgress?: (progress: UploadProgress) => void,
+  options?: {
+    extraBody?: Record<string, unknown>;
+    parseDate?: (value: unknown) => string | null;
+  },
 ) {
-  const dates = slim.map((row) => pickSlimDate(row, dateKeys)).filter((value): value is string => Boolean(value)).sort();
+  const parser = options?.parseDate ?? parseUploadDate;
+  const dates = slim.map((row) => pickSlimDate(row, dateKeys, parser)).filter((value): value is string => Boolean(value)).sort();
   const meses = monthsFromIsoDates(dates);
   const chunks = chunkRows(slim, 400);
   let last: Record<string, unknown> | null = null;
@@ -972,6 +1084,7 @@ async function invokeChunkedIngest(
         rows: chunks[i],
         replace_months: i === 0,
         meses_substituir: i === 0 ? meses : [],
+        ...options?.extraBody,
       },
     });
     await throwIfFunctionFailed(error, data);
@@ -1060,6 +1173,61 @@ async function invokeIngestTransferencias(
   );
 }
 
+const PERIODO_KEYS = ["Ano Mês", "Ano Mes", "Mês", "Mes", "periodo"];
+
+async function invokeIngestRupturas(
+  rows: Record<string, unknown>[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  return invokeChunkedIngest(
+    "ingest-rupturas",
+    slimRupturasRows(rows),
+    PERIODO_KEYS,
+    onProgress,
+    { parseDate: parseUploadPeriod },
+  );
+}
+
+async function invokeIngestFp(
+  rows: Record<string, unknown>[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  return invokeChunkedIngest(
+    "ingest-fp",
+    slimFpRows(rows),
+    PERIODO_KEYS,
+    onProgress,
+    { parseDate: parseUploadPeriod },
+  );
+}
+
+async function invokeIngestModeloServir(
+  rows: Record<string, unknown>[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  return invokeChunkedIngest(
+    "ingest-modelo-servir",
+    slimModeloServirRows(rows),
+    PERIODO_KEYS,
+    onProgress,
+    { parseDate: parseUploadPeriod },
+  );
+}
+
+async function invokeIngestHabAtiv(
+  fonte: "habilitacao" | "ativacao",
+  rows: Record<string, unknown>[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  return invokeChunkedIngest(
+    "ingest-habilitacao-ativacao",
+    slimHabAtivRows(rows),
+    ["Data", "data"],
+    onProgress,
+    { extraBody: { fonte } },
+  );
+}
+
 async function invokeSelectedEdgeIngest(
   name: string,
   rows: Record<string, unknown>[],
@@ -1075,6 +1243,11 @@ async function invokeSelectedEdgeIngest(
   if (name === "dados_offshore_operacoes") return invokeIngestOffshoreOperacoes(rows, onProgress);
   if (name === "dados_posicao_black") return invokeIngestPosicaoBlack(rows, onProgress);
   if (name === "dados_transferencias") return invokeIngestTransferencias(rows, onProgress);
+  if (name === "dados_rupturas") return invokeIngestRupturas(rows, onProgress);
+  if (name === "dados_fp") return invokeIngestFp(rows, onProgress);
+  if (name === "dados_modelo_servir") return invokeIngestModeloServir(rows, onProgress);
+  if (name === "dados_habilitacoes") return invokeIngestHabAtiv("habilitacao", rows, onProgress);
+  if (name === "dados_ativacoes") return invokeIngestHabAtiv("ativacao", rows, onProgress);
   throw new Error(`Base sem ingestão direta: ${name}`);
 }
 
@@ -1183,7 +1356,14 @@ function UploadProgressPanel({
   );
 }
 
+const TABLE_DISPLAY_NAMES: Record<string, string> = {
+  dados_fp: "Financial Planning",
+  dados_modelo_servir: "Modelo de servir",
+  dados_habilitacao_ativacao: "Habilitação e ativação",
+};
+
 function prettyTableName(name: string) {
+  if (TABLE_DISPLAY_NAMES[name]) return TABLE_DISPLAY_NAMES[name];
   return name.replace(/^dados_/, "").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
