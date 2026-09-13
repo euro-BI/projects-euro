@@ -108,6 +108,7 @@ export function DataUploadManagement() {
   const [tabelasInfo, setTabelasInfo] = useState<TabelaInfo[]>([]);
   const [isLoadingTabelas, setIsLoadingTabelas] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [showRefreshConfirmModal, setShowRefreshConfirmModal] = useState(false);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [isRefreshingViews, setIsRefreshingViews] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
@@ -512,7 +513,10 @@ export function DataUploadManagement() {
             </GhostButton>
             <button
               type="button"
-              onClick={() => void refreshDashViews()}
+              onClick={() => {
+                if (isRefreshingViews || isWebhookSending) return;
+                setShowRefreshConfirmModal(true);
+              }}
               disabled={isRefreshingViews || isWebhookSending}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-euro-gold px-4 text-sm font-semibold text-euro-navy transition-colors hover:bg-euro-gold/90 disabled:pointer-events-none disabled:opacity-35"
             >
@@ -613,6 +617,35 @@ export function DataUploadManagement() {
           )}
         </div>
       </div>
+
+      <Dialog open={showRefreshConfirmModal} onOpenChange={setShowRefreshConfirmModal}>
+        <DialogContent className={cn(dialogClass, "sm:max-w-md")}>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold tracking-tight">Atualizar dashboards</DialogTitle>
+            <DialogDescription className="text-white/50">
+              Recalcular as visões materializadas agora? Isso pode levar alguns minutos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/75">
+            <p><span className="text-white/40">1 · </span>mv_resumo_assessor</p>
+            <p><span className="text-white/40">2 · </span>mv_detalhamento_ativacoes</p>
+          </div>
+          <div className="flex gap-2">
+            <GhostButton className="flex-1" onClick={() => setShowRefreshConfirmModal(false)}>Cancelar</GhostButton>
+            <button
+              type="button"
+              onClick={() => {
+                setShowRefreshConfirmModal(false);
+                void refreshDashViews();
+              }}
+              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90"
+            >
+              <Layers className="h-4 w-4" />
+              Confirmar
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={showRefreshModal}
