@@ -313,6 +313,7 @@ type HaRow = {
   data: string;
   faixa: string;
   conta_ativada: string | null;
+  tipo_pessoa: string | null;
   time: string;
   nome_assessor: string;
   foto_url: string | null;
@@ -612,12 +613,13 @@ export default function ConsorciosDash({
   });
 
   const { data: haData } = useQuery({
-    queryKey: ["consorcios-habilitacao-ativacao", selectedYear],
+    queryKey: ["consorcios-habilitacao-ativacao-pj", selectedYear],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("dados_habilitacao_ativacao" as any)
-        .select("id, fonte, conta, cod_assessor, data, faixa, conta_ativada")
+        .from("vw_habilitacao_ativacao" as any)
+        .select("id, fonte, conta, cod_assessor, data, faixa, conta_ativada, tipo_pessoa")
+        .eq("tipo_pessoa", "PESSOA JURÍDICA")
         .gte("data", `${selectedYear}-01-01`)
         .lte("data", `${selectedYear}-12-31`);
       if (error) throw error;
@@ -748,6 +750,7 @@ export default function ConsorciosDash({
       data: row.data,
       faixa: row.faixa || "",
       conta_ativada: row.conta_ativada ?? null,
+      tipo_pessoa: row.tipo_pessoa ?? null,
       time: assessor?.time || "NÃO INFORMADO",
       nome_assessor: assessor?.nome_assessor || cod,
       foto_url: assessor?.foto_url || null,
@@ -1149,7 +1152,7 @@ export default function ConsorciosDash({
 
           <div className="space-y-4">
             <h3 className="text-sm font-data text-euro-gold uppercase tracking-[0.2em] opacity-80 pl-2">
-              Habilitações e Ativações ({format(parseISO(`${selectedMonthKey}-01`), "MMM/yyyy", { locale: ptBR })})
+              Habilitações e Ativações · PJ ({format(parseISO(`${selectedMonthKey}-01`), "MMM/yyyy", { locale: ptBR })})
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <KpiCard
@@ -1159,7 +1162,7 @@ export default function ConsorciosDash({
                 icon={UserPlus}
                 color="#3B82F6"
                 delay={0.25}
-                tooltipInfo="Abertura de contas no mês selecionado."
+                tooltipInfo="Abertura de contas PJ no mês selecionado."
                 trend={{ value: haMetrics.habilitacoesTrend, label: "vs mês anterior" }}
                 ring={{
                   percent: haMetrics.conversao,
@@ -1173,7 +1176,7 @@ export default function ConsorciosDash({
                 icon={Wallet}
                 color="#10B981"
                 delay={0.3}
-                tooltipInfo="Contas que receberam aporte e saíram de saldo zerado."
+                tooltipInfo="Contas PJ que receberam aporte e saíram de saldo zerado."
                 trend={{ value: haMetrics.ativacoesTrend, label: "vs mês anterior" }}
               />
             </div>
