@@ -81,7 +81,10 @@ function toStringValue(value: unknown) {
 }
 
 function monthStart(date: string) {
-  return `${date.slice(0, 7)}-01`;
+  const raw = String(date ?? "").trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})/);
+  if (!iso) return null;
+  return `${iso[1]}-${iso[2]}-01`;
 }
 
 function nextMonthStart(date: string) {
@@ -90,9 +93,27 @@ function nextMonthStart(date: string) {
   return `${year}-${String(month + 1).padStart(2, "0")}-01`;
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error && error.message) {
+    return String(error.message);
+  }
+  return "Erro inesperado";
+}
+
+function rowKey(row: CetipadoRow) {
+  return [row.data, row.assessor ?? "", row.cliente ?? "", row.fundo ?? "", row.valor ?? ""].join("|");
+}
+
+function dedupeRows(rows: CetipadoRow[]) {
+  const seen = new Map<string, CetipadoRow>();
+  for (const row of rows) seen.set(rowKey(row), row);
+  return [...seen.values()];
+}
+
 function mapRow(row: IncomingRow): CetipadoRow | null {
   const data = parseDate(pick(row, "data", "Data"));
-  if (!data) return null;
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return null;
 
   return {
     data,
@@ -145,7 +166,7 @@ Deno.serve(async (req) => {
     const replaceMonths = chunked ? body?.replace_months === true : true;
 
     const mapped = incoming.map(mapRow);
-    const rows = mapped.filter((row): row is CetipadoRow => row != null);
+    const rows = dedupeRows(mapped.filter((row): row is CetipadoRow => row != null));
     const ignoradas = incoming.length - rows.length;
 
     if (rows.length === 0) {
@@ -156,10 +177,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const monthsFromRows = [...new Set(rows.map((row) => monthStart(row.data)))].sort();
-    const months = Array.isArray(body?.meses_substituir) && body.meses_substituir.length > 0
-      ? [...new Set((body.meses_substituir as unknown[]).map((mes) => monthStart(String(mes))))].sort()
-      : monthsFromRows;
+    const monthsFromRows = [...new Set(rows.map((row) => monthStart(row.data)).filter((mes): mes is string => Boolean(mes)))].sort();
+    const requestedMonths = Array.isArray(body?.meses_substituir)
+      ? [...new Set((body.meses_substituir as unknown[]).map((mes) => monthStart(String(mes))).filter((mes): mes is string => Boolean(mes)))].sort()
+      : [];
+    const months = requestedMonths.length > 0 ? requestedMonths : monthsFromRows;
 
     const supabase = createClient(supabaseUrl, serviceKey, {
       db: { schema: "euro_dash" },
@@ -196,6 +218,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("ingest-cetipados", error);
-    return json(500, { error: error instanceof Error ? error.message : "Erro inesperado" });
+    return json(500, { error: errorMessage(error) });
   }
 });

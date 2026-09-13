@@ -100,7 +100,18 @@ function normalizeTipoPessoa(value: unknown) {
 }
 
 function monthStart(date: string) {
-  return `${date.slice(0, 7)}-01`;
+  const raw = String(date ?? "").trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})/);
+  if (!iso) return null;
+  return `${iso[1]}-${iso[2]}-01`;
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error && error.message) {
+    return String(error.message);
+  }
+  return "Erro inesperado";
 }
 
 function mapRow(row: IncomingRow, uploadedAt: string): CaptacaoRow | null {
@@ -198,12 +209,12 @@ Deno.serve(async (req) => {
       gravadas,
       ignoradas,
       dias_substituidos: dias,
-      meses_substituidos: [...new Set(dias.map((dia) => monthStart(dia)))],
+      meses_substituidos: [...new Set(dias.map((dia) => monthStart(dia)).filter((mes): mes is string => Boolean(mes)))],
       total_linhas_enviadas: gravadas,
       user_id: userData.user.id,
     });
   } catch (error) {
     console.error("ingest-captacoes", error);
-    return json(500, { error: error instanceof Error ? error.message : "Erro inesperado" });
+    return json(500, { error: errorMessage(error) });
   }
 });

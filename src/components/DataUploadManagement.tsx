@@ -777,12 +777,12 @@ async function invokeIngestPositivador(
   const dates = slim
     .map((row) => {
       const raw = row.Data ?? row.data_posicao ?? row["Data Posição"] ?? row["Data Posicao"];
-      return typeof raw === "string" ? raw : null;
+      return isIsoDate(raw) ? raw.slice(0, 10) : null;
     })
     .filter((value): value is string => Boolean(value))
     .sort();
   const dataAtualizacao = dates.at(-1) ?? null;
-  const meses = [...new Set(dates.map((date) => `${date.slice(0, 7)}-01`))];
+  const meses = monthsFromIsoDates(dates);
   const chunks = chunkRows(slim, 400);
   let last: Record<string, unknown> | null = null;
   let gravadas = 0;
@@ -827,11 +827,11 @@ async function invokeIngestCetipados(
   const dates = slim
     .map((row) => {
       const raw = row.Data ?? row.data;
-      return typeof raw === "string" ? raw : null;
+      return isIsoDate(raw) ? raw.slice(0, 10) : null;
     })
     .filter((value): value is string => Boolean(value))
     .sort();
-  const meses = [...new Set(dates.map((date) => `${String(date).slice(0, 7)}-01`))];
+  const meses = monthsFromIsoDates(dates);
   const chunks = chunkRows(slim, 400);
   let last: Record<string, unknown> | null = null;
   let gravadas = 0;
@@ -874,11 +874,11 @@ async function invokeIngestRfFluxo(
   const dates = slim
     .map((row) => {
       const raw = row.Data ?? row.data;
-      return typeof raw === "string" ? raw : null;
+      return isIsoDate(raw) ? raw.slice(0, 10) : null;
     })
     .filter((value): value is string => Boolean(value))
     .sort();
-  const meses = [...new Set(dates.map((date) => `${String(date).slice(0, 7)}-01`))];
+  const meses = monthsFromIsoDates(dates);
   const chunks = chunkRows(slim, 400);
   let last: Record<string, unknown> | null = null;
   let gravadas = 0;
@@ -913,10 +913,18 @@ async function invokeIngestRfFluxo(
   return { ...last, gravadas, total_linhas_enviadas: gravadas };
 }
 
+function isIsoDate(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value);
+}
+
+function monthsFromIsoDates(dates: string[]) {
+  return [...new Set(dates.filter(isIsoDate).map((date) => `${date.slice(0, 7)}-01`))];
+}
+
 function pickSlimDate(row: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = row[key];
-    if (typeof value === "string" && value) return value;
+    if (isIsoDate(value)) return value.slice(0, 10);
   }
   return null;
 }
@@ -928,7 +936,7 @@ async function invokeChunkedIngest(
   onProgress?: (progress: UploadProgress) => void,
 ) {
   const dates = slim.map((row) => pickSlimDate(row, dateKeys)).filter((value): value is string => Boolean(value)).sort();
-  const meses = [...new Set(dates.map((date) => `${String(date).slice(0, 7)}-01`))];
+  const meses = monthsFromIsoDates(dates);
   const chunks = chunkRows(slim, 400);
   let last: Record<string, unknown> | null = null;
   let gravadas = 0;

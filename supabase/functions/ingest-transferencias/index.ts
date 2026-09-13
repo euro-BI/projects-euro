@@ -89,7 +89,18 @@ function normalizeStatus(value: unknown) {
 }
 
 function monthStart(date: string) {
-  return `${date.slice(0, 7)}-01`;
+  const raw = String(date ?? "").trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})/);
+  if (!iso) return null;
+  return `${iso[1]}-${iso[2]}-01`;
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error && error.message) {
+    return String(error.message);
+  }
+  return "Erro inesperado";
 }
 
 function nextMonthStart(date: string) {
@@ -157,10 +168,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const monthsFromRows = [...new Set(rows.map((row) => monthStart(row.data_transferencia)))].sort();
-    const months = Array.isArray(body?.meses_substituir) && body.meses_substituir.length > 0
-      ? [...new Set((body.meses_substituir as unknown[]).map((mes) => monthStart(String(mes))))].sort()
-      : monthsFromRows;
+    const monthsFromRows = [...new Set(rows.map((row) => monthStart(row.data_transferencia)).filter((mes): mes is string => Boolean(mes)))].sort();
+    const requestedMonths = Array.isArray(body?.meses_substituir)
+      ? [...new Set((body.meses_substituir as unknown[]).map((mes) => monthStart(String(mes))).filter((mes): mes is string => Boolean(mes)))].sort()
+      : [];
+    const months = requestedMonths.length > 0 ? requestedMonths : monthsFromRows;
 
     const supabase = createClient(supabaseUrl, serviceKey, {
       db: { schema: "euro_dash" },
@@ -197,6 +209,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("ingest-transferencias", error);
-    return json(500, { error: error instanceof Error ? error.message : "Erro inesperado" });
+    return json(500, { error: errorMessage(error) });
   }
 });
