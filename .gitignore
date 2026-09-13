@@ -35,3 +35,6 @@ dist-ssr
 # Cursor IDE
 .cursor/
 .cursorrules
+
+# Fluxos n8n locais (podem conter chaves)
+automacao-n8n/

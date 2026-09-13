@@ -3,3 +3,33 @@ project_id = "rzdepoejfchewvjzojan"
 
 [functions.sync-pipe-manual]
 verify_jwt = false
+
+[functions.ingest-captacoes]
+verify_jwt = true
+
+[functions.ingest-positivador]
+verify_jwt = true
+
+[functions.ingest-cetipados]
+verify_jwt = true
+
+[functions.ingest-rf-fluxo]
+verify_jwt = true
+
+[functions.ingest-rv-executadas]
+verify_jwt = true
+
+[functions.ingest-pj-custodia]
+verify_jwt = true
+
+[functions.ingest-offshore-remessas]
+verify_jwt = true
+
+[functions.ingest-offshore-operacoes]
+verify_jwt = true
+
+[functions.ingest-posicao-black]
+verify_jwt = true
+
+[functions.ingest-transferencias]
+verify_jwt = true

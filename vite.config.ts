@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    watch: {
+      ignored: ["**/automacao-n8n/**", "**/*.xlsx"],
+    },
     proxy: {
       '/microsoft-token': {
         target: 'https://login.microsoftonline.com',
