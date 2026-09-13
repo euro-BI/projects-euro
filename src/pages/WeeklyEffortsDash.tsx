@@ -23,6 +23,10 @@ import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Toolti
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth" | "prevMonth";
 const FIXED_MONTH_WEEKS = 4;
 
+function isSdrCanal(canal: string | null | undefined) {
+  return String(canal ?? "").trim().toUpperCase() === "SDR";
+}
+
 function monthAnchorFromRange(start: string, end: string) {
   return start.slice(0, 7) !== end.slice(0, 7) ? end : start;
 }
@@ -371,13 +375,14 @@ export default function WeeklyEffortsDash() {
   const [period, setPeriod] = useState<PeriodType>("currentWeek");
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedAssessor, setSelectedAssessor] = useState<string>("all");
+  const [includeSdr, setIncludeSdr] = useState(false);
   const [rankingYear, setRankingYear] = useState<string>(() => {
     const current = new Date().getFullYear();
     return current < 2026 ? "2026" : current.toString();
   });
   
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
-    key: 'realizadas',
+    key: 'r1Totais',
     direction: 'desc'
   });
   const [flippedCard, setFlippedCard] = useState<string | null>(null);
@@ -611,13 +616,23 @@ export default function WeeklyEffortsDash() {
       let agendadas = 0;
       let indicacao = 0;
 
-      const assessorStats = new Map<string, { realizadas: number, agendadas: number }>();
+      const assessorStats = new Map<string, {
+        realizadasAssessor: number;
+        realizadasSdr: number;
+        agendadasAssessor: number;
+        agendadasSdr: number;
+      }>();
       
       // Initialize all active assessors (filtered by team/assessor if applicable)
       assessors.forEach(a => {
         if (selectedTeam !== "all" && a.team !== selectedTeam) return;
         if (selectedAssessor !== "all" && a.cod !== selectedAssessor) return;
-        assessorStats.set(a.cod, { realizadas: 0, agendadas: 0 });
+        assessorStats.set(a.cod, {
+          realizadasAssessor: 0,
+          realizadasSdr: 0,
+          agendadasAssessor: 0,
+          agendadasSdr: 0,
+        });
       });
 
       filtered.forEach(r => {
@@ -629,19 +644,27 @@ export default function WeeklyEffortsDash() {
         if (selectedTeam !== "all" && assessorMeta?.team !== selectedTeam) return;
         if (selectedAssessor !== "all" && cod !== selectedAssessor) return;
 
+        const isSdr = isSdrCanal(r.canal);
         const isRealizada = String(r.concluido).toLowerCase() === "true";
-        
-        if (isRealizada) realizadas++;
-        else agendadas++;
+        const countsForKpi = includeSdr || !isSdr;
 
-        if (r.canal?.toLowerCase() === "indicação") {
-          indicacao++;
+        if (countsForKpi) {
+          if (isRealizada) realizadas++;
+          else agendadas++;
+          if (!isSdr && r.canal?.toLowerCase() === "indicação") {
+            indicacao++;
+          }
         }
 
         if (assessorStats.has(cod)) {
           const stats = assessorStats.get(cod)!;
-          if (isRealizada) stats.realizadas++;
-          else stats.agendadas++;
+          if (isRealizada) {
+            if (isSdr) stats.realizadasSdr++;
+            else stats.realizadasAssessor++;
+          } else {
+            if (isSdr) stats.agendadasSdr++;
+            else stats.agendadasAssessor++;
+          }
         }
       });
 
@@ -650,7 +673,14 @@ export default function WeeklyEffortsDash() {
       const zerados: any[] = [];
 
       assessorStats.forEach((stats, cod) => {
-        if (stats.realizadas >= metaTarget) bateramMeta++;
+        const r1Assessor = stats.realizadasAssessor;
+        const r1Sdr = stats.realizadasSdr;
+        const r1Totais = includeSdr ? r1Assessor + r1Sdr : r1Assessor;
+        const agendadasAssessor = stats.agendadasAssessor;
+        const agendadasSdr = stats.agendadasSdr;
+        const agendadasTotal = includeSdr ? agendadasAssessor + agendadasSdr : agendadasAssessor;
+
+        if (r1Totais >= metaTarget) bateramMeta++;
         
         const aMeta = assessorMap.get(cod);
         const entry = {
@@ -658,21 +688,26 @@ export default function WeeklyEffortsDash() {
           nome: aMeta?.name || cod,
           time: aMeta?.team || "Sem Time",
           foto: aMeta?.photo,
-          realizadas: stats.realizadas,
-          agendadas: stats.agendadas,
-          total: stats.realizadas + stats.agendadas,
-          statusColor: stats.realizadas >= topPerformerTarget ? "bg-euro-gold/20 text-euro-gold border-euro-gold/30" : 
-                       stats.realizadas >= metaTarget ? "bg-green-500/20 text-green-400 border-green-500/30" : 
-                       stats.realizadas > 0 ? "bg-orange-500/20 text-orange-400 border-orange-500/30" :
+          realizadas: r1Totais,
+          realizadasAssessor: r1Assessor,
+          realizadasSdr: r1Sdr,
+          r1Totais,
+          agendadas: agendadasTotal,
+          agendadasAssessor,
+          agendadasSdr,
+          total: r1Totais + agendadasTotal,
+          statusColor: r1Totais >= topPerformerTarget ? "bg-euro-gold/20 text-euro-gold border-euro-gold/30" : 
+                       r1Totais >= metaTarget ? "bg-green-500/20 text-green-400 border-green-500/30" : 
+                       r1Totais > 0 ? "bg-orange-500/20 text-orange-400 border-orange-500/30" :
                        "bg-red-500/20 text-red-400 border-red-500/30",
-          statusText: stats.realizadas >= topPerformerTarget ? "Top Performer ⭐" : 
-                      stats.realizadas >= metaTarget ? "Meta ✓" : 
-                      stats.realizadas > 0 ? "Abaixo da Meta" :
+          statusText: r1Totais >= topPerformerTarget ? "Top Performer ⭐" : 
+                      r1Totais >= metaTarget ? "Meta ✓" : 
+                      r1Totais > 0 ? "Abaixo da Meta" :
                       "Zerado"
         };
         
         ranking.push(entry);
-        if (stats.realizadas === 0) zerados.push(entry);
+        if (r1Totais === 0) zerados.push(entry);
       });
 
       const totalAssessores = assessorStats.size;
@@ -723,7 +758,7 @@ export default function WeeklyEffortsDash() {
     };
 
     return { current, selectedMonth, comparative };
-  }, [dashboardData, metadata, periodDates, selectedTeam, selectedAssessor, today]);
+  }, [dashboardData, metadata, periodDates, selectedTeam, selectedAssessor, includeSdr, today]);
 
   const handleSort = (key: string) => {
     setSortConfig(prev => ({
@@ -797,8 +832,20 @@ export default function WeeklyEffortsDash() {
       const endStr = format(monthEnd, "yyyy-MM-dd");
       const weeks = FIXED_MONTH_WEEKS;
 
-      const assessorStats = new Map<string, { realizadas: number; agendadas: number; indicacao: number }>();
-      activeAssessors.forEach((a) => assessorStats.set(a.cod, { realizadas: 0, agendadas: 0, indicacao: 0 }));
+      const assessorStats = new Map<string, {
+        realizadasAssessor: number;
+        realizadasSdr: number;
+        agendadasAssessor: number;
+        agendadasSdr: number;
+        indicacao: number;
+      }>();
+      activeAssessors.forEach((a) => assessorStats.set(a.cod, {
+        realizadasAssessor: 0,
+        realizadasSdr: 0,
+        agendadasAssessor: 0,
+        agendadasSdr: 0,
+        indicacao: 0,
+      }));
 
       let realizadas = 0;
       let agendadas = 0;
@@ -816,16 +863,26 @@ export default function WeeklyEffortsDash() {
         if (selectedTeam !== "all" && assessorMeta?.team !== selectedTeam) return;
         if (selectedAssessor !== "all" && cod !== selectedAssessor) return;
 
+        const isSdr = isSdrCanal(r.canal);
         const isRealizada = String(r.concluido).toLowerCase() === "true";
-        if (isRealizada) realizadas++;
-        else agendadas++;
-        const isIndicacao = r.canal?.toLowerCase() === "indicação";
-        if (isIndicacao) indicacao++;
+        const countsForKpi = includeSdr || !isSdr;
+        const isIndicacao = !isSdr && r.canal?.toLowerCase() === "indicação";
+
+        if (countsForKpi) {
+          if (isRealizada) realizadas++;
+          else agendadas++;
+          if (isIndicacao) indicacao++;
+        }
 
         const current = assessorStats.get(cod);
         if (current) {
-          if (isRealizada) current.realizadas++;
-          else current.agendadas++;
+          if (isRealizada) {
+            if (isSdr) current.realizadasSdr++;
+            else current.realizadasAssessor++;
+          } else {
+            if (isSdr) current.agendadasSdr++;
+            else current.agendadasAssessor++;
+          }
           if (isIndicacao) current.indicacao++;
         }
       });
@@ -834,17 +891,31 @@ export default function WeeklyEffortsDash() {
       const metaIndividual = weeks;
       const totalMeta = totalAssessores * metaIndividual;
       const assessorRows = activeAssessors.map((assessor) => {
-        const stats = assessorStats.get(assessor.cod) || { realizadas: 0, agendadas: 0, indicacao: 0 };
-        const bateuMeta = stats.realizadas >= metaIndividual;
+        const stats = assessorStats.get(assessor.cod) || {
+          realizadasAssessor: 0,
+          realizadasSdr: 0,
+          agendadasAssessor: 0,
+          agendadasSdr: 0,
+          indicacao: 0,
+        };
+        const r1Assessor = stats.realizadasAssessor;
+        const r1Sdr = stats.realizadasSdr;
+        const r1Totais = includeSdr ? r1Assessor + r1Sdr : r1Assessor;
+        const agendadasTotal = includeSdr
+          ? stats.agendadasAssessor + stats.agendadasSdr
+          : stats.agendadasAssessor;
+        const bateuMeta = r1Totais >= metaIndividual;
         return {
           cod: assessor.cod,
           nome: assessor.name,
           time: assessor.team || "Sem time",
-          realizadas: stats.realizadas,
-          agendadas: stats.agendadas,
+          realizadas: r1Totais,
+          realizadasAssessor: r1Assessor,
+          realizadasSdr: r1Sdr,
+          agendadas: agendadasTotal,
           indicacao: stats.indicacao,
           bateuMeta,
-          pctMetaIndividual: metaIndividual > 0 ? (stats.realizadas / metaIndividual) * 100 : 0,
+          pctMetaIndividual: metaIndividual > 0 ? (r1Totais / metaIndividual) * 100 : 0,
         };
       }).sort((a, b) => {
         if (b.realizadas !== a.realizadas) return b.realizadas - a.realizadas;
@@ -919,7 +990,7 @@ export default function WeeklyEffortsDash() {
         deltaPct,
       };
     });
-  }, [monthlyHistoryData, metadata, selectedTeam, selectedAssessor, today]);
+  }, [monthlyHistoryData, metadata, selectedTeam, selectedAssessor, includeSdr, today]);
 
   const monthlyCompareSummary = useMemo(() => {
     if (!monthlyComparisonData.length) return null;
@@ -958,9 +1029,12 @@ export default function WeeklyEffortsDash() {
       'Posição': index + 1,
       'Assessor': assessor.nome,
       'Time': assessor.time,
-      'R1 Realizadas': assessor.realizadas,
+      'R1 Totais': assessor.r1Totais,
+      'R1 Assessor': assessor.realizadasAssessor,
+      'R1 SDR': assessor.realizadasSdr,
       'R1 Agendadas': assessor.agendadas,
-      'Status': assessor.statusText
+      'Status': assessor.statusText,
+      'Modo SDR': includeSdr ? 'Com SDR' : 'Sem SDR',
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -1119,6 +1193,19 @@ export default function WeeklyEffortsDash() {
                   </SelectContent>
                 </Select>
               )}
+
+              <Select
+                value={includeSdr ? "com" : "sem"}
+                onValueChange={(v) => setIncludeSdr(v === "com")}
+              >
+                <SelectTrigger className="w-[160px] h-9 bg-black/20 border-white/10 text-white text-xs font-data uppercase">
+                  <SelectValue placeholder="SDR" />
+                </SelectTrigger>
+                <SelectContent className="bg-euro-card border-white/10 text-white font-data uppercase text-xs">
+                  <SelectItem value="sem">Sem SDR</SelectItem>
+                  <SelectItem value="com">Com SDR</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -1571,19 +1658,25 @@ export default function WeeklyEffortsDash() {
                 <table className="w-full text-left border-collapse relative">
                   <thead className="sticky top-0 z-30">
                     <tr className="bg-euro-gold text-euro-navy text-[10px] font-data uppercase tracking-widest border-b border-euro-navy/20">
-                      <th onClick={() => handleSort('nome')} className="py-4 px-6 font-bold cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                      <th onClick={() => handleSort('nome')} className="py-4 px-4 sm:px-6 font-bold cursor-pointer hover:bg-euro-gold/80 transition-colors">
                         <div className="flex items-center gap-2"># Assessor <SortIcon column="nome" /></div>
                       </th>
-                      <th onClick={() => handleSort('time')} className="py-4 px-6 font-bold cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell">
+                      <th onClick={() => handleSort('time')} className="py-4 px-4 font-bold cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell">
                         <div className="flex items-center gap-2">Time <SortIcon column="time" /></div>
                       </th>
-                      <th onClick={() => handleSort('realizadas')} className="py-4 px-6 font-bold text-center cursor-pointer hover:bg-euro-gold/80 transition-colors">
-                        <div className="flex items-center justify-center gap-2">Realizadas <SortIcon column="realizadas" /></div>
+                      <th onClick={() => handleSort('r1Totais')} className="py-4 px-3 font-bold text-center cursor-pointer hover:bg-euro-gold/80 transition-colors">
+                        <div className="flex items-center justify-center gap-1">R1 Totais <SortIcon column="r1Totais" /></div>
                       </th>
-                      <th onClick={() => handleSort('agendadas')} className="py-4 px-6 font-bold text-center cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell">
-                        <div className="flex items-center justify-center gap-2">Agendadas <SortIcon column="agendadas" /></div>
+                      <th onClick={() => handleSort('realizadasAssessor')} className="py-4 px-3 font-bold text-center cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
+                        <div className="flex items-center justify-center gap-1">R1 Assessor <SortIcon column="realizadasAssessor" /></div>
                       </th>
-                      <th className="py-4 px-6 font-bold text-center">Status</th>
+                      <th onClick={() => handleSort('realizadasSdr')} className="py-4 px-3 font-bold text-center cursor-pointer hover:bg-euro-gold/80 transition-colors hidden md:table-cell">
+                        <div className="flex items-center justify-center gap-1">R1 SDR <SortIcon column="realizadasSdr" /></div>
+                      </th>
+                      <th onClick={() => handleSort('agendadas')} className="py-4 px-3 font-bold text-center cursor-pointer hover:bg-euro-gold/80 transition-colors hidden sm:table-cell">
+                        <div className="flex items-center justify-center gap-1">Agendadas <SortIcon column="agendadas" /></div>
+                      </th>
+                      <th className="py-4 px-4 font-bold text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.05]">
@@ -1592,17 +1685,17 @@ export default function WeeklyEffortsDash() {
                         key={assessor.cod} 
                         className={cn(
                           "group transition-all text-xs sm:text-sm font-data",
-                          idx < 3 && sortConfig.key === 'realizadas' && sortConfig.direction === 'desc' 
+                          idx < 3 && sortConfig.key === 'r1Totais' && sortConfig.direction === 'desc' 
                             ? "bg-euro-gold/[0.08] hover:bg-euro-gold/15" 
                             : "even:bg-white/[0.02] hover:bg-white/[0.05]"
                         )}
                       >
-                        <td className="py-3 px-6">
+                        <td className="py-3 px-4 sm:px-6">
                           <div className="flex items-center gap-3">
                             <span
                               className={cn(
                                 "font-display text-lg w-8 text-center tabular-nums",
-                                idx < 3 && sortConfig.key === 'realizadas' && sortConfig.direction === 'desc'
+                                idx < 3 && sortConfig.key === 'r1Totais' && sortConfig.direction === 'desc'
                                   ? "text-euro-gold"
                                   : "text-white/45"
                               )}
@@ -1610,23 +1703,32 @@ export default function WeeklyEffortsDash() {
                               {idx + 1}
                             </span>
                             <div className="flex flex-col">
-                              <span className="font-bold text-white uppercase tracking-tight truncate max-w-[200px] sm:max-w-md">
+                              <span className="font-bold text-white uppercase tracking-tight truncate max-w-[160px] sm:max-w-md">
                                 {assessor.nome}
                               </span>
                               <span className="text-[9px] text-white/40 uppercase sm:hidden">{assessor.time}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-6 text-white/70 font-medium hidden sm:table-cell">
+                        <td className="py-3 px-4 text-white/70 font-medium hidden sm:table-cell">
                           {assessor.time}
                         </td>
-                        <td className="py-3 px-6 text-center text-white font-display text-xl sm:text-2xl">
-                          {assessor.realizadas}
+                        <td className="py-3 px-3 text-center text-white font-display text-xl sm:text-2xl">
+                          {assessor.r1Totais}
                         </td>
-                        <td className="py-3 px-6 text-center text-white/70 tabular-nums hidden sm:table-cell text-lg">
+                        <td className="py-3 px-3 text-center text-white/80 tabular-nums hidden md:table-cell text-lg">
+                          {assessor.realizadasAssessor}
+                        </td>
+                        <td className={cn(
+                          "py-3 px-3 text-center tabular-nums hidden md:table-cell text-lg",
+                          includeSdr ? "text-[#D8B4FE]" : "text-white/35"
+                        )}>
+                          {assessor.realizadasSdr}
+                        </td>
+                        <td className="py-3 px-3 text-center text-white/70 tabular-nums hidden sm:table-cell text-lg">
                           {assessor.agendadas}
                         </td>
-                        <td className="py-3 px-6 text-center">
+                        <td className="py-3 px-4 text-center">
                           <Badge 
                             className={cn(
                               "px-3 sm:px-4 py-1.5 text-[9px] sm:text-xs uppercase border", 
@@ -1640,7 +1742,7 @@ export default function WeeklyEffortsDash() {
                     ))}
                     {sortedRanking.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-12 text-center text-white/30 font-data">
+                        <td colSpan={7} className="py-12 text-center text-white/30 font-data">
                           Nenhum dado encontrado para os filtros selecionados.
                         </td>
                       </tr>

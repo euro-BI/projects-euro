@@ -9,13 +9,17 @@ const corsHeaders = {
 };
 
 const API_BASE = "https://turing-git-dev-eurostock-investimentos.vercel.app/api/bi-atividades";
-const SYNC_FROM = "2026-08-21";
+const SYNC_FROM = "2026-08-01";
 const MANUAL_ID_CEILING = 999000;
+const RESULTADOS_SYNC = ["Realizada", "Agendada"] as const;
 
 type TuringAtividade = {
   id: string;
   data_atividade: string | null;
+  resultado: string | null;
   lead_origem: string | null;
+  lead_origem_sdr?: boolean | null;
+  lead_originado_por?: string | null;
   assessor_codigo: string | null;
   assessor_nome: string | null;
   assessor_email: string | null;
@@ -36,6 +40,14 @@ function json(status: number, body: unknown) {
 
 function todaySaoPaulo() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
+/** Horizonte para puxar R1 ainda no futuro (Agendada). */
+function syncHorizonAte() {
+  const today = todaySaoPaulo();
+  const d = new Date(`${today}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 60);
+  return d.toISOString().slice(0, 10);
 }
 
 function toDateOnly(value: string | null | undefined) {
@@ -97,8 +109,14 @@ function readDate(value: unknown, fallback: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : fallback;
 }
 
-function isOrigemSdr(value: string | null | undefined) {
-  return String(value ?? "").toUpperCase().includes("SDR");
+function isOrigemSdr(atividade: TuringAtividade) {
+  if (atividade.lead_origem_sdr === true) return true;
+  if (String(atividade.lead_originado_por ?? "").toUpperCase() === "SDR") return true;
+  return String(atividade.lead_origem ?? "").toUpperCase().includes("SDR");
+}
+
+function normalizeResultado(value: string | null | undefined) {
+  return String(value ?? "").trim();
 }
 
 async function fetchAtividades(params: {
@@ -154,9 +172,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const de = readDate(body.de, SYNC_FROM);
-    const ate = readDate(body.ate, todaySaoPaulo());
+    const ate = readDate(body.ate, syncHorizonAte());
     const tipo = String(body.tipo ?? "Reunião R1");
-    const resultado = String(body.resultado ?? "Realizada");
 
     const apiKey = Deno.env.get("TURING_BI_API_KEY") || String(body.api_key ?? "");
     const bypass = Deno.env.get("TURING_VERCEL_BYPASS") || String(body.bypass ?? "");
@@ -170,8 +187,25 @@ Deno.serve(async (req) => {
       return json(500, { error: "Credenciais internas do Supabase ausentes" });
     }
 
-    const atividadesBuscadas = await fetchAtividades({ de, ate, tipo, resultado, apiKey, bypass });
-    const atividades = atividadesBuscadas.filter((atividade) => !isOrigemSdr(atividade.lead_origem));
+    const porResultado = await Promise.all(
+      RESULTADOS_SYNC.map(async (resultado) => ({
+        resultado,
+        rows: await fetchAtividades({ de, ate, tipo, resultado, apiKey, bypass }),
+      })),
+    );
+
+    const seen = new Set<string>();
+    const atividades: TuringAtividade[] = [];
+    for (const lote of porResultado) {
+      for (const atividade of lote.rows) {
+        const key = atividade.id || `${atividade.data_atividade}|${atividade.assessor_codigo}|${atividade.resultado}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const resultado = normalizeResultado(atividade.resultado);
+        if (resultado !== "Realizada" && resultado !== "Agendada") continue;
+        atividades.push(atividade);
+      }
+    }
 
     const supabase = createClient(supabaseUrl, serviceKey, {
       db: { schema: "euro_dash" },
@@ -205,15 +239,25 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(nextId) || nextId < 1) nextId = 1;
 
     const createdAt = new Date().toISOString();
+    let nSdr = 0;
+    let nRealizada = 0;
+    let nAgendada = 0;
+
     const rows = atividades.map((atividade) => {
       const data = toDateOnly(atividade.data_atividade);
+      const resultado = normalizeResultado(atividade.resultado);
+      const sdr = isOrigemSdr(atividade);
+      if (sdr) nSdr += 1;
+      if (resultado === "Realizada") nRealizada += 1;
+      else nAgendada += 1;
+
       const row = {
         id_atividade: nextId,
         deal_id: "0",
         data_vencimento: data,
         data_adicionado: data,
-        concluido: "TRUE",
-        canal: "INDICAÇÃO",
+        concluido: resultado === "Realizada" ? "TRUE" : "FALSE",
+        canal: sdr ? "SDR" : "INDICAÇÃO",
         assessor: resolveAssessor(atividade, lookup),
         created_at: createdAt,
       };
@@ -226,13 +270,17 @@ Deno.serve(async (req) => {
       if (insertError) throw insertError;
     }
 
+    const buscadas = porResultado.reduce((acc, lote) => acc + lote.rows.length, 0);
+
     return json(200, {
       ok: true,
       de,
       ate,
-      buscadas: atividadesBuscadas.length,
-      ignoradas_sdr: atividadesBuscadas.length - atividades.length,
+      buscadas,
       gravadas: rows.length,
+      sdr: nSdr,
+      realizadas: nRealizada,
+      agendadas: nAgendada,
       id_inicial: rows[0]?.id_atividade ?? null,
       id_final: rows.at(-1)?.id_atividade ?? null,
       created_at: createdAt,
