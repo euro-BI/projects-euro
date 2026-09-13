@@ -49,7 +49,7 @@ function normalizeHeader(value: string) {
 }
 
 function dateInSaoPaulo(value: Date) {
-  return value.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  return value.toLocaleDateString("en-CA", { timeZone: "UTC" });
 }
 
 function parseDate(value: unknown): string | null {

@@ -498,7 +498,7 @@ function normalizeUploadHeader(value: string) {
 
 function serializeUploadValue(value: unknown) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    return value.toLocaleDateString("en-CA", { timeZone: "UTC" });
   }
   return value;
 }
