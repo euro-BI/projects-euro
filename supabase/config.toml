@@ -45,3 +45,9 @@ verify_jwt = true
 
 [functions.ingest-habilitacao-ativacao]
 verify_jwt = true
+
+[functions.ingest-cambio]
+verify_jwt = true
+
+[functions.ingest-nps]
+verify_jwt = true

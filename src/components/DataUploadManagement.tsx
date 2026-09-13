@@ -3,7 +3,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Loader2, RefreshCw, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -32,9 +32,9 @@ const UPLOAD_TYPES = [
   { value: "dados_modelo_servir", label: "Modelo de servir" },
   { value: "dados_habilitacoes", label: "Habilitações" },
   { value: "dados_ativacoes", label: "Ativações" },
-  { value: "dados_nps", label: "NPS", pending: true },
+  { value: "dados_nps", label: "NPS" },
+  { value: "dados_cambio", label: "Câmbio" },
   { value: "dados_demonstrativo_full", label: "Demonstrativo", pending: true },
-  { value: "dados_cambio", label: "Câmbio", pending: true },
 ] as const;
 
 interface TabelaInfo {
@@ -49,6 +49,38 @@ type UploadProgress = {
   label: string;
   current?: number;
   total?: number;
+};
+
+type FreshnessFilter = "all" | "ok" | "warn" | "stale";
+type StatusSortKey = "base" | "ultimo_registro" | "atualizacao" | "registros";
+
+const HUB_RELATORIOS_OPERACOES = "https://hub.xpi.com.br/new/relatorios-de-operacoes#/v2";
+const HUB_CUSTODIA_FII = "https://hub.xpi.com.br/new/relatorios/#/custodia-fii";
+const HUB_OFFSHORE = "https://hub.xpi.com.br/new/relatorios/#/offshore-digital";
+const HUB_RENDA_FIXA = "https://hub.xpi.com.br/new/relatorios/#/renda-fixa";
+const HUB_TERMOS = "https://hub.xpi.com.br/new/relatorios/#/relatorios-termos";
+const HUB_ESFORCOS = "https://hub.xpi.com.br/new/relatorios/#/indice-esforcos-assessoria";
+const HUB_BLACK = "https://black.xpi.com.br/produtos-estruturados/#/relatorios";
+const HUB_TRANSFERENCIAS = "https://hub.xpi.com.br/new/transferencia-de-clientes#/";
+const HUB_NPS = "https://xpcx.yul1.qualtrics.com/reporting-dashboard/web/69485f0603905a0008e2264f/pages/Page_61f4889e-6209-4a73-beef-c906a1c569c8/view?organizationSSOConfigId=OSC_eXPTFGd8Y1b0bIy&stateID=2e1114c7-33a9-4009-a1e3-a1625159e146";
+
+const HUB_LINKS: Record<string, string> = {
+  dados_captacoes: HUB_RELATORIOS_OPERACOES,
+  dados_positivador: HUB_RELATORIOS_OPERACOES,
+  dados_diversificador: HUB_RELATORIOS_OPERACOES,
+  dados_diversificador_full: HUB_RELATORIOS_OPERACOES,
+  dados_cetipados: HUB_CUSTODIA_FII,
+  dados_offshore_remessas: HUB_OFFSHORE,
+  dados_offshore_operacoes: HUB_OFFSHORE,
+  dados_rf_fluxo: HUB_RENDA_FIXA,
+  dados_pj_custodia: HUB_RENDA_FIXA,
+  dados_fp: HUB_TERMOS,
+  dados_modelo_servir: HUB_ESFORCOS,
+  dados_rupturas: HUB_ESFORCOS,
+  dados_rv_executadas: HUB_BLACK,
+  dados_posicao_black: HUB_BLACK,
+  dados_transferencias: HUB_TRANSFERENCIAS,
+  dados_nps: HUB_NPS,
 };
 
 export function DataUploadManagement() {
@@ -71,6 +103,11 @@ export function DataUploadManagement() {
   const [tabelasInfo, setTabelasInfo] = useState<TabelaInfo[]>([]);
   const [isLoadingTabelas, setIsLoadingTabelas] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [freshnessFilter, setFreshnessFilter] = useState<FreshnessFilter>("all");
+  const [statusSort, setStatusSort] = useState<{ key: StatusSortKey; dir: "asc" | "desc" }>({
+    key: "base",
+    dir: "asc",
+  });
 
   const freshnessCounts = useMemo(() => {
     const counts = { ok: 0, warn: 0, stale: 0 };
@@ -82,6 +119,40 @@ export function DataUploadManagement() {
     }
     return counts;
   }, [tabelasInfo]);
+
+  const displayedTabelas = useMemo(() => {
+    const filtered = freshnessFilter === "all"
+      ? tabelasInfo
+      : tabelasInfo.filter((tabela) => freshnessBucket(tabela.ultima_atualizacao) === freshnessFilter);
+
+    const direction = statusSort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      if (statusSort.key === "base") {
+        return prettyTableName(a.table_name).localeCompare(prettyTableName(b.table_name), "pt-BR") * direction;
+      }
+      if (statusSort.key === "registros") {
+        return (a.total_registros - b.total_registros) * direction;
+      }
+      const left = statusSort.key === "ultimo_registro" ? a.ultima_data_registro : a.ultima_atualizacao;
+      const right = statusSort.key === "ultimo_registro" ? b.ultima_data_registro : b.ultima_atualizacao;
+      if (!left && !right) return 0;
+      if (!left) return 1;
+      if (!right) return -1;
+      return left.localeCompare(right) * direction;
+    });
+  }, [tabelasInfo, freshnessFilter, statusSort]);
+
+  const toggleStatusSort = (key: StatusSortKey) => {
+    setStatusSort((current) => (
+      current.key === key
+        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "base" ? "asc" : "desc" }
+    ));
+  };
+
+  const selectFreshnessFilter = (filter: FreshnessFilter) => {
+    setFreshnessFilter((current) => (current === filter && filter !== "all" ? "all" : filter));
+  };
 
   const formatDateSafe = (dateString: string | null): string => {
     if (!dateString) return "—";
@@ -342,23 +413,60 @@ export function DataUploadManagement() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {freshnessCounts.ok} em dia
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-euro-gold" />
-              {freshnessCounts.warn} atenção
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-              {freshnessCounts.stale} atrasadas
-            </span>
+            <FreshnessFilterBadge
+              active={freshnessFilter === "all"}
+              onClick={() => selectFreshnessFilter("all")}
+              label={`${tabelasInfo.length} todos`}
+            />
+            <FreshnessFilterBadge
+              active={freshnessFilter === "ok"}
+              onClick={() => selectFreshnessFilter("ok")}
+              dot="bg-emerald-400"
+              label={`${freshnessCounts.ok} em dia`}
+            />
+            <FreshnessFilterBadge
+              active={freshnessFilter === "warn"}
+              onClick={() => selectFreshnessFilter("warn")}
+              dot="bg-euro-gold"
+              label={`${freshnessCounts.warn} atenção`}
+            />
+            <FreshnessFilterBadge
+              active={freshnessFilter === "stale"}
+              onClick={() => selectFreshnessFilter("stale")}
+              dot="bg-red-400"
+              label={`${freshnessCounts.stale} atrasadas`}
+            />
             <GhostButton onClick={fetchTabelasInfo} disabled={isLoadingTabelas} className="h-10">
               <RefreshCw className={cn("h-4 w-4", isLoadingTabelas && "animate-spin")} />
               Atualizar
             </GhostButton>
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-5 py-2 md:hidden">
+          {([
+            ["base", "Base"],
+            ["ultimo_registro", "Registro"],
+            ["atualizacao", "Atualização"],
+            ["registros", "Registros"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleStatusSort(key)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px]",
+                statusSort.key === key
+                  ? "border-white/25 bg-white/[0.1] text-white"
+                  : "border-white/10 bg-white/[0.04] text-white/55",
+              )}
+            >
+              {label}
+              {statusSort.key === key
+                ? statusSort.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                : null}
+            </button>
+          ))}
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
@@ -369,19 +477,22 @@ export function DataUploadManagement() {
             </div>
           ) : tabelasInfo.length === 0 ? (
             <p className="px-5 py-16 text-center text-white/40">Nenhuma informação de tabela encontrada.</p>
+          ) : displayedTabelas.length === 0 ? (
+            <p className="px-5 py-16 text-center text-white/40">Nenhuma base neste filtro.</p>
           ) : (
             <>
               <table className="hidden w-full text-left md:table">
                 <thead>
                   <tr className="border-b border-white/[0.08] bg-white/[0.025] text-[11px] uppercase tracking-wide text-white/40">
-                    <th className="px-5 py-3.5 font-medium">Base</th>
-                    <th className="px-4 py-3.5 font-medium">Último registro</th>
-                    <th className="px-4 py-3.5 font-medium">Atualização</th>
-                    <th className="px-5 py-3.5 text-right font-medium">Registros</th>
+                    <StatusSortHeader label="Base" sortKey="base" current={statusSort} onSort={toggleStatusSort} className="px-5" />
+                    <StatusSortHeader label="Último registro" sortKey="ultimo_registro" current={statusSort} onSort={toggleStatusSort} />
+                    <StatusSortHeader label="Atualização" sortKey="atualizacao" current={statusSort} onSort={toggleStatusSort} />
+                    <StatusSortHeader label="Registros" sortKey="registros" current={statusSort} onSort={toggleStatusSort} align="right" className="px-5" />
+                    <th className="px-5 py-3.5 text-right font-medium">Hub</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tabelasInfo.map((tabela) => (
+                  {displayedTabelas.map((tabela) => (
                     <tr key={tabela.table_name} className="border-b border-white/[0.06] last:border-0 hover:bg-white/[0.035]">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
@@ -397,13 +508,16 @@ export function DataUploadManagement() {
                       <td className="px-5 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
                         {tabela.total_registros.toLocaleString("pt-BR")}
                       </td>
+                      <td className="px-5 py-4 text-right">
+                        <HubReportLink tableName={tabela.table_name} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
               <div className="divide-y divide-white/[0.06] md:hidden">
-                {tabelasInfo.map((tabela) => (
+                {displayedTabelas.map((tabela) => (
                   <div key={tabela.table_name} className="flex items-start gap-3 px-5 py-4">
                     <FreshnessDot date={tabela.ultima_atualizacao} />
                     <div className="min-w-0 flex-1">
@@ -412,6 +526,7 @@ export function DataUploadManagement() {
                         {formatDateSafe(tabela.ultima_atualizacao)} · {tabela.total_registros.toLocaleString("pt-BR")} registros
                       </p>
                     </div>
+                    <HubReportLink tableName={tabela.table_name} />
                   </div>
                 ))}
               </div>
@@ -823,6 +938,45 @@ function slimHabAtivRows(rows: Record<string, unknown>[]) {
   return slimRowsByHeader(rows, HAB_ATIV_HEADERS);
 }
 
+const CAMBIO_HEADERS = new Set([
+  "data",
+  "tp pessoa",
+  "assessor",
+  "receita a dividir",
+  "dt mn cli",
+  "dt me cli",
+]);
+
+function slimCambioRows(rows: Record<string, unknown>[]) {
+  return slimRowsByHeader(rows, CAMBIO_HEADERS);
+}
+
+const NPS_HEADER_TOKENS = [
+  "cod assessor",
+  "cod conta",
+  "record date",
+  "distribution category",
+  "survey id",
+  "email opened",
+  "survey finished time",
+  "q1",
+  "primeira experiencia",
+  "jornada 2 1",
+  "jornada 3 2",
+];
+
+function slimNpsRows(rows: Record<string, unknown>[]) {
+  return rows.map((row) => {
+    const slim: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      const normalized = normalizeUploadHeader(key);
+      if (!NPS_HEADER_TOKENS.some((token) => normalized.includes(token))) continue;
+      slim[key] = serializeUploadValue(value);
+    }
+    return slim;
+  });
+}
+
 function isEdgeUpload(name: string) {
   return name === "dados_captacoes"
     || name === "positivador"
@@ -838,7 +992,9 @@ function isEdgeUpload(name: string) {
     || name === "dados_fp"
     || name === "dados_modelo_servir"
     || name === "dados_habilitacoes"
-    || name === "dados_ativacoes";
+    || name === "dados_ativacoes"
+    || name === "dados_cambio"
+    || name === "dados_nps";
 }
 
 function chunkRows<T>(rows: T[], size: number) {
@@ -1248,7 +1404,59 @@ async function invokeSelectedEdgeIngest(
   if (name === "dados_modelo_servir") return invokeIngestModeloServir(rows, onProgress);
   if (name === "dados_habilitacoes") return invokeIngestHabAtiv("habilitacao", rows, onProgress);
   if (name === "dados_ativacoes") return invokeIngestHabAtiv("ativacao", rows, onProgress);
+  if (name === "dados_cambio") return invokeIngestCambio(rows, onProgress);
+  if (name === "dados_nps") return invokeIngestNps(rows, onProgress);
   throw new Error(`Base sem ingestão direta: ${name}`);
+}
+
+async function invokeIngestNps(
+  rows: Record<string, unknown>[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  const slim = slimNpsRows(rows);
+  const chunks = chunkRows(slim, 400);
+  let last: Record<string, unknown> | null = null;
+  let gravadas = 0;
+
+  for (let i = 0; i < chunks.length; i += 1) {
+    const sent = Math.min((i + 1) * 400, slim.length);
+    onProgress?.({
+      percent: Math.round(18 + (i / Math.max(chunks.length, 1)) * 78),
+      label: i === 0 ? "Limpando a tabela e gravando o primeiro lote..." : `Gravando lote ${i + 1} de ${chunks.length}...`,
+      current: i * 400,
+      total: slim.length,
+    });
+    const { data, error } = await supabase.functions.invoke("ingest-nps", {
+      body: {
+        chunked: true,
+        rows: chunks[i],
+        replace_all: i === 0,
+      },
+    });
+    await throwIfFunctionFailed(error, data);
+    gravadas += Number(data?.gravadas ?? 0);
+    last = data;
+    onProgress?.({
+      percent: Math.round(18 + ((i + 1) / Math.max(chunks.length, 1)) * 78),
+      label: i === chunks.length - 1 ? "Finalizando a carga..." : `Lote ${i + 1} de ${chunks.length} gravado`,
+      current: sent,
+      total: slim.length,
+    });
+  }
+
+  return { ...last, gravadas, total_linhas_enviadas: gravadas };
+}
+
+async function invokeIngestCambio(
+  rows: Record<string, unknown>[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  return invokeChunkedIngest(
+    "ingest-cambio",
+    slimCambioRows(rows),
+    ["Data", "data"],
+    onProgress,
+  );
 }
 
 function startCreepingProgress(
@@ -1360,6 +1568,8 @@ const TABLE_DISPLAY_NAMES: Record<string, string> = {
   dados_fp: "Financial Planning",
   dados_modelo_servir: "Modelo de servir",
   dados_habilitacao_ativacao: "Habilitação e ativação",
+  dados_diversificador_full: "Diversificador",
+  dados_nps: "NPS",
 };
 
 function prettyTableName(name: string) {
@@ -1387,6 +1597,86 @@ function freshnessTone(date: string | null) {
 
 function FreshnessDot({ date }: { date: string | null }) {
   return <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", freshnessTone(date))} />;
+}
+
+function FreshnessFilterBadge({
+  active,
+  onClick,
+  label,
+  dot,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  dot?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+        active
+          ? "border-white/25 bg-white/[0.1] text-white"
+          : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white",
+      )}
+    >
+      {dot && <span className={cn("h-1.5 w-1.5 rounded-full", dot)} />}
+      {label}
+    </button>
+  );
+}
+
+function StatusSortHeader({
+  label,
+  sortKey,
+  current,
+  onSort,
+  align = "left",
+  className,
+}: {
+  label: string;
+  sortKey: StatusSortKey;
+  current: { key: StatusSortKey; dir: "asc" | "desc" };
+  onSort: (key: StatusSortKey) => void;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  const active = current.key === sortKey;
+  return (
+    <th className={cn("px-4 py-3.5 font-medium", align === "right" && "text-right", className)}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-white",
+          align === "right" && "ml-auto",
+          active ? "text-white" : "text-white/40",
+        )}
+      >
+        {label}
+        {active
+          ? current.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+          : <ArrowDown className="h-3 w-3 opacity-30" />}
+      </button>
+    </th>
+  );
+}
+
+function HubReportLink({ tableName }: { tableName: string }) {
+  const href = HUB_LINKS[tableName];
+  if (!href) return <span className="text-xs text-white/20">—</span>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-[11px] font-medium text-white/70 transition-colors hover:border-euro-gold/30 hover:bg-euro-gold/10 hover:text-euro-gold"
+    >
+      <ExternalLink className="h-3.5 w-3.5" />
+      Hub
+    </a>
+  );
 }
 
 function GhostButton({ children, className, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
