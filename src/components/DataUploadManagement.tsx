@@ -63,6 +63,8 @@ const HUB_ESFORCOS = "https://hub.xpi.com.br/new/relatorios/#/indice-esforcos-as
 const HUB_BLACK = "https://black.xpi.com.br/produtos-estruturados/#/relatorios";
 const HUB_TRANSFERENCIAS = "https://hub.xpi.com.br/new/transferencia-de-clientes#/";
 const HUB_NPS = "https://xpcx.yul1.qualtrics.com/reporting-dashboard/web/69485f0603905a0008e2264f/pages/Page_61f4889e-6209-4a73-beef-c906a1c569c8/view?organizationSSOConfigId=OSC_eXPTFGd8Y1b0bIy&stateID=2e1114c7-33a9-4009-a1e3-a1625159e146";
+const HUB_CAMBIO = "https://hub.xpi.com.br/cambio/#/relatorios";
+const HUB_GERENCIAIS = "https://hub.xpi.com.br/new/relatorios/#/relatorios-gerencias";
 
 const HUB_LINKS: Record<string, string> = {
   dados_captacoes: HUB_RELATORIOS_OPERACOES,
@@ -81,6 +83,9 @@ const HUB_LINKS: Record<string, string> = {
   dados_posicao_black: HUB_BLACK,
   dados_transferencias: HUB_TRANSFERENCIAS,
   dados_nps: HUB_NPS,
+  dados_cambio: HUB_CAMBIO,
+  dados_demonstrativo_full: HUB_GERENCIAIS,
+  dados_habilitacao_ativacao: HUB_GERENCIAIS,
 };
 
 export function DataUploadManagement() {
