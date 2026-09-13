@@ -498,9 +498,26 @@ function normalizeUploadHeader(value: string) {
 
 function serializeUploadValue(value: unknown) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toLocaleDateString("en-CA", { timeZone: "UTC" });
+    return parseUploadDate(value) ?? value;
   }
   return value;
+}
+
+function parseUploadDate(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toLocaleDateString("en-CA", { timeZone: "UTC" });
+  }
+  if (typeof value === "number" && Number.isFinite(value) && value > 20_000 && value < 80_000) {
+    return new Date(Date.UTC(1899, 11, 30) + Math.round(value) * 86_400_000)
+      .toLocaleDateString("en-CA", { timeZone: "UTC" });
+  }
+  const raw = String(value).trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const br = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2].padStart(2, "0")}-${br[1].padStart(2, "0")}`;
+  return null;
 }
 
 const CETIPADOS_HEADERS = new Set([
@@ -777,7 +794,7 @@ async function invokeIngestPositivador(
   const dates = slim
     .map((row) => {
       const raw = row.Data ?? row.data_posicao ?? row["Data Posição"] ?? row["Data Posicao"];
-      return isIsoDate(raw) ? raw.slice(0, 10) : null;
+      return parseUploadDate(raw);
     })
     .filter((value): value is string => Boolean(value))
     .sort();
@@ -827,7 +844,7 @@ async function invokeIngestCetipados(
   const dates = slim
     .map((row) => {
       const raw = row.Data ?? row.data;
-      return isIsoDate(raw) ? raw.slice(0, 10) : null;
+      return parseUploadDate(raw);
     })
     .filter((value): value is string => Boolean(value))
     .sort();
@@ -874,7 +891,7 @@ async function invokeIngestRfFluxo(
   const dates = slim
     .map((row) => {
       const raw = row.Data ?? row.data;
-      return isIsoDate(raw) ? raw.slice(0, 10) : null;
+      return parseUploadDate(raw);
     })
     .filter((value): value is string => Boolean(value))
     .sort();
@@ -923,8 +940,8 @@ function monthsFromIsoDates(dates: string[]) {
 
 function pickSlimDate(row: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
-    const value = row[key];
-    if (isIsoDate(value)) return value.slice(0, 10);
+    const parsed = parseUploadDate(row[key]);
+    if (parsed) return parsed;
   }
   return null;
 }
