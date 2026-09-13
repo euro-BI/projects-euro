@@ -54,6 +54,31 @@ type UploadProgress = {
 type FreshnessFilter = "all" | "ok" | "warn" | "stale";
 type StatusSortKey = "base" | "ultimo_registro" | "atualizacao" | "registros";
 
+type SnapshotMetric = {
+  key: string;
+  label: string;
+  valor: number;
+  ultima_data_registro: string | null;
+};
+
+type DashSnapshot = {
+  id: string;
+  created_at: string;
+  data_posicao: string;
+  metrics: SnapshotMetric[];
+};
+
+type SnapshotCompare = {
+  current: DashSnapshot;
+  previous: DashSnapshot;
+};
+
+type SnapshotResponse = {
+  error?: string;
+  ok?: boolean;
+  snapshot?: { current?: DashSnapshot; previous?: DashSnapshot | null };
+};
+
 const HUB_RELATORIOS_OPERACOES = "https://hub.xpi.com.br/new/relatorios-de-operacoes#/v2";
 const HUB_CUSTODIA_FII = "https://hub.xpi.com.br/new/relatorios/#/custodia-fii";
 const HUB_OFFSHORE = "https://hub.xpi.com.br/new/relatorios/#/offshore-digital";
@@ -115,6 +140,9 @@ export function DataUploadManagement() {
   const [refreshErrorMessage, setRefreshErrorMessage] = useState<string | null>(null);
   const [refreshDone, setRefreshDone] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState<UploadProgress>({ percent: 0, label: "" });
+  const [firstSnapshotSaved, setFirstSnapshotSaved] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [snapshotCompare, setSnapshotCompare] = useState<SnapshotCompare | null>(null);
   const [freshnessFilter, setFreshnessFilter] = useState<FreshnessFilter>("all");
   const [statusSort, setStatusSort] = useState<{ key: StatusSortKey; dir: "asc" | "desc" }>({
     key: "base",
@@ -265,28 +293,32 @@ export function DataUploadManagement() {
     setRefreshError(false);
     setRefreshErrorMessage(null);
     setRefreshDone(false);
-    setRefreshProgress({ percent: 8, label: "Preparando o recálculo..." });
+    setFirstSnapshotSaved(false);
+    setSnapshotCompare(null);
+    setShowCompareModal(false);
+    setRefreshProgress({ percent: 8, label: "Preparando o recálculo...", current: 0, total: 3 });
 
     const views = [
-      { name: "mv_resumo_assessor", label: "Recalculando resumo do assessor..." },
-      { name: "mv_detalhamento_ativacoes", label: "Recalculando detalhamento de ativações..." },
+      { name: "mv_resumo_assessor", label: "Recalculando resumo do assessor...", from: 12, to: 42 },
+      { name: "mv_detalhamento_ativacoes", label: "Recalculando detalhamento de ativações...", from: 46, to: 78 },
     ] as const;
 
     try {
       for (let i = 0; i < views.length; i += 1) {
         const view = views[i];
         setRefreshProgress({
-          percent: i === 0 ? 18 : 58,
+          percent: view.from,
           label: view.label,
           current: i,
-          total: views.length,
+          total: 3,
         });
         const stopFake = startCreepingProgress(
           setRefreshProgress,
-          i === 0 ? 18 : 58,
-          i === 0 ? 52 : 92,
+          view.from,
+          view.to,
           view.label,
-          views.length,
+          3,
+          i,
         );
         let data: { error?: string; ok?: boolean } | null = null;
         let error: { message?: string; context?: Response } | null = null;
@@ -301,13 +333,58 @@ export function DataUploadManagement() {
         }
         await throwIfFunctionFailed(error, data);
         setRefreshProgress({
-          percent: i === 0 ? 55 : 100,
-          label: i === 0 ? "Resumo atualizado. Seguindo para ativações..." : "Visões atualizadas",
+          percent: i === 0 ? 44 : 80,
+          label: i === 0 ? "Resumo atualizado. Seguindo para ativações..." : "Visões atualizadas. Gravando a foto...",
           current: i + 1,
-          total: views.length,
+          total: 3,
         });
       }
+
+      setRefreshProgress({
+        percent: 84,
+        label: "Salvando a foto da atualização...",
+        current: 2,
+        total: 3,
+      });
+      const stopSnapshot = startCreepingProgress(
+        setRefreshProgress,
+        84,
+        96,
+        "Salvando a foto da atualização...",
+        3,
+        2,
+      );
+      let snapshotData: SnapshotResponse | null = null;
+      let snapshotError: { message?: string; context?: Response } | null = null;
+      try {
+        const response = await supabase.functions.invoke("refresh-dash-views", {
+          body: { view: "snapshot" },
+        });
+        snapshotData = response.data as SnapshotResponse | null;
+        snapshotError = response.error;
+      } finally {
+        stopSnapshot();
+      }
+      await throwIfFunctionFailed(snapshotError, snapshotData);
+
+      const payload = readSnapshotPayload(snapshotData);
+      const current = payload.current;
+      const previous = payload.previous ?? null;
+      setRefreshProgress({
+        percent: 100,
+        label: previous ? "Foto gravada. Abrindo a comparação..." : "Foto salva. Na próxima você compara.",
+        current: 3,
+        total: 3,
+      });
       setRefreshDone(true);
+
+      if (current && previous) {
+        setSnapshotCompare({ current, previous });
+        setShowRefreshModal(false);
+        setShowCompareModal(true);
+      } else {
+        setFirstSnapshotSaved(true);
+      }
     } catch (error) {
       console.error("Erro ao atualizar visões:", error);
       setRefreshError(true);
@@ -629,6 +706,7 @@ export function DataUploadManagement() {
           <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/75">
             <p><span className="text-white/40">1 · </span>mv_resumo_assessor</p>
             <p><span className="text-white/40">2 · </span>mv_detalhamento_ativacoes</p>
+            <p><span className="text-white/40">3 · </span>foto da atualização</p>
           </div>
           <div className="flex gap-2">
             <GhostButton className="flex-1" onClick={() => setShowRefreshConfirmModal(false)}>Cancelar</GhostButton>
@@ -656,6 +734,7 @@ export function DataUploadManagement() {
             setRefreshErrorMessage(null);
             setRefreshDone(false);
             setRefreshProgress({ percent: 0, label: "" });
+            setFirstSnapshotSaved(false);
           }
         }}
       >
@@ -664,11 +743,32 @@ export function DataUploadManagement() {
             sending={isRefreshingViews}
             error={refreshError}
             errorMessage={refreshErrorMessage}
-            result={refreshDone ? { total_linhas_enviadas: 2 } : null}
+            result={refreshDone ? { total_linhas_enviadas: 3 } : null}
             progress={refreshProgress}
-            baseLabel="mv_resumo_assessor · mv_detalhamento_ativacoes"
+            baseLabel="mv_resumo_assessor · mv_detalhamento_ativacoes · foto"
             variant="views"
+            doneDescription={firstSnapshotSaved ? "Foto salva. Na próxima você compara." : undefined}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showCompareModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowCompareModal(false);
+            setSnapshotCompare(null);
+          }
+        }}
+      >
+        <DialogContent className={cn(dialogClass, "sm:max-w-2xl")}>
+          {snapshotCompare && (
+            <SnapshotComparePanel
+              current={snapshotCompare.current}
+              previous={snapshotCompare.previous}
+              formatDate={formatDateSafe}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1140,6 +1240,22 @@ function chunkRows<T>(rows: T[], size: number) {
   return chunks;
 }
 
+function readSnapshotPayload(raw: SnapshotResponse | null): { current?: DashSnapshot; previous?: DashSnapshot | null } {
+  const payload = raw?.snapshot as unknown;
+  if (!payload) return {};
+  const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
+  if (!parsed || typeof parsed !== "object") return {};
+  const current = (parsed as { current?: DashSnapshot }).current;
+  const previous = (parsed as { previous?: DashSnapshot | null }).previous ?? null;
+  if (current && typeof current.metrics === "string") {
+    current.metrics = JSON.parse(current.metrics);
+  }
+  if (previous && typeof previous.metrics === "string") {
+    previous.metrics = JSON.parse(previous.metrics);
+  }
+  return { current, previous };
+}
+
 async function throwIfFunctionFailed(error: { message?: string; context?: Response } | null, data: { error?: string; ok?: boolean } | null) {
   if (data?.error || data?.ok === false) {
     throw new Error(data?.error || "Falha ao gravar o arquivo");
@@ -1602,13 +1718,144 @@ function startCreepingProgress(
   to: number,
   label: string,
   total?: number,
+  currentStep?: number,
 ) {
   let current = from;
   const timer = window.setInterval(() => {
     current = Math.min(to, current + Math.max(1, (to - current) * 0.08));
-    onProgress?.({ percent: Math.round(current), label, total });
+    onProgress?.({ percent: Math.round(current), label, total, current: currentStep });
   }, 350);
   return () => window.clearInterval(timer);
+}
+
+function formatSnapshotMoney(value: number) {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
+function formatSnapshotWhen(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
+
+function metricNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function SnapshotComparePanel({
+  current,
+  previous,
+  formatDate,
+}: {
+  current: DashSnapshot;
+  previous: DashSnapshot;
+  formatDate: (value: string | null) => string;
+}) {
+  const previousByKey = new Map((previous.metrics ?? []).map((metric) => [metric.key, metric]));
+  const rows = (current.metrics ?? []).map((metric) => {
+    const before = metricNumber(previousByKey.get(metric.key)?.valor);
+    const after = metricNumber(metric.valor);
+    return {
+      key: metric.key,
+      label: metric.label,
+      before,
+      after,
+      delta: after - before,
+      ultima_data_registro: metric.ultima_data_registro ?? null,
+    };
+  });
+  const changed = rows
+    .filter((row) => Math.abs(row.delta) > 0.005)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const unchanged = rows.filter((row) => Math.abs(row.delta) <= 0.005);
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-2xl font-semibold tracking-tight">Antes × Agora</DialogTitle>
+        <DialogDescription className="text-white/50">
+          {formatSnapshotWhen(previous.created_at)} → {formatSnapshotWhen(current.created_at)}
+          {" · competência "}
+          {formatDate(current.data_posicao)}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="max-h-[60vh] space-y-5 overflow-auto pr-1">
+        {changed.length > 0 && (
+          <section className="space-y-2">
+            <p className="text-[11px] uppercase tracking-wide text-white/40">O que mudou</p>
+            <div className="space-y-1.5">
+              {changed.map((row) => (
+                <CompareMetricRow key={row.key} row={row} formatDate={formatDate} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {unchanged.length > 0 && (
+          <section className="space-y-2">
+            <p className="text-[11px] uppercase tracking-wide text-white/40">
+              {changed.length > 0 ? "Sem alteração" : "Nenhuma métrica mudou"}
+            </p>
+            <div className="space-y-1.5">
+              {unchanged.map((row) => (
+                <CompareMetricRow key={row.key} row={row} formatDate={formatDate} muted />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </>
+  );
+}
+
+function CompareMetricRow({
+  row,
+  formatDate,
+  muted = false,
+}: {
+  row: {
+    key: string;
+    label: string;
+    before: number;
+    after: number;
+    delta: number;
+    ultima_data_registro: string | null;
+  };
+  formatDate: (value: string | null) => string;
+  muted?: boolean;
+}) {
+  const up = row.delta > 0.005;
+  const down = row.delta < -0.005;
+  const deltaTone = up ? "text-emerald-400" : down ? "text-red-400" : "text-white/40";
+
+  return (
+    <div className={cn(
+      "rounded-2xl border px-3.5 py-3",
+      muted ? "border-white/[0.06] bg-white/[0.02]" : "border-white/10 bg-white/[0.035]",
+    )}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium text-white">{row.label}</p>
+          <p className="mt-0.5 font-data text-[11px] text-white/35">
+            {formatSnapshotMoney(row.before)} → {formatSnapshotMoney(row.after)}
+            {row.ultima_data_registro ? ` · registro ${formatDate(row.ultima_data_registro)}` : ""}
+          </p>
+        </div>
+        <div className={cn("flex shrink-0 items-center gap-1 font-data text-sm tabular-nums", deltaTone)}>
+          {up && <ArrowUp className="h-3.5 w-3.5" />}
+          {down && <ArrowDown className="h-3.5 w-3.5" />}
+          {muted ? "—" : `${up ? "+" : ""}${formatSnapshotMoney(row.delta)}`}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function UploadProgressPanel({
@@ -1620,6 +1867,7 @@ function UploadProgressPanel({
   fileName,
   baseLabel,
   variant = "upload",
+  doneDescription,
 }: {
   sending: boolean;
   error: boolean;
@@ -1629,6 +1877,7 @@ function UploadProgressPanel({
   fileName?: string;
   baseLabel?: string;
   variant?: "upload" | "views";
+  doneDescription?: string;
 }) {
   const percent = error ? progress.percent : result ? 100 : Math.max(0, Math.min(100, progress.percent));
   const tone = error ? "text-red-400" : result ? "text-emerald-400" : "text-euro-gold";
@@ -1664,7 +1913,7 @@ function UploadProgressPanel({
                     ? "Não foi possível atualizar as visões. Tente de novo."
                     : "Não foi possível gravar os dados. Confira o arquivo e tente de novo.")
                   : isViews
-                    ? "Resumo do assessor e detalhamento de ativações foram recalculados."
+                    ? (doneDescription ?? "Resumo do assessor e detalhamento de ativações foram recalculados.")
                     : `${(result?.total_linhas_enviadas ?? 0).toLocaleString("pt-BR")} linhas gravadas.`}
             </DialogDescription>
           </div>

@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 const VIEWS = new Set(["mv_resumo_assessor", "mv_detalhamento_ativacoes"]);
+const STEPS = new Set([...VIEWS, "snapshot"]);
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
@@ -46,14 +47,27 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const viewName = String(body?.view ?? "").trim();
-    if (!VIEWS.has(viewName)) {
-      return json(400, { error: "Informe view: mv_resumo_assessor ou mv_detalhamento_ativacoes" });
+    if (!STEPS.has(viewName)) {
+      return json(400, { error: "Informe view: mv_resumo_assessor, mv_detalhamento_ativacoes ou snapshot" });
     }
 
     const supabase = createClient(supabaseUrl, serviceKey, {
       db: { schema: "euro_dash" },
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    if (viewName === "snapshot") {
+      const { data, error } = await supabase.rpc("capture_dash_refresh_snapshot", {
+        p_created_by: userData.user.id,
+      });
+      if (error) throw error;
+      return json(200, {
+        ok: true,
+        view: "snapshot",
+        snapshot: data,
+        user_id: userData.user.id,
+      });
+    }
 
     const { data, error } = await supabase.rpc("refresh_dashboard_view", { view_name: viewName });
     if (error) throw error;
