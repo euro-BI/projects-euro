@@ -1,7 +1,8 @@
 -- Bifurca elegibilidade do Super Ranking na mv_resumo_assessor:
--- v1 (até 2026-06): clientes < 120 + FP > 50% + rupturas <= 5
--- v2 (a partir de 2026-07): clientes < 120 + média Servir semestre >= 60 + NPS semestre >= 80
+-- v1 (até 2026-06): clientes <= 120 + FP > 50% + rupturas <= 5
+-- v2 (a partir de 2026-07): clientes <= 120 + média Servir semestre >= 60 + NPS semestre >= 80
 --   (NPS sem respostas no semestre não derruba)
+-- Nota: corte de clientes foi ajustado para <= 120 em 20260913_euro_dash_elegibilidade_clientes_le_120.sql
 
 DO $$
 DECLARE

@@ -7,6 +7,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
@@ -134,7 +135,9 @@ function CriterionChart({
 }) {
   const chartData = data.map((d) => ({
     ...d,
-    display: d.value == null ? 0 : d.value,
+    // Nota 0 some no gráfico; usa stub visual só para desenhar a barra.
+    display: d.value == null ? 0 : d.value === 0 ? 4 : d.value,
+    hasScore: d.value != null,
   }));
 
   return (
@@ -149,7 +152,7 @@ function CriterionChart({
 
       <div className="h-[110px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 6, right: 8, left: -12, bottom: 0 }}>
+          <BarChart data={chartData} margin={{ top: 14, right: 8, left: -12, bottom: 0 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
             <XAxis
               dataKey="label"
@@ -187,7 +190,7 @@ function CriterionChart({
               itemStyle={{ color: "#F5F5F0" }}
               formatter={(value: any, _name: any, item: any) => {
                 const raw = item?.payload?.value;
-                if (raw == null) return ["—", title];
+                if (raw == null) return ["sem respostas", title];
                 return [`${Number(raw).toFixed(1)}${unit}`, title];
               }}
             />
@@ -198,21 +201,33 @@ function CriterionChart({
               onClick={(data: any) => {
                 if (!onBarClick) return;
                 const point = (data?.payload ?? data) as MonthPoint | undefined;
-                if (!point?.key) return;
+                if (!point?.key || point.value == null) return;
                 onBarClick(point);
               }}
             >
+              <LabelList
+                dataKey="value"
+                position="top"
+                formatter={(v: any) => (v == null || v === "" ? "" : Number(v).toFixed(0))}
+                style={{ fill: "rgba(255,255,255,0.65)", fontSize: 10 }}
+              />
               {chartData.map((entry) => {
                 const fail =
                   entry.value == null
                     ? false
                     : higherIsBetter
                       ? entry.value < threshold
-                      : entry.value >= threshold;
+                      : entry.value > threshold;
                 return (
                   <Cell
                     key={entry.key}
-                    fill={entry.value == null ? "rgba(255,255,255,0.12)" : fail ? colorFail : colorOk}
+                    fill={
+                      entry.value == null
+                        ? "rgba(255,255,255,0.08)"
+                        : fail
+                          ? colorFail
+                          : colorOk
+                    }
                     fillOpacity={entry.value == null ? 0.35 : 0.9}
                   />
                 );
@@ -335,22 +350,47 @@ export default function InelegibilityDetailDialog({
   }, [servirRows]);
 
   const npsByMonth = useMemo(() => {
-    const buckets = new Map<string, { promotores: number; detratores: number; total: number; rows: NpsRow[] }>();
+    const buckets = new Map<
+      string,
+      { promotores: number; passivos: number; detratores: number; total: number; rows: NpsRow[] }
+    >();
     for (const row of npsRows) {
       if (!row.data_real) continue;
       const key = String(row.data_real).slice(0, 7);
-      if (!buckets.has(key)) buckets.set(key, { promotores: 0, detratores: 0, total: 0, rows: [] });
+      if (!buckets.has(key)) {
+        buckets.set(key, { promotores: 0, passivos: 0, detratores: 0, total: 0, rows: [] });
+      }
       const b = buckets.get(key)!;
       b.total += 1;
       b.rows.push(row);
       if (row.classificacao_nps === "Promotor") b.promotores += 1;
-      if (row.classificacao_nps === "Detrator") b.detratores += 1;
+      else if (row.classificacao_nps === "Passivo") b.passivos += 1;
+      else if (row.classificacao_nps === "Detrator") b.detratores += 1;
     }
-    const scores = new Map<string, { score: number; total: number; rows: NpsRow[] }>();
+    const scores = new Map<
+      string,
+      {
+        score: number;
+        total: number;
+        promotores: number;
+        passivos: number;
+        detratores: number;
+        pctPromotores: number;
+        pctDetratores: number;
+        rows: NpsRow[];
+      }
+    >();
     for (const [key, b] of buckets) {
+      const pctPromotores = (b.promotores / b.total) * 100;
+      const pctDetratores = (b.detratores / b.total) * 100;
       scores.set(key, {
-        score: Math.round(((b.promotores - b.detratores) / b.total) * 100),
+        score: Math.round(pctPromotores - pctDetratores),
         total: b.total,
+        promotores: b.promotores,
+        passivos: b.passivos,
+        detratores: b.detratores,
+        pctPromotores,
+        pctDetratores,
         rows: b.rows,
       });
     }
@@ -364,7 +404,7 @@ export default function InelegibilityDetailDialog({
       key,
       label: shortMonth(key),
       value: value == null ? null : Number(value),
-      fail: value != null && Number(value) >= CLIENTES_LIMIT,
+      fail: value != null && Number(value) > CLIENTES_LIMIT,
     };
   });
 
@@ -414,7 +454,7 @@ export default function InelegibilityDetailDialog({
 
   const latest = rowByMonth.get(bounds.endKey) || assessor;
   const mediaClientes = latest?.media_movel_clientes_6m != null ? Number(latest.media_movel_clientes_6m) : null;
-  const clientesOk = mediaClientes != null && mediaClientes < CLIENTES_LIMIT;
+  const clientesOk = mediaClientes != null && mediaClientes <= CLIENTES_LIMIT;
 
   const servirValues = servirSeries.map((s) => s.value).filter((v): v is number => v != null);
   const mediaServir =
@@ -426,15 +466,12 @@ export default function InelegibilityDetailDialog({
   const servirOk = mediaServir != null && mediaServir >= SERVIR_MIN;
 
   const npsRespostas = Number(latest?.nps_respostas_semestre ?? npsRows.length);
+  const monthlyScores = npsSeries.map((s) => s.value).filter((v): v is number => v != null);
   const npsScore =
     latest?.nps_semestre != null
       ? Number(latest.nps_semestre)
-      : npsRespostas > 0
-        ? (() => {
-            const promotores = npsRows.filter((r) => r.classificacao_nps === "Promotor").length;
-            const detratores = npsRows.filter((r) => r.classificacao_nps === "Detrator").length;
-            return Math.round(((promotores - detratores) / npsRespostas) * 100);
-          })()
+      : monthlyScores.length > 0
+        ? Math.round((monthlyScores.reduce((a, b) => a + b, 0) / monthlyScores.length) * 10) / 10
         : null;
   const npsOk = npsRespostas === 0 || (npsScore != null && npsScore >= NPS_MIN);
 
@@ -525,7 +562,7 @@ export default function InelegibilityDetailDialog({
                   subtitle="Média móvel das últimas 6 posições"
                   data={clientesSeries}
                   threshold={CLIENTES_LIMIT}
-                  thresholdLabel={`limite ${CLIENTES_LIMIT}`}
+                  thresholdLabel={`máx. ${CLIENTES_LIMIT}`}
                   higherIsBetter={false}
                   finalLabel="Média consolidada no corte"
                   finalValue={mediaClientes == null ? "—" : mediaClientes.toFixed(1)}
@@ -534,8 +571,8 @@ export default function InelegibilityDetailDialog({
                     mediaClientes == null
                       ? "Sem posição no período."
                       : clientesOk
-                        ? `Abaixo de ${CLIENTES_LIMIT} — critério ok.`
-                        : `Precisa ficar abaixo de ${CLIENTES_LIMIT} clientes na média móvel.`
+                        ? `Até ${CLIENTES_LIMIT} — critério ok.`
+                        : `Precisa ficar em até ${CLIENTES_LIMIT} clientes na média móvel (> ${CLIENTES_LIMIT} derruba).`
                   }
                 />
 
@@ -562,7 +599,7 @@ export default function InelegibilityDetailDialog({
 
                     <CriterionChart
                       title="NPS do semestre"
-                      subtitle="Score mensal das respostas · clique na barra para ver o detalhe"
+                      subtitle="Score mensal · média simples dos meses com resposta · clique na barra para detalhe"
                       data={npsSeries}
                       threshold={NPS_MIN}
                       thresholdLabel={`mín. ${NPS_MIN}`}
@@ -571,21 +608,21 @@ export default function InelegibilityDetailDialog({
                         if (point.value == null) return;
                         setNpsMonthKey(point.key);
                       }}
-                      finalLabel="NPS acumulado no semestre"
+                      finalLabel="Média dos meses com NPS"
                       finalValue={
                         npsRespostas === 0
                           ? "sem resp."
                           : npsScore == null
                             ? "—"
-                            : `${npsScore.toFixed(0)}`
+                            : `${npsScore.toFixed(1)}`
                       }
                       finalOk={npsOk}
                       finalExplain={
                         npsRespostas === 0
                           ? "Ainda sem respostas no semestre — este critério não derruba."
                           : npsOk
-                            ? `${npsRespostas} resposta(s) · ≥ ${NPS_MIN} — critério ok.`
-                            : `${npsRespostas} resposta(s) · precisa ≥ ${NPS_MIN} no acumulado do semestre.`
+                            ? `Média dos meses com nota ≥ ${NPS_MIN} — critério ok.`
+                            : `Média dos meses com nota precisa ser ≥ ${NPS_MIN}.`
                       }
                     />
                   </>
@@ -670,6 +707,69 @@ export default function InelegibilityDetailDialog({
                   <p className="text-[10px] font-data uppercase tracking-widest text-white/40">Corte</p>
                   <p className="text-2xl font-display mt-1 text-euro-gold">≥ {NPS_MIN}</p>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
+                <p className="text-[10px] font-data uppercase tracking-widest text-white/40">
+                  Cálculo do NPS
+                </p>
+                <p className="text-xs text-white/55">
+                  % promotores − % detratores
+                </p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-[10px] font-data uppercase tracking-widest text-emerald-400/70">
+                      Promotores
+                    </p>
+                    <p className="text-sm font-display text-emerald-400 mt-0.5">
+                      {npsMonthMeta.promotores}/{npsMonthMeta.total}
+                    </p>
+                    <p className="text-xs font-data text-white/50">
+                      {npsMonthMeta.pctPromotores.toFixed(0)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-data uppercase tracking-widest text-amber-400/70">
+                      Passivos
+                    </p>
+                    <p className="text-sm font-display text-amber-400 mt-0.5">
+                      {npsMonthMeta.passivos}/{npsMonthMeta.total}
+                    </p>
+                    <p className="text-xs font-data text-white/50">
+                      {npsMonthMeta.total
+                        ? ((npsMonthMeta.passivos / npsMonthMeta.total) * 100).toFixed(0)
+                        : 0}
+                      %
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-data uppercase tracking-widest text-red-400/70">
+                      Detratores
+                    </p>
+                    <p className="text-sm font-display text-red-400 mt-0.5">
+                      {npsMonthMeta.detratores}/{npsMonthMeta.total}
+                    </p>
+                    <p className="text-xs font-data text-white/50">
+                      {npsMonthMeta.pctDetratores.toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm font-data text-center text-white/80 pt-1 border-t border-white/10">
+                  <span className="text-emerald-400">
+                    {npsMonthMeta.pctPromotores.toFixed(0)}%
+                  </span>
+                  {" − "}
+                  <span className="text-red-400">{npsMonthMeta.pctDetratores.toFixed(0)}%</span>
+                  {" = "}
+                  <span
+                    className={cn(
+                      "font-display text-base",
+                      npsMonthMeta.score >= NPS_MIN ? "text-emerald-400" : "text-red-400"
+                    )}
+                  >
+                    {npsMonthMeta.score}
+                  </span>
+                </p>
               </div>
 
               <div className="rounded-xl border border-white/10 overflow-hidden">

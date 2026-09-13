@@ -253,8 +253,8 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
     const reasons: string[] = [];
     const useV2 = isEligibilityV2(assessor.lastDataPosicao);
 
-    if (assessor.media_movel_clientes_6m !== undefined && assessor.media_movel_clientes_6m >= 120) {
-      reasons.push(`Média Clientes (${Math.round(assessor.media_movel_clientes_6m)}) ≥ 120`);
+    if (assessor.media_movel_clientes_6m !== undefined && assessor.media_movel_clientes_6m > 120) {
+      reasons.push(`Média Clientes (${Math.round(assessor.media_movel_clientes_6m)}) > 120`);
     }
 
     if (useV2) {
@@ -516,7 +516,7 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
             <div className="space-y-2">
               <p className="text-white/90 font-medium">Até o 1º semestre de 2026</p>
               <ul className="space-y-2 text-white/80">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média móvel 6m)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Até 120 clientes ativos (média móvel 6m; &gt; 120 derruba)</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> FP 300k+ &gt; 50%</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 5 clientes em ruptura (média móvel 6m)</li>
               </ul>
@@ -525,9 +525,9 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
             <div className="space-y-2 border-t border-white/10 pt-3">
               <p className="text-white/90 font-medium">A partir do 2º semestre de 2026</p>
               <ul className="space-y-2 text-white/80">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Máximo 120 clientes ativos (média móvel 6m)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Até 120 clientes ativos (média móvel 6m; &gt; 120 derruba)</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> Modelo de Servir com média semestral ≥ 60</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> NPS do semestre ≥ 80 (sem respostas ainda não derruba)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> NPS: média dos meses com resposta ≥ 80 (mês sem resposta não entra; sem nenhum mês ainda não derruba)</li>
               </ul>
             </div>
 
@@ -1052,11 +1052,11 @@ export default function SuperRanking({ data, selectedYear, onYearChange, onAsses
                           </span>
                           <span className={cn(
                             "px-2 py-0.5 rounded-full text-[9px]",
-                            mediaClientes !== undefined && mediaClientes >= 120
+                            mediaClientes !== undefined && mediaClientes > 120
                               ? "bg-red-500/20 text-red-400 border border-red-500/40"
                               : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
                           )}>
-                            {mediaClientes !== undefined && mediaClientes >= 120 ? "≥ 120 (limite)" : "< 120 OK"}
+                            {mediaClientes !== undefined && mediaClientes > 120 ? "> 120 (limite)" : "≤ 120 OK"}
                           </span>
                         </div>
                       </div>
