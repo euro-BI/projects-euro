@@ -3,7 +3,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Loader2, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Layers, Loader2, RefreshCw, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -108,6 +108,12 @@ export function DataUploadManagement() {
   const [tabelasInfo, setTabelasInfo] = useState<TabelaInfo[]>([]);
   const [isLoadingTabelas, setIsLoadingTabelas] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const [isRefreshingViews, setIsRefreshingViews] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const [refreshErrorMessage, setRefreshErrorMessage] = useState<string | null>(null);
+  const [refreshDone, setRefreshDone] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState<UploadProgress>({ percent: 0, label: "" });
   const [freshnessFilter, setFreshnessFilter] = useState<FreshnessFilter>("all");
   const [statusSort, setStatusSort] = useState<{ key: StatusSortKey; dir: "asc" | "desc" }>({
     key: "base",
@@ -250,6 +256,65 @@ export function DataUploadManagement() {
     const selected = UPLOAD_TYPES.find((item) => item.value === selectedUploadName);
     if (selected && "pending" in selected && selected.pending) return;
     setShowConfirmationModal(true);
+  };
+
+  const refreshDashViews = async () => {
+    setShowRefreshModal(true);
+    setIsRefreshingViews(true);
+    setRefreshError(false);
+    setRefreshErrorMessage(null);
+    setRefreshDone(false);
+    setRefreshProgress({ percent: 8, label: "Preparando o recálculo..." });
+
+    const views = [
+      { name: "mv_resumo_assessor", label: "Recalculando resumo do assessor..." },
+      { name: "mv_detalhamento_ativacoes", label: "Recalculando detalhamento de ativações..." },
+    ] as const;
+
+    try {
+      for (let i = 0; i < views.length; i += 1) {
+        const view = views[i];
+        setRefreshProgress({
+          percent: i === 0 ? 18 : 58,
+          label: view.label,
+          current: i,
+          total: views.length,
+        });
+        const stopFake = startCreepingProgress(
+          setRefreshProgress,
+          i === 0 ? 18 : 58,
+          i === 0 ? 52 : 92,
+          view.label,
+          views.length,
+        );
+        let data: { error?: string; ok?: boolean } | null = null;
+        let error: { message?: string; context?: Response } | null = null;
+        try {
+          const response = await supabase.functions.invoke("refresh-dash-views", {
+            body: { view: view.name },
+          });
+          data = response.data;
+          error = response.error;
+        } finally {
+          stopFake();
+        }
+        await throwIfFunctionFailed(error, data);
+        setRefreshProgress({
+          percent: i === 0 ? 55 : 100,
+          label: i === 0 ? "Resumo atualizado. Seguindo para ativações..." : "Visões atualizadas",
+          current: i + 1,
+          total: views.length,
+        });
+      }
+      setRefreshDone(true);
+    } catch (error) {
+      console.error("Erro ao atualizar visões:", error);
+      setRefreshError(true);
+      setRefreshErrorMessage(error instanceof Error ? error.message : "Falha ao atualizar as visões");
+      setRefreshDone(false);
+    } finally {
+      setIsRefreshingViews(false);
+    }
   };
 
   const confirmAndSendWebhook = async () => {
@@ -445,6 +510,15 @@ export function DataUploadManagement() {
               <RefreshCw className={cn("h-4 w-4", isLoadingTabelas && "animate-spin")} />
               Atualizar
             </GhostButton>
+            <button
+              type="button"
+              onClick={() => void refreshDashViews()}
+              disabled={isRefreshingViews || isWebhookSending}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-euro-gold px-4 text-sm font-semibold text-euro-navy transition-colors hover:bg-euro-gold/90 disabled:pointer-events-none disabled:opacity-35"
+            >
+              {isRefreshingViews ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+              Atualizar dashboards
+            </button>
           </div>
         </div>
 
@@ -539,6 +613,31 @@ export function DataUploadManagement() {
           )}
         </div>
       </div>
+
+      <Dialog
+        open={showRefreshModal}
+        onOpenChange={isRefreshingViews ? undefined : (open) => {
+          if (!open) {
+            setShowRefreshModal(false);
+            setRefreshError(false);
+            setRefreshErrorMessage(null);
+            setRefreshDone(false);
+            setRefreshProgress({ percent: 0, label: "" });
+          }
+        }}
+      >
+        <DialogContent className={cn(dialogClass, "sm:max-w-lg")}>
+          <UploadProgressPanel
+            sending={isRefreshingViews}
+            error={refreshError}
+            errorMessage={refreshErrorMessage}
+            result={refreshDone ? { total_linhas_enviadas: 2 } : null}
+            progress={refreshProgress}
+            baseLabel="mv_resumo_assessor · mv_detalhamento_ativacoes"
+            variant="views"
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={showN8NProgressModal}
@@ -1487,6 +1586,7 @@ function UploadProgressPanel({
   progress,
   fileName,
   baseLabel,
+  variant = "upload",
 }: {
   sending: boolean;
   error: boolean;
@@ -1495,6 +1595,7 @@ function UploadProgressPanel({
   progress: UploadProgress;
   fileName?: string;
   baseLabel?: string;
+  variant?: "upload" | "views";
 }) {
   const percent = error ? progress.percent : result ? 100 : Math.max(0, Math.min(100, progress.percent));
   const tone = error ? "text-red-400" : result ? "text-emerald-400" : "text-euro-gold";
@@ -1503,6 +1604,7 @@ function UploadProgressPanel({
     : result
       ? "bg-emerald-400"
       : "bg-gradient-to-r from-euro-gold/70 to-euro-gold";
+  const isViews = variant === "views";
 
   return (
     <>
@@ -1515,14 +1617,22 @@ function UploadProgressPanel({
           </div>
           <div>
             <DialogTitle className="text-2xl font-semibold tracking-tight">
-              {sending ? "Atualizando a base" : error ? "Falha na carga" : "Carga concluída"}
+              {sending
+                ? isViews ? "Atualizando o dashboard" : "Atualizando a base"
+                : error
+                  ? isViews ? "Falha no recálculo" : "Falha na carga"
+                  : isViews ? "Dashboards atualizados" : "Carga concluída"}
             </DialogTitle>
             <DialogDescription className="text-white/50">
               {sending
-                ? progress.label || "Processando o arquivo..."
+                ? progress.label || (isViews ? "Recalculando as visões..." : "Processando o arquivo...")
                 : error
-                  ? errorMessage || "Não foi possível gravar os dados. Confira o arquivo e tente de novo."
-                  : `${(result?.total_linhas_enviadas ?? 0).toLocaleString("pt-BR")} linhas gravadas.`}
+                  ? errorMessage || (isViews
+                    ? "Não foi possível atualizar as visões. Tente de novo."
+                    : "Não foi possível gravar os dados. Confira o arquivo e tente de novo.")
+                  : isViews
+                    ? "Resumo do assessor e detalhamento de ativações foram recalculados."
+                    : `${(result?.total_linhas_enviadas ?? 0).toLocaleString("pt-BR")} linhas gravadas.`}
             </DialogDescription>
           </div>
         </div>
@@ -1545,14 +1655,14 @@ function UploadProgressPanel({
         {(fileName || baseLabel || progress.total) && (
           <div className="grid gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">
             {baseLabel && (
-              <p><span className="text-white/35">Base · </span>{baseLabel}</p>
+              <p><span className="text-white/35">{isViews ? "Visões · " : "Base · "}</span>{baseLabel}</p>
             )}
             {fileName && (
               <p className="truncate"><span className="text-white/35">Arquivo · </span>{fileName}</p>
             )}
             {typeof progress.total === "number" && progress.total > 0 && (
               <p>
-                <span className="text-white/35">Linhas · </span>
+                <span className="text-white/35">{isViews ? "Etapas · " : "Linhas · "}</span>
                 {(progress.current ?? (result ? progress.total : 0)).toLocaleString("pt-BR")}
                 {" / "}
                 {progress.total.toLocaleString("pt-BR")}

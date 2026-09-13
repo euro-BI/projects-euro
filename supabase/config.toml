@@ -51,3 +51,6 @@ verify_jwt = true
 
 [functions.ingest-nps]
 verify_jwt = true
+
+[functions.refresh-dash-views]
+verify_jwt = true
