@@ -191,9 +191,23 @@ function assessorComRegra(assessor: string, cliente: string, dataPosicao: string
   return assessor;
 }
 
+function rowKey(row: Pick<PositivadorRow, "assessor" | "cliente" | "data_posicao">) {
+  return `${row.assessor}|${row.cliente}|${row.data_posicao}`;
+}
+
 function mapRow(row: IncomingRow): Omit<PositivadorRow, "data_atualizacao"> | null {
-  const assessor = normalizeAssessor(pick(row, "assessor", "Assessor"));
-  const cliente = String(pick(row, "cliente", "Cliente") ?? "").trim();
+  const assessor = normalizeAssessor(pick(row, "assessor", "Assessor", "Cod Assessor", "Código Assessor"));
+  const cliente = String(pick(
+    row,
+    "cliente",
+    "Cliente",
+    "Conta",
+    "Cod Cliente",
+    "Código Cliente",
+    "Codigo Cliente",
+    "Código do Cliente",
+    "Codigo do Cliente",
+  ) ?? "").trim();
   const dataPosicao = parseDate(pick(row, "data_posicao", "Data Posição", "Data Posicao", "Data"));
   if (!assessor || !cliente || !dataPosicao) return null;
 
@@ -261,19 +275,24 @@ Deno.serve(async (req) => {
 
     const mapped = incoming.map(mapRow);
     const valid = mapped.filter((row): row is Omit<PositivadorRow, "data_atualizacao"> => row != null);
+    const unique = new Map<string, Omit<PositivadorRow, "data_atualizacao">>();
+    for (const row of valid) unique.set(rowKey(row), row);
+    const deduped = [...unique.values()];
     const ignoradas = incoming.length - valid.length;
+    const duplicadas = valid.length - deduped.length;
 
-    if (valid.length === 0) {
+    if (deduped.length === 0) {
       return json(400, {
         error: "Nenhuma linha válida (assessor, cliente e data são obrigatórios)",
         recebidas: incoming.length,
         ignoradas,
+        duplicadas,
       });
     }
 
     const dataAtualizacao = parseDate(body?.data_atualizacao)
-      || valid.reduce((max, row) => row.data_posicao > max ? row.data_posicao : max, valid[0].data_posicao);
-    const rows: PositivadorRow[] = valid.map((row) => ({ ...row, data_atualizacao: dataAtualizacao }));
+      || deduped.reduce((max, row) => row.data_posicao > max ? row.data_posicao : max, deduped[0].data_posicao);
+    const rows: PositivadorRow[] = deduped.map((row) => ({ ...row, data_atualizacao: dataAtualizacao }));
     const monthsFromRows = [...new Set(rows.map((row) => monthStart(row.data_posicao)).filter((mes): mes is string => Boolean(mes)))].sort();
     const requestedMonths = Array.isArray(body?.meses_substituir)
       ? [...new Set((body.meses_substituir as unknown[]).map((mes) => monthStart(String(mes))).filter((mes): mes is string => Boolean(mes)))].sort()
@@ -299,8 +318,10 @@ Deno.serve(async (req) => {
     let gravadas = 0;
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
       const batch = rows.slice(i, i + BATCH_SIZE);
-      const { error: insertError } = await supabase.from("dados_positivador").insert(batch);
-      if (insertError) throw insertError;
+      const { error: upsertError } = await supabase
+        .from("dados_positivador")
+        .upsert(batch, { onConflict: "assessor,cliente,data_posicao" });
+      if (upsertError) throw upsertError;
       gravadas += batch.length;
     }
 
@@ -321,6 +342,7 @@ Deno.serve(async (req) => {
       recebidas: incoming.length,
       gravadas,
       ignoradas,
+      duplicadas,
       meses_substituidos: months,
       data_atualizacao: dataAtualizacao,
       clientes_realocados: realocados ?? 0,

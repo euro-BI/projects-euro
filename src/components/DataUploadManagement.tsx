@@ -3,7 +3,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Layers, Loader2, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Layers, Loader2, RefreshCw, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -51,6 +51,13 @@ type UploadProgress = {
   total?: number;
 };
 
+type UploadResult = {
+  total_linhas_enviadas: number;
+  warning?: string;
+};
+
+const POSITIVADOR_MEDIA = 2400;
+
 type FreshnessFilter = "all" | "ok" | "warn" | "stale";
 type StatusSortKey = "base" | "ultimo_registro" | "atualizacao" | "registros";
 
@@ -85,7 +92,7 @@ const HUB_OFFSHORE = "https://hub.xpi.com.br/new/relatorios/#/offshore-digital";
 const HUB_RENDA_FIXA = "https://hub.xpi.com.br/new/relatorios/#/renda-fixa";
 const HUB_TERMOS = "https://hub.xpi.com.br/new/relatorios/#/relatorios-termos";
 const HUB_ESFORCOS = "https://hub.xpi.com.br/new/relatorios/#/indice-esforcos-assessoria";
-const HUB_BLACK = "https://black.xpi.com.br/produtos-estruturados/#/relatorios";
+const HUB_BLACK = "https://hub.xpi.com.br/new/produtos-estruturados#/relatorios";
 const HUB_TRANSFERENCIAS = "https://hub.xpi.com.br/new/transferencia-de-clientes#/";
 const HUB_NPS = "https://xpcx.yul1.qualtrics.com/reporting-dashboard/web/69485f0603905a0008e2264f/pages/Page_61f4889e-6209-4a73-beef-c906a1c569c8/view?organizationSSOConfigId=OSC_eXPTFGd8Y1b0bIy&stateID=2e1114c7-33a9-4009-a1e3-a1625159e146";
 const HUB_CAMBIO = "https://hub.xpi.com.br/cambio/#/relatorios";
@@ -120,7 +127,7 @@ export function DataUploadManagement() {
   const [webhookFile, setWebhookFile] = useState<File | null>(null);
   const [isWebhookSending, setIsWebhookSending] = useState(false);
   const [showN8NProgressModal, setShowN8NProgressModal] = useState(false);
-  const [n8nResult, setN8nResult] = useState<{ total_linhas_enviadas: number } | null>(null);
+  const [n8nResult, setN8nResult] = useState<UploadResult | null>(null);
   const [n8nError, setN8nError] = useState(false);
   const [n8nErrorMessage, setN8nErrorMessage] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ percent: 0, label: "" });
@@ -417,13 +424,15 @@ export function DataUploadManagement() {
         const rows = await parseSpreadsheetRows(webhookFile);
         setUploadProgress({ percent: 14, label: "Preparando a carga...", current: 0, total: rows.length });
         const data = await invokeSelectedEdgeIngest(selectedUploadName, rows, setUploadProgress);
+        const gravadas = Number(data?.total_linhas_enviadas ?? data?.gravadas ?? 0);
+        const warning = typeof data?.warning === "string" ? data.warning : undefined;
         setUploadProgress({
           percent: 100,
-          label: "Carga concluída",
-          current: Number(data?.total_linhas_enviadas ?? data?.gravadas ?? rows.length),
+          label: warning ? "Carga abaixo do esperado" : "Carga concluída",
+          current: gravadas,
           total: rows.length,
         });
-        setN8nResult({ total_linhas_enviadas: Number(data?.total_linhas_enviadas ?? data?.gravadas ?? 0) });
+        setN8nResult({ total_linhas_enviadas: gravadas, warning });
         setWebhookFile(null);
         setSelectedUploadName("");
         if (webhookFileInputRef.current) webhookFileInputRef.current.value = "";
@@ -854,6 +863,12 @@ const POSITIVADOR_HEADERS = new Set([
   "data posicao",
   "data",
   "data atualizacao",
+  "conta",
+  "cod cliente",
+  "codigo cliente",
+  "codigo do cliente",
+  "cod assessor",
+  "codigo assessor",
 ]);
 
 function normalizeUploadHeader(value: string) {
@@ -1256,6 +1271,42 @@ function readSnapshotPayload(raw: SnapshotResponse | null): { current?: DashSnap
   return { current, previous };
 }
 
+async function invokePositivadorChunk({
+  rows,
+  replaceMonths,
+  aplicarRealocacao,
+  mesesSubstituir,
+  dataAtualizacao,
+}: {
+  rows: Record<string, unknown>[];
+  replaceMonths: boolean;
+  aplicarRealocacao: boolean;
+  mesesSubstituir: string[];
+  dataAtualizacao: string | null;
+}) {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-positivador", {
+        body: {
+          chunked: true,
+          rows,
+          replace_months: replaceMonths,
+          aplicar_realocacao: aplicarRealocacao,
+          meses_substituir: mesesSubstituir,
+          data_atualizacao: dataAtualizacao,
+        },
+      });
+      await throwIfFunctionFailed(error, data);
+      return data as { gravadas?: number; ignoradas?: number };
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 800 * (attempt + 1)));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Falha ao gravar o positivador");
+}
+
 async function throwIfFunctionFailed(error: { message?: string; context?: Response } | null, data: { error?: string; ok?: boolean } | null) {
   if (data?.error || data?.ok === false) {
     throw new Error(data?.error || "Falha ao gravar o arquivo");
@@ -1315,6 +1366,7 @@ async function invokeIngestPositivador(
   const chunks = chunkRows(slim, 400);
   let last: Record<string, unknown> | null = null;
   let gravadas = 0;
+  let ignoradas = 0;
 
   for (let i = 0; i < chunks.length; i += 1) {
     const sent = Math.min((i + 1) * 400, slim.length);
@@ -1324,18 +1376,15 @@ async function invokeIngestPositivador(
       current: i * 400,
       total: slim.length,
     });
-    const { data, error } = await supabase.functions.invoke("ingest-positivador", {
-      body: {
-        chunked: true,
-        rows: chunks[i],
-        replace_months: i === 0,
-        aplicar_realocacao: i === chunks.length - 1,
-        meses_substituir: i === 0 ? meses : [],
-        data_atualizacao: dataAtualizacao,
-      },
+    const data = await invokePositivadorChunk({
+      rows: chunks[i],
+      replaceMonths: i === 0,
+      aplicarRealocacao: i === chunks.length - 1,
+      mesesSubstituir: i === 0 ? meses : [],
+      dataAtualizacao,
     });
-    await throwIfFunctionFailed(error, data);
     gravadas += Number(data?.gravadas ?? 0);
+    ignoradas += Number(data?.ignoradas ?? 0);
     last = data;
     onProgress?.({
       percent: Math.round(18 + ((i + 1) / chunks.length) * 78),
@@ -1345,7 +1394,13 @@ async function invokeIngestPositivador(
     });
   }
 
-  return { ...last, gravadas, total_linhas_enviadas: gravadas };
+  const warning = gravadas < POSITIVADOR_MEDIA
+    ? `Atualizou ${gravadas.toLocaleString("pt-BR")} registros — ${(POSITIVADOR_MEDIA - gravadas).toLocaleString("pt-BR")} a menos que a média de ${POSITIVADOR_MEDIA.toLocaleString("pt-BR")}. Pode ter faltado linha. Vale carregar de novo.`
+    : ignoradas > 0
+      ? `${ignoradas.toLocaleString("pt-BR")} linhas do arquivo foram ignoradas por falta de assessor, cliente ou data.`
+      : undefined;
+
+  return { ...last, gravadas, ignoradas, total_linhas_enviadas: gravadas, warning };
 }
 
 async function invokeIngestCetipados(
@@ -1872,20 +1927,23 @@ function UploadProgressPanel({
   sending: boolean;
   error: boolean;
   errorMessage: string | null;
-  result: { total_linhas_enviadas: number } | null;
+  result: UploadResult | null;
   progress: UploadProgress;
   fileName?: string;
   baseLabel?: string;
   variant?: "upload" | "views";
   doneDescription?: string;
 }) {
+  const warning = Boolean(result?.warning) && !error;
   const percent = error ? progress.percent : result ? 100 : Math.max(0, Math.min(100, progress.percent));
-  const tone = error ? "text-red-400" : result ? "text-emerald-400" : "text-euro-gold";
+  const tone = error ? "text-red-400" : warning ? "text-euro-gold" : result ? "text-emerald-400" : "text-euro-gold";
   const bar = error
     ? "bg-red-400"
-    : result
-      ? "bg-emerald-400"
-      : "bg-gradient-to-r from-euro-gold/70 to-euro-gold";
+    : warning
+      ? "bg-euro-gold"
+      : result
+        ? "bg-emerald-400"
+        : "bg-gradient-to-r from-euro-gold/70 to-euro-gold";
   const isViews = variant === "views";
 
   return (
@@ -1895,7 +1953,8 @@ function UploadProgressPanel({
           <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]", tone)}>
             {sending && <Loader2 className="h-5 w-5 animate-spin" />}
             {error && <AlertCircle className="h-5 w-5" />}
-            {result && !error && <CheckCircle2 className="h-5 w-5" />}
+            {warning && !sending && <AlertTriangle className="h-5 w-5" />}
+            {result && !error && !warning && <CheckCircle2 className="h-5 w-5" />}
           </div>
           <div>
             <DialogTitle className="text-2xl font-semibold tracking-tight">
@@ -1903,7 +1962,9 @@ function UploadProgressPanel({
                 ? isViews ? "Atualizando o dashboard" : "Atualizando a base"
                 : error
                   ? isViews ? "Falha no recálculo" : "Falha na carga"
-                  : isViews ? "Dashboards atualizados" : "Carga concluída"}
+                  : warning
+                    ? "Carga abaixo do esperado"
+                    : isViews ? "Dashboards atualizados" : "Carga concluída"}
             </DialogTitle>
             <DialogDescription className="text-white/50">
               {sending
@@ -1912,9 +1973,11 @@ function UploadProgressPanel({
                   ? errorMessage || (isViews
                     ? "Não foi possível atualizar as visões. Tente de novo."
                     : "Não foi possível gravar os dados. Confira o arquivo e tente de novo.")
-                  : isViews
-                    ? (doneDescription ?? "Resumo do assessor e detalhamento de ativações foram recalculados.")
-                    : `${(result?.total_linhas_enviadas ?? 0).toLocaleString("pt-BR")} linhas gravadas.`}
+                  : warning
+                    ? result?.warning
+                    : isViews
+                      ? (doneDescription ?? "Resumo do assessor e detalhamento de ativações foram recalculados.")
+                      : `${(result?.total_linhas_enviadas ?? 0).toLocaleString("pt-BR")} linhas gravadas.`}
             </DialogDescription>
           </div>
         </div>
