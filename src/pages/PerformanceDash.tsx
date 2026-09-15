@@ -97,6 +97,7 @@ import { ImpactfulBackground } from "@/components/dashboard/ImpactfulBackground"
 import { ActivationDetailsDialog } from "@/components/dashboard/ActivationDetailsDialog";
 import { LoadingOverlay } from "@/components/dashboard/LoadingOverlay";
 import NpsDash from "@/components/dashboard/NpsDash";
+import DailyEvolutionDash from "@/components/dashboard/DailyEvolutionDash";
 
 const BLOCKED_TEAMS = ["ANYWHERE", "OPERACIONAIS"];
 const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
@@ -104,6 +105,8 @@ const BLOCKED_ASSESSORS = ["A1607", "A20680", "A39869", "A50655", "A26969"];
 export default function PerformanceDash() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { userRole, userCode } = useAuth();
+  const isAdminMaster = userRole === "admin_master";
 
   const persistKey = "filters:PerformanceDash";
   
@@ -158,9 +161,10 @@ export default function PerformanceDash() {
   const isMaximized = searchParams.get("maximized") === "true";
   
   const rawTab = searchParams.get("tab");
-  const activeTab = (rawTab === "esforcos" || rawTab === "forecast" || rawTab === "comparativo" || rawTab === "auditoria-receita") 
-    ? "geral" 
+  const requestedTab = (rawTab === "esforcos" || rawTab === "forecast" || rawTab === "comparativo" || rawTab === "auditoria-receita")
+    ? "geral"
     : (rawTab ?? "geral");
+  const activeTab = requestedTab === "diario" && !isAdminMaster ? "geral" : requestedTab;
 
   // Setters para manter a interface com os componentes filhos
   const setSelectedYear = (val: string | ((prev: string) => string)) => {
@@ -228,8 +232,6 @@ export default function PerformanceDash() {
       return (val / 1000).toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + " K";
     }
   };
-
-  const { userRole, userCode } = useAuth();
 
   // Determine effective assessor ID based on role and active tab
   const effectiveAssessorId = useMemo(() => {
@@ -869,6 +871,14 @@ export default function PerformanceDash() {
                 >
                   NPS
                 </TabsTrigger>
+                {isAdminMaster && (
+                  <TabsTrigger
+                    value="diario"
+                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white rounded-full px-4 h-full text-[10px] font-data uppercase tracking-widest text-[#A0A090] hover:text-white hover:bg-white/5 transition-all border-none whitespace-nowrap"
+                  >
+                    Diário
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <div className="w-px h-4 bg-white/10 mx-1" />
@@ -1317,6 +1327,16 @@ export default function PerformanceDash() {
               teamPhotos={dashData.teamPhotos}
             />
           </TabsContent>
+
+          {isAdminMaster && (
+            <TabsContent value="diario" className="space-y-12 mt-0 border-none p-0 outline-none">
+              <DailyEvolutionDash
+                targetAssessors={targetAssessors}
+                selectedTeam={effectiveTeam}
+                teamPhotos={dashData?.teamPhotos}
+              />
+            </TabsContent>
+          )}
 
         </Tabs>
       </div>

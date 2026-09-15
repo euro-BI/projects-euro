@@ -61,10 +61,17 @@ Deno.serve(async (req) => {
         p_created_by: userData.user.id,
       });
       if (error) throw error;
+
+      const { data: diario, error: diarioError } = await supabase.rpc("capture_resumo_assessor_diario", {
+        p_created_by: userData.user.id,
+      });
+      if (diarioError) throw diarioError;
+
       return json(200, {
         ok: true,
         view: "snapshot",
         snapshot: data,
+        diario,
         user_id: userData.user.id,
       });
     }
