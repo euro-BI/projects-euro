@@ -15,28 +15,55 @@ import {
   Star,
   Users as UsersIcon,
   HelpCircle,
-  Calculator
+  Calculator,
+  BarChart3,
+  Table2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import FundingAssessorTable from "@/components/dashboard/FundingAssessorTable";
+import { FundingAssessorCaptacaoDialog } from "@/components/dashboard/FundingAssessorCaptacaoDialog";
 
 interface FundingEvolutionProps {
   data: AssessorResumo[];
   title?: string;
+  tableData?: AssessorResumo[];
+  teamPhotos?: Map<string, string>;
+  selectedMonth?: string;
 }
 
-export default function FundingEvolution({ data, title = "Análise de Captação" }: FundingEvolutionProps) {
+export default function FundingEvolution({
+  data,
+  title = "Análise de Captação",
+  tableData,
+  teamPhotos,
+  selectedMonth,
+}: FundingEvolutionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedMonthData, setSelectedMonthData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mode, setMode] = useState<"chart" | "table">("chart");
+  const [detailAssessor, setDetailAssessor] = useState<AssessorResumo | null>(null);
+
+  const listingData = tableData ?? data.filter((row) => {
+    if (!selectedMonth) return true;
+    return format(parseISO(row.data_posicao), "yyyy-MM-01") === selectedMonth;
+  });
+
+  const listingMonthLabel = useMemo(() => {
+    if (!selectedMonth) return "";
+    try {
+      return format(parseISO(selectedMonth), "MMMM yyyy", { locale: ptBR });
+    } catch {
+      return "";
+    }
+  }, [selectedMonth]);
 
   // Resize listener
   useEffect(() => {
@@ -51,7 +78,7 @@ export default function FundingEvolution({ data, title = "Análise de Captação
     });
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [mode]);
 
   // Aggregate data by month
   const monthlyData = useMemo(() => {
@@ -115,6 +142,7 @@ export default function FundingEvolution({ data, title = "Análise de Captação
   }, [monthlyData]);
 
   useEffect(() => {
+    if (mode !== "chart") return;
     if (!barsData.length || dimensions.width === 0) return;
 
     // Calculate dynamic margin for badges
@@ -220,7 +248,7 @@ export default function FundingEvolution({ data, title = "Análise de Captação
         containerRef.current.removeEventListener("click", handleClick);
       }
     };
-  }, [barsData, monthlyData, dimensions]);
+  }, [barsData, monthlyData, dimensions, mode]);
 
   const formatDisplayValue = (val: number) => {
     const absVal = Math.abs(val);
@@ -235,18 +263,65 @@ export default function FundingEvolution({ data, title = "Análise de Captação
         <div className="space-y-1">
           <h3 className="text-sm font-data text-euro-gold/60 uppercase tracking-[0.2em] flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
-            {title}
+            {mode === "table" && listingMonthLabel
+              ? `Captação por assessores (${listingMonthLabel})`
+              : title}
           </h3>
           <p className="text-xs font-data text-white/40 uppercase tracking-widest">
-            Resultado Líquido Consolidado (Captação Direta + Transferências)
+            {mode === "table"
+              ? "Entradas, saídas, líquida e transferências por assessor"
+              : "Resultado Líquido Consolidado (Captação Direta + Transferências)"}
           </p>
         </div>
 
-
+        <div className="bg-euro-elevated p-1 rounded-lg border border-white/5 shadow-inner flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setMode("chart")}
+            className={cn(
+              "px-4 py-2 text-xs font-data uppercase tracking-widest transition-all rounded-md inline-flex items-center gap-2",
+              mode === "chart"
+                ? "bg-euro-gold text-euro-navy shadow-lg font-bold"
+                : "text-[#5C5C50] hover:text-[#A0A090]",
+            )}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Gráfico
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("table")}
+            className={cn(
+              "px-4 py-2 text-xs font-data uppercase tracking-widest transition-all rounded-md inline-flex items-center gap-2",
+              mode === "table"
+                ? "bg-euro-gold text-euro-navy shadow-lg font-bold"
+                : "text-[#5C5C50] hover:text-[#A0A090]",
+            )}
+          >
+            <Table2 className="w-3.5 h-3.5" />
+            Listagem
+          </button>
+        </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 w-full min-h-[350px] overflow-hidden cursor-pointer" />
+      {mode === "table" ? (
+        <>
+          <FundingAssessorTable
+            data={listingData}
+            teamPhotos={teamPhotos}
+            onAssessorClick={setDetailAssessor}
+          />
+          <FundingAssessorCaptacaoDialog
+            assessor={detailAssessor}
+            selectedMonth={selectedMonth || ""}
+            onClose={() => setDetailAssessor(null)}
+          />
+        </>
+      ) : (
+        <div ref={containerRef} className="flex-1 w-full min-h-[350px] overflow-hidden cursor-pointer" />
+      )}
 
+      {mode === "chart" && (
       <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 pt-4 border-t border-white/5">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-sm bg-[#22c55e]/80 border border-[#22c55e]" />
@@ -257,6 +332,7 @@ export default function FundingEvolution({ data, title = "Análise de Captação
           <span className="text-[10px] font-data text-white/40 uppercase tracking-widest">Fluxo de Saída</span>
         </div>
       </div>
+      )}
 
       {/* MODAL DE DETALHES */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

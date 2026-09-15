@@ -1248,7 +1248,10 @@ export default function PerformanceDash() {
             <div className="hidden sm:flex flex-col gap-8">
               <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[450px]">
                 <FundingEvolution 
-                  data={yearlyData || []} 
+                  data={yearlyData || []}
+                  tableData={dashData.current}
+                  teamPhotos={dashData.teamPhotos}
+                  selectedMonth={selectedMonth}
                 />
               </Card>
 
