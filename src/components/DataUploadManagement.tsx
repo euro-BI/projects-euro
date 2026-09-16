@@ -235,15 +235,12 @@ export function DataUploadManagement() {
   const fetchTabelasInfo = async () => {
     setIsLoadingTabelas(true);
     try {
-      const { data, error } = await supabase
-        .from("vw_tabelas_atualizacao")
-        .select("*")
-        .order("table_name", { ascending: true });
+      const { data, error } = await supabase.rpc("get_tabelas_atualizacao" as never);
       if (error) {
         console.error("Erro ao buscar informações das tabelas:", error);
         return;
       }
-      setTabelasInfo(data || []);
+      setTabelasInfo((data as TabelaInfo[]) || []);
       setLastRefresh(new Date());
     } catch (error) {
       console.error("Erro ao buscar informações das tabelas:", error);
