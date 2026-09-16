@@ -88,25 +88,12 @@ function normalizeStatus(value: unknown) {
     .toUpperCase();
 }
 
-function monthStart(date: string) {
-  const raw = String(date ?? "").trim();
-  const iso = raw.match(/^(\d{4})-(\d{2})/);
-  if (!iso) return null;
-  return `${iso[1]}-${iso[2]}-01`;
-}
-
 function errorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   if (error && typeof error === "object" && "message" in error && error.message) {
     return String(error.message);
   }
   return "Erro inesperado";
-}
-
-function nextMonthStart(date: string) {
-  const [year, month] = date.slice(0, 7).split("-").map(Number);
-  if (month === 12) return `${year + 1}-01-01`;
-  return `${year}-${String(month + 1).padStart(2, "0")}-01`;
 }
 
 function mapRow(row: IncomingRow): TransferenciaRow | null {
@@ -130,6 +117,25 @@ function dedupeRows(rows: TransferenciaRow[]) {
   const seen = new Map<string, TransferenciaRow>();
   for (const row of rows) seen.set(row.cod_solicitacao, row);
   return [...seen.values()];
+}
+
+async function fetchExistingSolicitacoes(
+  supabase: ReturnType<typeof createClient>,
+  codes: string[],
+): Promise<Set<string>> {
+  const existing = new Set<string>();
+  for (let i = 0; i < codes.length; i += BATCH_SIZE) {
+    const chunk = codes.slice(i, i + BATCH_SIZE);
+    const { data, error } = await supabase
+      .from("dados_transferencias")
+      .select("cod_solicitacao")
+      .in("cod_solicitacao", chunk);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (row.cod_solicitacao) existing.add(String(row.cod_solicitacao));
+    }
+  }
+  return existing;
 }
 
 Deno.serve(async (req) => {
@@ -156,39 +162,28 @@ Deno.serve(async (req) => {
     const incoming = Array.isArray(body?.rows) ? body.rows as IncomingRow[] : [];
     if (incoming.length === 0) return json(400, { error: "Nenhuma linha recebida" });
 
-    const chunked = body?.chunked === true;
-    const replaceMonths = chunked ? body?.replace_months === true : true;
-    const rows = dedupeRows(incoming.map(mapRow).filter((row): row is TransferenciaRow => row != null));
-    const ignoradas = incoming.length - rows.length;
-    if (rows.length === 0) {
+    const mapped = dedupeRows(incoming.map(mapRow).filter((row): row is TransferenciaRow => row != null));
+    const invalidas = incoming.length - mapped.length;
+    if (mapped.length === 0) {
       return json(400, {
         error: "Nenhuma linha válida (precisa estar CONCLUIDO, com código de solicitação e data de transferência)",
         recebidas: incoming.length,
-        ignoradas,
+        ignoradas: invalidas,
       });
     }
-
-    const monthsFromRows = [...new Set(rows.map((row) => monthStart(row.data_transferencia)).filter((mes): mes is string => Boolean(mes)))].sort();
-    const requestedMonths = Array.isArray(body?.meses_substituir)
-      ? [...new Set((body.meses_substituir as unknown[]).map((mes) => monthStart(String(mes))).filter((mes): mes is string => Boolean(mes)))].sort()
-      : [];
-    const months = requestedMonths.length > 0 ? requestedMonths : monthsFromRows;
 
     const supabase = createClient(supabaseUrl, serviceKey, {
       db: { schema: "euro_dash" },
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    if (replaceMonths) {
-      for (const mes of months) {
-        const { error: deleteError } = await supabase
-          .from("dados_transferencias")
-          .delete()
-          .gte("data_transferencia", mes)
-          .lt("data_transferencia", nextMonthStart(mes));
-        if (deleteError) throw deleteError;
-      }
-    }
+    // Só grava solicitação nova. Registro já existente (mesmo com ajuste manual) fica intacto.
+    const existing = await fetchExistingSolicitacoes(
+      supabase,
+      mapped.map((row) => row.cod_solicitacao),
+    );
+    const rows = mapped.filter((row) => !existing.has(row.cod_solicitacao));
+    const jaExistentes = mapped.length - rows.length;
 
     let gravadas = 0;
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -202,8 +197,10 @@ Deno.serve(async (req) => {
       ok: true,
       recebidas: incoming.length,
       gravadas,
-      ignoradas,
-      meses_substituidos: months,
+      ignoradas: invalidas + jaExistentes,
+      ja_existentes: jaExistentes,
+      invalidas,
+      meses_substituidos: [],
       total_linhas_enviadas: gravadas,
       user_id: userData.user.id,
     });

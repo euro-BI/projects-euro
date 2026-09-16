@@ -15,16 +15,35 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Maximize2, Minimize2, CalendarCheck, Clock, ThumbsUp, Target, Users, ArrowUpDown, ArrowUp, ArrowDown, Play, X, Download, BarChart3, Trophy } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2, CalendarCheck, Clock, Target, Users, ArrowUpDown, ArrowUp, ArrowDown, Play, X, Download, BarChart3, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, ReferenceLine, LabelList } from "recharts";
 
 type PeriodType = "currentWeek" | "prevWeek" | "currentMonth" | "prevMonth";
 const FIXED_MONTH_WEEKS = 4;
+const BLOCKED_EFFORT_TEAMS = new Set(["OPERACIONAIS", "ADVISORS", "ANYWHERE", "PRIVATE"]);
+const BLOCKED_EFFORT_CODES = new Set(["A26969", "A1607"]);
+
+type EffortAssessor = {
+  cod: string;
+  name: string;
+  team: string;
+  photo?: string | null;
+  fromMv: boolean;
+};
 
 function isSdrCanal(canal: string | null | undefined) {
   return String(canal ?? "").trim().toUpperCase() === "SDR";
+}
+
+function isAllowedEffortAssessor(cod?: string | null, team?: string | null) {
+  const c = String(cod ?? "").trim().toUpperCase();
+  const t = String(team ?? "").trim().toUpperCase();
+  if (!c) return false;
+  if (BLOCKED_EFFORT_CODES.has(c)) return false;
+  if (BLOCKED_EFFORT_TEAMS.has(t)) return false;
+  return true;
 }
 
 function monthAnchorFromRange(start: string, end: string) {
@@ -59,7 +78,8 @@ function buildDashboardStory(current: any, month: any, today: Date, monthAnchor:
   const paceGap = month.realizadas - monthlyPaceTarget;
   const monthlyGap = Math.max(monthlyMetaTotal - month.realizadas, 0);
   const currentGap = Math.max(current.totalMeta - current.realizadas, 0);
-  const indicationShare = current.realizadas > 0 ? (current.indicacao / current.realizadas) * 100 : 0;
+  const indicationBase = current.realizadasAssessor ?? current.realizadas;
+  const indicationShare = indicationBase > 0 ? (current.indicacao / indicationBase) * 100 : 0;
   const monthName = format(monthStart, "MMMM", { locale: ptBR });
   const monthLabel = isCurrentMonth ? "do mês" : `de ${monthName}`;
 
@@ -127,30 +147,22 @@ function VisaoAtualStoryGrid({
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-3 flex items-center justify-between">
-                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Total da Agenda</span>
-                <CalendarCheck className="h-4 w-4 text-blue-400" />
+                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Total R1 Assessores</span>
+                <Users className="h-4 w-4 text-blue-400" />
               </div>
-              <div className="font-display text-3xl leading-none text-white">{story.current.agendadas + story.current.realizadas}</div>
-              <p className="mt-2 text-xs text-white/50">Volume total de R1 (realizadas + futuras).</p>
+              <div className="font-display text-3xl leading-none text-white">{story.current.realizadasAssessor ?? 0}</div>
+              <p className="mt-2 text-xs text-white/50">R1 realizadas pelo assessor no período.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-3 flex items-center justify-between">
-                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Agendadas</span>
+                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Total R1 SDRs</span>
                 <Clock className="h-4 w-4 text-[#A855F7]" />
               </div>
-              <div className="font-display text-3xl leading-none text-white">{story.current.agendadas}</div>
-              <p className="mt-2 text-xs text-white/50">Reuniões futuras abertas no mesmo recorte.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="font-data text-[10px] uppercase tracking-[0.2em] text-white/45">Indicação</span>
-                <ThumbsUp className="h-4 w-4 text-[#EAB308]" />
-              </div>
-              <div className="font-display text-3xl leading-none text-white">{story.current.indicacao}</div>
-              <p className="mt-2 text-xs text-white/50">{story.indicationShare.toFixed(0)}% das realizadas vieram de indicação.</p>
+              <div className="font-display text-3xl leading-none text-white">{story.current.realizadasSdr ?? 0}</div>
+              <p className="mt-2 text-xs text-white/50">R1 realizadas via canal SDR no período.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-3 flex items-center justify-between">
@@ -204,7 +216,7 @@ function VisaoAtualStoryGrid({
         </CardContent>
       </Card>
 
-      <Card className="relative col-span-4 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
+      <Card className="relative col-span-6 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
         <div className="absolute inset-y-0 left-0 w-1 bg-[#A855F7]" />
         <CardContent className="flex h-full flex-col space-y-5 p-6">
           <div className="flex items-start justify-between gap-4">
@@ -235,7 +247,7 @@ function VisaoAtualStoryGrid({
         </CardContent>
       </Card>
 
-      <Card className="relative col-span-4 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
+      <Card className="relative col-span-6 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
         <div className="absolute inset-y-0 left-0 w-1 bg-green-500" />
         <CardContent className="flex h-full flex-col space-y-5 p-6">
           <div className="flex items-start justify-between gap-4">
@@ -255,31 +267,6 @@ function VisaoAtualStoryGrid({
           <p className="mt-auto text-sm leading-relaxed text-white/60">
             Percentual de assessores que bateram a meta individual no recorte atual, e não o percentual da meta total de reuniões do time.
           </p>
-        </CardContent>
-      </Card>
-
-      <Card className="relative col-span-4 h-full overflow-hidden rounded-[26px] border border-white/15 bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 shadow-2xl backdrop-blur-xl">
-        <div className="absolute inset-y-0 left-0 w-1 bg-[#06B6D4]" />
-        <CardContent className="flex h-full flex-col space-y-5 p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 font-data text-[10px] uppercase tracking-[0.22em] text-cyan-300">Régua individual</p>
-              <h3 className="font-data text-lg uppercase tracking-[0.15em] text-white">Meta e destaque</h3>
-            </div>
-            <Users className="mt-1 h-5 w-5 shrink-0 text-[#06B6D4]" />
-          </div>
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="mb-2 font-data text-[10px] uppercase tracking-[0.18em] text-white/40">Meta individual</div>
-              <div className="font-display text-3xl leading-none text-white">{story.current.metaTarget}</div>
-              <p className="mt-2 text-xs text-white/55">R1 por assessor em {periodLabel.toLowerCase()}.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="mb-2 font-data text-[10px] uppercase tracking-[0.18em] text-white/40">Top performer</div>
-              <div className="font-display text-3xl leading-none text-white">{story.current.topPerformerTarget}</div>
-              <p className="mt-2 text-xs text-white/55">R1 por assessor para entrar na faixa destaque.</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -466,27 +453,82 @@ export default function WeeklyEffortsDash() {
       
       const latestDate = latestEntry?.data_posicao;
       
-      const { data: mvRows } = await (supabase.from("mv_resumo_assessor" as any) as any)
-        .select("cod_assessor, nome_assessor, time, foto_url")
-        .eq("status_assessor", true)
-        .eq("data_posicao", latestDate || format(today, "yyyy-MM-dd"));
+      const [{ data: mvRows }, { data: colaboradores }, { data: timesHist }, { data: times }] = await Promise.all([
+        (supabase.from("mv_resumo_assessor" as any) as any)
+          .select("cod_assessor, nome_assessor, time, foto_url")
+          .eq("status_assessor", true)
+          .eq("data_posicao", latestDate || format(today, "yyyy-MM-dd")),
+        (supabase.from("dados_colaboradores" as any) as any)
+          .select("cod_assessor, nome_completo, foto_url"),
+        (supabase.from("dados_times_historico" as any) as any)
+          .select("cod_assessor, time_id, status, referencia")
+          .eq("status", true)
+          .order("referencia", { ascending: false }),
+        (supabase.from("dados_times" as any) as any)
+          .select("time_id, time"),
+      ]);
 
-      const validRows = (mvRows as any[] || []).filter(r => {
-        const t = r.time?.toUpperCase();
-        const cod = r.cod_assessor?.toUpperCase();
-        return t !== "OPERACIONAIS" && t !== "ADVISORS" && t !== "ANYWHERE" && cod !== "A26969" && cod !== "A1607";
-      });
+      const timeNameById = new Map<string, string>(
+        ((times as any[]) || []).map((t) => [String(t.time_id), t.time])
+      );
 
-      const teams = Array.from(new Set(validRows.map(r => r.time).filter(Boolean))).sort();
-      const assessors = validRows.map(r => ({
-        cod: r.cod_assessor,
-        name: r.nome_assessor || r.cod_assessor,
-        team: r.time,
-        photo: r.foto_url
-      })).sort((a, b) => a.name.localeCompare(b.name));
+      // Ativos = quem tem vínculo ativo em dados_times_historico (status=true, referência mais recente)
+      const latestTeamByCod = new Map<string, string>();
+      for (const row of (timesHist as any[]) || []) {
+        const cod = String(row.cod_assessor ?? "").trim();
+        if (!cod || latestTeamByCod.has(cod)) continue;
+        const teamName = timeNameById.get(String(row.time_id)) || null;
+        if (teamName) latestTeamByCod.set(cod, teamName);
+      }
 
-      const activeAssessorIds = new Set(assessors.map(a => a.cod).filter(Boolean));
-      return { teams, assessors, activeAssessorIds };
+      const colabByCod = new Map<string, { nome_completo?: string | null; foto_url?: string | null }>();
+      for (const colab of (colaboradores as any[]) || []) {
+        const cod = String(colab.cod_assessor ?? "").trim();
+        if (!cod || colabByCod.has(cod)) continue;
+        colabByCod.set(cod, colab);
+      }
+
+      const directory = new Map<string, EffortAssessor>();
+
+      for (const [cod, team] of latestTeamByCod.entries()) {
+        if (!isAllowedEffortAssessor(cod, team)) continue;
+        const colab = colabByCod.get(cod);
+        directory.set(cod, {
+          cod,
+          name: colab?.nome_completo || cod,
+          team,
+          photo: colab?.foto_url,
+          fromMv: false,
+        });
+      }
+
+      const mvAssessors: EffortAssessor[] = [];
+      for (const r of (mvRows as any[]) || []) {
+        const cod = String(r.cod_assessor ?? "").trim();
+        const team = r.time || "Sem Time";
+        if (!isAllowedEffortAssessor(cod, team)) continue;
+        const entry: EffortAssessor = {
+          cod,
+          name: r.nome_assessor || cod,
+          team,
+          photo: r.foto_url,
+          fromMv: true,
+        };
+        directory.set(cod, entry);
+        mvAssessors.push(entry);
+      }
+
+      mvAssessors.sort((a, b) => a.name.localeCompare(b.name));
+      const teams = Array.from(new Set(mvAssessors.map((a) => a.team).filter(Boolean))).sort();
+      const activeAssessorIds = new Set(mvAssessors.map((a) => a.cod).filter(Boolean));
+      const directoryEntries = Array.from(directory.values());
+
+      return {
+        teams,
+        assessors: mvAssessors,
+        directory: directoryEntries,
+        activeAssessorIds,
+      };
     }
   });
 
@@ -587,12 +629,52 @@ export default function WeeklyEffortsDash() {
     }
   });
 
+  const assessorDirectory = useMemo(() => {
+    const map = new Map<string, EffortAssessor>();
+    for (const a of (metadata?.directory as EffortAssessor[] | undefined) || []) {
+      map.set(a.cod, a);
+    }
+    return map;
+  }, [metadata]);
+
+  const effortFilterAssessors = useMemo(() => {
+    if (!metadata) return [] as EffortAssessor[];
+
+    const byCod = new Map<string, EffortAssessor>(
+      ((metadata.assessors as EffortAssessor[]) || []).map((a) => [a.cod, a])
+    );
+
+    const pipeCodes = new Set<string>();
+    for (const r of (dashboardData as any[]) || []) {
+      const cod = String(r?.assessor ?? "").trim();
+      if (cod) pipeCodes.add(cod);
+    }
+    for (const r of (monthlyHistoryData as any[]) || []) {
+      const cod = String(r?.assessor ?? "").trim();
+      if (cod) pipeCodes.add(cod);
+    }
+
+    for (const cod of pipeCodes) {
+      if (byCod.has(cod)) continue;
+      const meta = assessorDirectory.get(cod);
+      if (!meta || !isAllowedEffortAssessor(meta.cod, meta.team)) continue;
+      byCod.set(cod, meta);
+    }
+
+    return Array.from(byCod.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [metadata, dashboardData, monthlyHistoryData, assessorDirectory]);
+
+  const effortFilterTeams = useMemo(() => {
+    return Array.from(new Set(effortFilterAssessors.map((a) => a.team).filter(Boolean))).sort();
+  }, [effortFilterAssessors]);
+
   const processedData = useMemo(() => {
     if (!dashboardData || !metadata) return null;
 
     const reunioes = dashboardData;
-    const { assessors } = metadata;
-    const assessorMap = new Map(assessors.map(a => [a.cod, a]));
+    const mvAssessors = metadata.assessors as EffortAssessor[];
+
+    const resolveAssessor = (cod: string) => assessorDirectory.get(cod) || null;
 
     // Helper to process a specific date range
     const processRange = (start: string, end: string) => {
@@ -612,7 +694,8 @@ export default function WeeklyEffortsDash() {
         return d >= start && d <= end;
       });
 
-      let realizadas = 0;
+      let realizadasAssessor = 0;
+      let realizadasSdr = 0;
       let agendadas = 0;
       let indicacao = 0;
 
@@ -623,8 +706,8 @@ export default function WeeklyEffortsDash() {
         agendadasSdr: number;
       }>();
       
-      // Initialize all active assessors (filtered by team/assessor if applicable)
-      assessors.forEach(a => {
+      // Base: assessores da MV + quem tiver R1 no recorte e resolver no directory
+      mvAssessors.forEach(a => {
         if (selectedTeam !== "all" && a.team !== selectedTeam) return;
         if (selectedAssessor !== "all" && a.cod !== selectedAssessor) return;
         assessorStats.set(a.cod, {
@@ -636,35 +719,45 @@ export default function WeeklyEffortsDash() {
       });
 
       filtered.forEach(r => {
-        const cod = r.assessor;
+        const cod = String(r.assessor ?? "").trim();
         if (!cod) return;
-        if (!assessorMap.has(cod)) return; // Exclui reuniões de assessores removidos (ex: OPERACIONAIS)
-        
-        const assessorMeta = assessorMap.get(cod);
-        if (selectedTeam !== "all" && assessorMeta?.team !== selectedTeam) return;
+
+        const assessorMeta = resolveAssessor(cod);
+        if (!assessorMeta || !isAllowedEffortAssessor(assessorMeta.cod, assessorMeta.team)) return;
+        if (selectedTeam !== "all" && assessorMeta.team !== selectedTeam) return;
         if (selectedAssessor !== "all" && cod !== selectedAssessor) return;
+
+        if (!assessorStats.has(cod)) {
+          assessorStats.set(cod, {
+            realizadasAssessor: 0,
+            realizadasSdr: 0,
+            agendadasAssessor: 0,
+            agendadasSdr: 0,
+          });
+        }
 
         const isSdr = isSdrCanal(r.canal);
         const isRealizada = String(r.concluido).toLowerCase() === "true";
         const countsForKpi = includeSdr || !isSdr;
 
-        if (countsForKpi) {
-          if (isRealizada) realizadas++;
-          else agendadas++;
-          if (!isSdr && r.canal?.toLowerCase() === "indicação") {
-            indicacao++;
-          }
+        if (isRealizada) {
+          if (isSdr) realizadasSdr++;
+          else realizadasAssessor++;
+        } else if (countsForKpi) {
+          agendadas++;
         }
 
-        if (assessorStats.has(cod)) {
-          const stats = assessorStats.get(cod)!;
-          if (isRealizada) {
-            if (isSdr) stats.realizadasSdr++;
-            else stats.realizadasAssessor++;
-          } else {
-            if (isSdr) stats.agendadasSdr++;
-            else stats.agendadasAssessor++;
-          }
+        if (!isSdr && isRealizada && r.canal?.toLowerCase() === "indicação") {
+          indicacao++;
+        }
+
+        const stats = assessorStats.get(cod)!;
+        if (isRealizada) {
+          if (isSdr) stats.realizadasSdr++;
+          else stats.realizadasAssessor++;
+        } else {
+          if (isSdr) stats.agendadasSdr++;
+          else stats.agendadasAssessor++;
         }
       });
 
@@ -675,14 +768,14 @@ export default function WeeklyEffortsDash() {
       assessorStats.forEach((stats, cod) => {
         const r1Assessor = stats.realizadasAssessor;
         const r1Sdr = stats.realizadasSdr;
-        const r1Totais = includeSdr ? r1Assessor + r1Sdr : r1Assessor;
+        const r1Totais = r1Assessor + r1Sdr;
         const agendadasAssessor = stats.agendadasAssessor;
         const agendadasSdr = stats.agendadasSdr;
         const agendadasTotal = includeSdr ? agendadasAssessor + agendadasSdr : agendadasAssessor;
 
         if (r1Totais >= metaTarget) bateramMeta++;
         
-        const aMeta = assessorMap.get(cod);
+        const aMeta = resolveAssessor(cod);
         const entry = {
           cod,
           nome: aMeta?.name || cod,
@@ -712,9 +805,12 @@ export default function WeeklyEffortsDash() {
 
       const totalAssessores = assessorStats.size;
       const pctMeta = totalAssessores > 0 ? (bateramMeta / totalAssessores) * 100 : 0;
+      const realizadas = realizadasAssessor + realizadasSdr;
 
       return {
         realizadas,
+        realizadasAssessor,
+        realizadasSdr,
         agendadas,
         indicacao,
         pctMeta,
@@ -758,7 +854,7 @@ export default function WeeklyEffortsDash() {
     };
 
     return { current, selectedMonth, comparative };
-  }, [dashboardData, metadata, periodDates, selectedTeam, selectedAssessor, includeSdr, today]);
+  }, [dashboardData, metadata, assessorDirectory, periodDates, selectedTeam, selectedAssessor, includeSdr, today]);
 
   const handleSort = (key: string) => {
     setSortConfig(prev => ({
@@ -816,12 +912,8 @@ export default function WeeklyEffortsDash() {
   const monthlyComparisonData = useMemo(() => {
     if (!monthlyHistoryData || !metadata) return [];
 
-    const assessorMap = new Map((metadata.assessors as any[]).map((a) => [a.cod, a]));
-    const activeAssessors = (metadata.assessors as any[]).filter((a) => {
-      if (selectedTeam !== "all" && a.team !== selectedTeam) return false;
-      if (selectedAssessor !== "all" && a.cod !== selectedAssessor) return false;
-      return true;
-    });
+    const mvAssessors = (metadata.assessors as EffortAssessor[]) || [];
+    const resolveAssessor = (cod: string) => assessorDirectory.get(cod) || null;
 
     const rows = monthlyHistoryData as any[];
     const months = Array.from({ length: 12 }, (_, index) => {
@@ -839,13 +931,25 @@ export default function WeeklyEffortsDash() {
         agendadasSdr: number;
         indicacao: number;
       }>();
-      activeAssessors.forEach((a) => assessorStats.set(a.cod, {
-        realizadasAssessor: 0,
-        realizadasSdr: 0,
-        agendadasAssessor: 0,
-        agendadasSdr: 0,
-        indicacao: 0,
-      }));
+
+      const ensureAssessor = (cod: string, meta: EffortAssessor) => {
+        if (selectedTeam !== "all" && meta.team !== selectedTeam) return false;
+        if (selectedAssessor !== "all" && cod !== selectedAssessor) return false;
+        if (!assessorStats.has(cod)) {
+          assessorStats.set(cod, {
+            realizadasAssessor: 0,
+            realizadasSdr: 0,
+            agendadasAssessor: 0,
+            agendadasSdr: 0,
+            indicacao: 0,
+          });
+        }
+        return true;
+      };
+
+      mvAssessors.forEach((a) => {
+        ensureAssessor(a.cod, a);
+      });
 
       let realizadas = 0;
       let agendadas = 0;
@@ -856,12 +960,12 @@ export default function WeeklyEffortsDash() {
         const dueDate = r.data_vencimento.substring(0, 10);
         if (dueDate < startStr || dueDate > endStr) return;
 
-        const cod = r.assessor;
-        if (!cod || !assessorMap.has(cod)) return;
+        const cod = String(r.assessor ?? "").trim();
+        if (!cod) return;
 
-        const assessorMeta = assessorMap.get(cod);
-        if (selectedTeam !== "all" && assessorMeta?.team !== selectedTeam) return;
-        if (selectedAssessor !== "all" && cod !== selectedAssessor) return;
+        const assessorMeta = resolveAssessor(cod);
+        if (!assessorMeta || !isAllowedEffortAssessor(assessorMeta.cod, assessorMeta.team)) return;
+        if (!ensureAssessor(cod, assessorMeta)) return;
 
         const isSdr = isSdrCanal(r.canal);
         const isRealizada = String(r.concluido).toLowerCase() === "true";
@@ -874,44 +978,37 @@ export default function WeeklyEffortsDash() {
           if (isIndicacao) indicacao++;
         }
 
-        const current = assessorStats.get(cod);
-        if (current) {
-          if (isRealizada) {
-            if (isSdr) current.realizadasSdr++;
-            else current.realizadasAssessor++;
-          } else {
-            if (isSdr) current.agendadasSdr++;
-            else current.agendadasAssessor++;
-          }
-          if (isIndicacao) current.indicacao++;
+        const current = assessorStats.get(cod)!;
+        if (isRealizada) {
+          if (isSdr) current.realizadasSdr++;
+          else current.realizadasAssessor++;
+        } else {
+          if (isSdr) current.agendadasSdr++;
+          else current.agendadasAssessor++;
         }
+        if (isIndicacao) current.indicacao++;
       });
 
       const totalAssessores = assessorStats.size;
       const metaIndividual = weeks;
       const totalMeta = totalAssessores * metaIndividual;
-      const assessorRows = activeAssessors.map((assessor) => {
-        const stats = assessorStats.get(assessor.cod) || {
-          realizadasAssessor: 0,
-          realizadasSdr: 0,
-          agendadasAssessor: 0,
-          agendadasSdr: 0,
-          indicacao: 0,
-        };
+      const assessorRows = Array.from(assessorStats.entries()).map(([cod, stats]) => {
+        const assessor = resolveAssessor(cod);
         const r1Assessor = stats.realizadasAssessor;
         const r1Sdr = stats.realizadasSdr;
-        const r1Totais = includeSdr ? r1Assessor + r1Sdr : r1Assessor;
+        const r1Totais = r1Assessor + r1Sdr;
         const agendadasTotal = includeSdr
           ? stats.agendadasAssessor + stats.agendadasSdr
           : stats.agendadasAssessor;
         const bateuMeta = r1Totais >= metaIndividual;
         return {
-          cod: assessor.cod,
-          nome: assessor.name,
-          time: assessor.team || "Sem time",
+          cod,
+          nome: assessor?.name || cod,
+          time: assessor?.team || "Sem time",
           realizadas: r1Totais,
           realizadasAssessor: r1Assessor,
           realizadasSdr: r1Sdr,
+          r1Totais,
           agendadas: agendadasTotal,
           indicacao: stats.indicacao,
           bateuMeta,
@@ -990,7 +1087,7 @@ export default function WeeklyEffortsDash() {
         deltaPct,
       };
     });
-  }, [monthlyHistoryData, metadata, selectedTeam, selectedAssessor, includeSdr, today]);
+  }, [monthlyHistoryData, metadata, assessorDirectory, selectedTeam, selectedAssessor, includeSdr, today]);
 
   const monthlyCompareSummary = useMemo(() => {
     if (!monthlyComparisonData.length) return null;
@@ -1008,9 +1105,9 @@ export default function WeeklyEffortsDash() {
   }, [monthlyComparisonData]);
 
   const selectedAssessorMeta = useMemo(() => {
-    if (!metadata || selectedAssessor === "all") return null;
-    return (metadata.assessors as any[]).find((a) => a.cod === selectedAssessor) || null;
-  }, [metadata, selectedAssessor]);
+    if (!selectedAssessor || selectedAssessor === "all") return null;
+    return effortFilterAssessors.find((a) => a.cod === selectedAssessor) || null;
+  }, [effortFilterAssessors, selectedAssessor]);
 
   const selectedMonthlyTableDetail = useMemo(
     () => monthlyComparisonData.find((month) => month.monthKey === selectedMonthlyTableMonthKey) || null,
@@ -1164,30 +1261,30 @@ export default function WeeklyEffortsDash() {
                 </Select>
               )}
 
-              {metadata && metadata.teams.length > 0 && (
+              {effortFilterTeams.length > 0 && (
                 <Select value={selectedTeam} onValueChange={(v) => { setSelectedTeam(v); setSelectedAssessor("all"); }}>
                   <SelectTrigger className="w-[160px] h-9 bg-black/20 border-white/10 text-white text-xs font-data uppercase">
                     <SelectValue placeholder="Todos os Times" />
                   </SelectTrigger>
                   <SelectContent className="bg-euro-card border-white/10 text-white font-data uppercase text-xs">
                     <SelectItem value="all">Todos os Times</SelectItem>
-                    {metadata.teams.map((t: string) => (
+                    {effortFilterTeams.map((t: string) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
 
-              {metadata && metadata.assessors.length > 0 && (
+              {effortFilterAssessors.length > 0 && (
                 <Select value={selectedAssessor} onValueChange={setSelectedAssessor}>
                   <SelectTrigger className="w-[220px] h-9 bg-black/20 border-white/10 text-white text-xs font-data uppercase">
                     <SelectValue placeholder="Todos os Assessores" />
                   </SelectTrigger>
                   <SelectContent className="bg-euro-card border-white/10 text-white font-data uppercase text-xs">
                     <SelectItem value="all">Todos os Assessores</SelectItem>
-                    {metadata.assessors
-                      .filter((a: any) => selectedTeam === "all" || a.team === selectedTeam)
-                      .map((a: any) => (
+                    {effortFilterAssessors
+                      .filter((a) => selectedTeam === "all" || a.team === selectedTeam)
+                      .map((a) => (
                       <SelectItem key={a.cod} value={a.cod}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1262,34 +1359,23 @@ export default function WeeklyEffortsDash() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <span className="text-[10px] font-data uppercase tracking-[0.2em] text-white/45">Total da Agenda</span>
-                            <CalendarCheck className="w-4 h-4 text-blue-400" />
+                            <span className="text-[10px] font-data uppercase tracking-[0.2em] text-white/45">Total R1 Assessores</span>
+                            <Users className="w-4 h-4 text-blue-400" />
                           </div>
-                          <div className="text-3xl font-display text-white leading-none">{dashboardStory.current.agendadas + dashboardStory.current.realizadas}</div>
-                          <p className="mt-2 text-xs text-white/50">Volume total de R1 (realizadas + futuras).</p>
+                          <div className="text-3xl font-display text-white leading-none">{dashboardStory.current.realizadasAssessor ?? 0}</div>
+                          <p className="mt-2 text-xs text-white/50">R1 realizadas pelo assessor no período.</p>
                         </div>
 
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <span className="text-[10px] font-data uppercase tracking-[0.2em] text-white/45">Agendadas</span>
+                            <span className="text-[10px] font-data uppercase tracking-[0.2em] text-white/45">Total R1 SDRs</span>
                             <Clock className="w-4 h-4 text-[#A855F7]" />
                           </div>
-                          <div className="text-3xl font-display text-white leading-none">{dashboardStory.current.agendadas}</div>
-                          <p className="mt-2 text-xs text-white/50">Reuniões futuras abertas no mesmo recorte.</p>
-                        </div>
-
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-[10px] font-data uppercase tracking-[0.2em] text-white/45">Indicação</span>
-                            <ThumbsUp className="w-4 h-4 text-[#EAB308]" />
-                          </div>
-                          <div className="text-3xl font-display text-white leading-none">{dashboardStory.current.indicacao}</div>
-                          <p className="mt-2 text-xs text-white/50">
-                            {dashboardStory.indicationShare.toFixed(0)}% das realizadas vieram de indicação.
-                          </p>
+                          <div className="text-3xl font-display text-white leading-none">{dashboardStory.current.realizadasSdr ?? 0}</div>
+                          <p className="mt-2 text-xs text-white/50">R1 realizadas via canal SDR no período.</p>
                         </div>
 
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -1318,19 +1404,19 @@ export default function WeeklyEffortsDash() {
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                           <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">O que mostra</p>
                           <p className="text-sm text-white/70 leading-relaxed">
-                            O volume realizado no recorte atual, junto com o estoque agendado, o peso de indicação e a base total que está sendo cobrada.
+                            A produção total do período (Assessor + SDR) e a base monitorada nos filtros.
                           </p>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                           <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">Como calcula</p>
                           <p className="text-sm text-white/70 leading-relaxed">
-                            Realizadas = reuniões com `concluido = true`. Agendadas = `concluido = false`. Indicação = canal `indicação`. Base monitorada = assessores ativos após os filtros.
+                            Produção = R1 Assessor + R1 SDR (`concluido = true`). Base = assessores ativos após os filtros.
                           </p>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 md:col-span-2">
                           <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">Como interpretar</p>
                           <p className="text-sm text-white/70 leading-relaxed">
-                            Esse é o card de temperatura da operação. Ele responde se o time está entregando agora, qual o colchão de agenda para frente e quanto dessa produção veio de relacionamento por indicação.
+                            Esse é o card de temperatura da operação. Ele separa o que veio do assessor e o que veio de SDR.
                           </p>
                         </div>
                       </div>
@@ -1433,7 +1519,7 @@ export default function WeeklyEffortsDash() {
                 cardId="pace"
                 flippedCard={flippedCard}
                 onToggle={handleToggleCard}
-                className="xl:col-span-4 min-h-[340px]"
+                className="xl:col-span-6 min-h-[340px]"
                 front={
                   <Card className="h-full bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 backdrop-blur-xl border border-white/15 rounded-[26px] shadow-2xl overflow-hidden relative">
                     <div className="absolute inset-y-0 left-0 w-1 bg-[#A855F7]" />
@@ -1506,7 +1592,7 @@ export default function WeeklyEffortsDash() {
                 cardId="assessors-hit-rate"
                 flippedCard={flippedCard}
                 onToggle={handleToggleCard}
-                className="xl:col-span-4 min-h-[340px]"
+                className="xl:col-span-6 min-h-[340px]"
                 front={
                   <Card className="h-full bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 backdrop-blur-xl border border-white/15 rounded-[26px] shadow-2xl overflow-hidden relative">
                     <div className="absolute inset-y-0 left-0 w-1 bg-green-500" />
@@ -1556,78 +1642,6 @@ export default function WeeklyEffortsDash() {
                           <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">Como ler</p>
                           <p className="text-sm text-white/70 leading-relaxed">
                             Esse indicador responde dispersão de performance. Ele mostra quantas pessoas bateram a régua mínima, não o quanto o time entregou da meta total consolidada.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                }
-              />
-
-              <FlipInsightCard
-                cardId="individual-bar"
-                flippedCard={flippedCard}
-                onToggle={handleToggleCard}
-                className="xl:col-span-4 min-h-[340px]"
-                front={
-                  <Card className="h-full bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/65 backdrop-blur-xl border border-white/15 rounded-[26px] shadow-2xl overflow-hidden relative">
-                    <div className="absolute inset-y-0 left-0 w-1 bg-[#06B6D4]" />
-                    <CardContent className="p-6 space-y-5 h-full flex flex-col">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-[10px] font-data uppercase tracking-[0.22em] text-cyan-300 mb-2">Régua individual</p>
-                          <h3 className="text-lg font-data text-white uppercase tracking-[0.15em]">Meta e destaque</h3>
-                        </div>
-                        <Users className="w-5 h-5 text-[#06B6D4] shrink-0 mt-1" />
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                          <div className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">
-                            Meta individual
-                          </div>
-                          <div className="text-3xl font-display text-white leading-none">
-                            {dashboardStory.current.metaTarget}
-                          </div>
-                          <p className="mt-2 text-xs text-white/55">
-                            R1 por assessor em {periodDates.label.toLowerCase()}.
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                          <div className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">
-                            Top performer
-                          </div>
-                          <div className="text-3xl font-display text-white leading-none">
-                            {dashboardStory.current.topPerformerTarget}
-                          </div>
-                          <p className="mt-2 text-xs text-white/55">
-                            R1 por assessor para entrar na faixa destaque.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                }
-                back={
-                  <Card className="h-full bg-[radial-gradient(circle_at_top_left,_rgba(6,182,212,0.12),_transparent_42%),linear-gradient(180deg,rgba(8,16,28,0.98),rgba(11,21,33,0.96))] backdrop-blur-xl border border-cyan-400/20 rounded-[26px] shadow-2xl overflow-hidden relative">
-                    <div className="absolute inset-y-0 left-0 w-1 bg-[#06B6D4]" />
-                    <CardContent className="p-6 h-full flex flex-col overflow-y-auto">
-                      <div className="mb-5">
-                        <p className="text-[10px] font-data uppercase tracking-[0.24em] text-cyan-300 mb-2">Como calcula</p>
-                        <h3 className="text-xl font-data text-white uppercase tracking-[0.16em]">Régua individual</h3>
-                      </div>
-                      <div className="space-y-4 flex-1">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                          <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">Meta individual</p>
-                          <p className="text-sm text-white/70 leading-relaxed">
-                            A meta individual é {dashboardStory.current.metaTarget} R1 por assessor no recorte atual. Nos recortes mensais, a régua considera 4 semanas fixas para não penalizar a quinta semana quebrada.
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                          <p className="text-[10px] font-data uppercase tracking-[0.18em] text-white/40 mb-2">Top performer</p>
-                          <p className="text-sm text-white/70 leading-relaxed">
-                            A faixa de destaque usa 2x a régua individual do período. Hoje isso pede {dashboardStory.current.topPerformerTarget} R1 por assessor.
                           </p>
                         </div>
                       </div>
