@@ -90,9 +90,10 @@ export function PrivateCaptacaoDialog({
     queryKey: ["private-captacao-detalhe", kind, selectedMonth, assessorCodes],
     enabled: open && !!selectedMonth && assessorCodes.length > 0,
     queryFn: async () => {
-      const start = parseISO(selectedMonth);
-      const startStr = format(start, "yyyy-MM-dd");
-      const endStr = format(addMonths(start, 1), "yyyy-MM-dd");
+      // selectedMonth é data_posicao (ex. 2026-09-11); captação da MV é mês calendário.
+      const monthStart = parseISO(`${selectedMonth.slice(0, 7)}-01`);
+      const startStr = format(monthStart, "yyyy-MM-dd");
+      const endStr = format(addMonths(monthStart, 1), "yyyy-MM-dd");
 
       const rows: CaptacaoRow[] = [];
 

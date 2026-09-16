@@ -32,19 +32,22 @@ const PRODUCT_LABEL = Object.fromEntries(
   ]),
 );
 
+/** selectedMonth no Private é data_posicao (ex.: 2026-09-11); o detalhe de RF/etc. é mês calendário. */
 function monthBounds(selectedMonth: string) {
-  const start = parseISO(selectedMonth);
+  const key = selectedMonth.slice(0, 7);
+  const start = `${key}-01`;
+  const startDate = parseISO(start);
   return {
-    start: format(start, "yyyy-MM-dd"),
-    end: format(addMonths(start, 1), "yyyy-MM-dd"),
-    prevStart: format(addMonths(start, -1), "yyyy-MM-dd"),
-    key: selectedMonth.slice(0, 7),
+    start,
+    end: format(addMonths(startDate, 1), "yyyy-MM-dd"),
+    prevStart: format(addMonths(startDate, -1), "yyyy-MM-dd"),
+    key,
   };
 }
 
 function nextMonthDay(selectedMonth: string, day: number) {
-  const start = parseISO(selectedMonth);
-  return format(addMonths(start, 1), "yyyy-MM") + `-${String(day).padStart(2, "0")}`;
+  const startDate = parseISO(`${selectedMonth.slice(0, 7)}-01`);
+  return `${format(addMonths(startDate, 1), "yyyy-MM")}-${String(day).padStart(2, "0")}`;
 }
 
 async function loadRevenueRows(
@@ -422,7 +425,7 @@ export function PrivateReceitaDialog({
   return (
     <ClientDetailsDialog
       title={`Receita ${label} por cliente`}
-      subtitle="Linhas da origem do produto no mês selecionado. A soma tenta fechar com o card; Asset, Previdência e Compromissadas podem divergir da MV."
+      subtitle="Linhas da origem do produto no mês calendário da data selecionada. A soma tenta fechar com o card; Asset, Previdência e Compromissadas podem divergir da MV."
       icon={Coins}
       columns={columns}
       rows={rows}
