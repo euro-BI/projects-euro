@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { addMonths, format, parseISO } from "date-fns";
+import { addMonths, format, parseISO, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ArrowUpDown, Search, Wallet } from "lucide-react";
 
@@ -28,7 +28,8 @@ function formatMoney(value: number) {
 }
 
 async function fetchAssessorMovements(codAssessor: string, monthStart: string): Promise<MovementRow[]> {
-  const start = parseISO(monthStart);
+  // selectedMonth no comercial é a data_posicao (ex.: 2026-09-11); o recorte precisa ser o mês todo.
+  const start = startOfMonth(parseISO(monthStart));
   const startStr = format(start, "yyyy-MM-dd");
   const endStr = format(addMonths(start, 1), "yyyy-MM-dd");
   const withA = withAssessorPrefix(codAssessor);
@@ -68,17 +69,25 @@ async function fetchAssessorMovements(codAssessor: string, monthStart: string): 
 
   const transferRows = (transfers ?? []) as Array<Record<string, unknown>>;
   const solicitacoes = transferRows.map((row) => String(row.cod_solicitacao ?? "")).filter(Boolean);
-  const dateBySolicitacao = new Map<string, string>();
+  const transferMetaBySolicitacao = new Map<string, {
+    data: string;
+    origem: string;
+    destino: string;
+  }>();
 
   if (solicitacoes.length > 0) {
     const { data: rawTransfers, error: rawError } = await dadosTransfClient
-      .select("cod_solicitacao, data_transferencia")
+      .select("cod_solicitacao, data_transferencia, cod_assessor_origem, cod_assessor_destino")
       .in("cod_solicitacao", solicitacoes);
     if (rawError) throw rawError;
     for (const row of (rawTransfers ?? []) as Array<Record<string, unknown>>) {
       const code = String(row.cod_solicitacao ?? "");
-      const date = String(row.data_transferencia ?? "");
-      if (code && date) dateBySolicitacao.set(code, date);
+      if (!code) continue;
+      transferMetaBySolicitacao.set(code, {
+        data: String(row.data_transferencia ?? ""),
+        origem: String(row.cod_assessor_origem ?? "-") || "-",
+        destino: String(row.cod_assessor_destino ?? "-") || "-",
+      });
     }
   }
 
@@ -99,12 +108,25 @@ async function fetchAssessorMovements(codAssessor: string, monthStart: string): 
   for (const row of transferRows) {
     const valor = Number(row.valor) || 0;
     const solicitacao = String(row.cod_solicitacao ?? "");
+    const meta = transferMetaBySolicitacao.get(solicitacao);
+    const tipoView = String(row.tipo ?? "").trim();
+    const origem = meta?.origem || "-";
+    const destino = meta?.destino || "-";
+    const fluxo =
+      tipoView === "Entrada" || tipoView === "Saída" || tipoView === "Interna"
+        ? tipoView
+        : valor >= 0
+          ? "Entrada"
+          : "Saída";
+
     rows.push({
       id: `tr-${solicitacao || `${row.cod_cliente}-${row.data_transferencia}`}`,
-      data: dateBySolicitacao.get(solicitacao) || String(row.data_transferencia ?? ""),
+      data: meta?.data || String(row.data_transferencia ?? ""),
       cliente: String(row.cod_cliente ?? ""),
       tipo: valor >= 0 ? "Transf. entrada" : "Transf. saída",
-      detalhe: "Transferência",
+      detalhe: solicitacao
+        ? `${fluxo} · ${origem} → ${destino} · #${solicitacao}`
+        : `${fluxo} · ${origem} → ${destino}`,
       valor,
     });
   }
