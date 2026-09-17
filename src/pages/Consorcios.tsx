@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { PageLayout } from "@/components/PageLayout";
 import { HubAtmosphere } from "@/components/home/HubAtmosphere";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,10 @@ type DadosConsorcio = {
   data_cancelamento: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  created_by?: string | null;
+  created_by_nome?: string | null;
+  updated_by?: string | null;
+  updated_by_nome?: string | null;
 };
 
 type AssessorOption = { code: string; name: string };
@@ -71,8 +76,10 @@ const labelClass = "text-[13px] font-medium text-white/50";
 
 const Consorcios = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [registros, setRegistros] = useState<DadosConsorcio[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -334,6 +341,23 @@ const Consorcios = () => {
   }, []);
 
   useEffect(() => {
+    if (!user?.id) {
+      setCurrentUserName("");
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("projects_profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      const profile = data as { first_name?: string | null; last_name?: string | null } | null;
+      const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
+      setCurrentUserName(fullName || user.email || user.id);
+    })();
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
     if (!settingsOpen) return;
     (async () => {
       const { data } = await supabase
@@ -428,7 +452,13 @@ const Consorcios = () => {
   };
 
   const save = async () => {
-    const payload: Omit<DadosConsorcio, "id" | "created_at" | "updated_at"> = {
+    if (!user?.id) {
+      toast.error("Sessão inválida. Faça login novamente.");
+      return;
+    }
+
+    const actorName = currentUserName || user.email || user.id;
+    const basePayload = {
       administradora: form.administradora || null,
       cod_assessor: form.cod_assessor || null,
       data_venda: form.data_venda || null,
@@ -442,22 +472,28 @@ const Consorcios = () => {
       cota: form.cota || null,
       valor_carta: form.valor_carta ?? null,
       valor_comissao_total: form.valor_comissao_total ?? null,
+      updated_by: user.id,
+      updated_by_nome: actorName,
     };
 
     if (editing) {
       const { error } = await supabase
         .from("dados_consorcio")
-        .update(payload)
+        .update(basePayload)
         .eq("id", editing.id);
       if (error) {
-        toast.error("Erro ao atualizar registro");
+        toast.error(`Erro ao atualizar registro: ${error.message}`);
         return;
       }
       toast.success("Registro atualizado");
     } else {
-      const { error } = await supabase.from("dados_consorcio").insert(payload);
+      const { error } = await supabase.from("dados_consorcio").insert({
+        ...basePayload,
+        created_by: user.id,
+        created_by_nome: actorName,
+      });
       if (error) {
-        toast.error("Erro ao criar registro");
+        toast.error(`Erro ao criar registro: ${error.message}`);
         return;
       }
       toast.success("Registro criado");
@@ -513,6 +549,8 @@ const Consorcios = () => {
       "Comissão Mensal 6m": r.valor_comissao_mensal_6m ?? "",
       "Comissão 13m": r.valor_comissao_13m ?? "",
       "Comissão Total": r.valor_comissao_total ?? "",
+      "Registrado por": r.created_by_nome || "",
+      "Alterado por": r.updated_by_nome || "",
       "Criado Em": r.created_at || "",
       "Atualizado Em": r.updated_at || "",
     }));
@@ -705,6 +743,7 @@ const Consorcios = () => {
                   <th className="px-4 py-3.5 font-medium">Assessor</th>
                   <th className="px-4 py-3.5 font-medium">Produto</th>
                   <th className="px-4 py-3.5 font-medium">Venda</th>
+                  <th className="px-4 py-3.5 font-medium">Registrado por</th>
                   <th className="px-4 py-3.5 font-medium text-right">Comissão</th>
                   <th className="px-4 py-3.5 font-medium">Status</th>
                   <th className="px-5 py-3.5 font-medium text-right">Ações</th>
@@ -713,11 +752,11 @@ const Consorcios = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-16 text-center text-white/40">Carregando registros...</td>
+                    <td colSpan={9} className="px-5 py-16 text-center text-white/40">Carregando registros...</td>
                   </tr>
                 ) : pageItems.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</td>
+                    <td colSpan={9} className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</td>
                   </tr>
                 ) : (
                   pageItems.map((r) => {
@@ -748,6 +787,7 @@ const Consorcios = () => {
                         </td>
                         <td className="px-4 py-4 text-sm text-white/75">{r.produto || "—"}</td>
                         <td className="px-4 py-4 font-data text-sm tabular-nums text-white/75">{formatDateBR(r.data_venda)}</td>
+                        <td className="px-4 py-4 text-sm text-white/75">{r.created_by_nome || "—"}</td>
                         <td className="px-4 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
                           {formatCurrency(r.valor_comissao_total)}
                         </td>
@@ -794,6 +834,7 @@ const Consorcios = () => {
                         formatPercent={formatPercent}
                       />
                       <span>{r.produto || "—"}</span>
+                      <span>· {r.created_by_nome || "sem registro"}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="font-data text-sm tabular-nums text-euro-gold">{formatCurrency(r.valor_comissao_total)}</p>
@@ -1178,6 +1219,8 @@ const Consorcios = () => {
                 <Detail label="Cota" value={viewing.cota} />
                 <Detail label="Valor carta" value={formatCurrency(viewing.valor_carta)} />
                 <Detail label="Comissão total" value={formatCurrency(viewing.valor_comissao_total)} highlight />
+                <Detail label="Registrado por" value={viewing.created_by_nome} />
+                <Detail label="Alterado por" value={viewing.updated_by_nome} />
               </div>
             )}
           </DialogContent>
