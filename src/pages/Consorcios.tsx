@@ -22,9 +22,11 @@ import {
   Download,
   Edit,
   Eye,
+  Package,
   Plus,
   Search,
   Settings,
+  Trash2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
@@ -53,6 +55,12 @@ type DadosConsorcio = {
 
 type AssessorOption = { code: string; name: string };
 type AdmConfig = { id: number; administradora: string; comissao_percent: number };
+type ProdutoConsorcio = {
+  id: number;
+  administradora_id: number;
+  nome_produto: string;
+  usageCount: number;
+};
 type StatusFilter = "all" | "active" | "cancelled";
 
 const fieldClass =
@@ -81,6 +89,7 @@ const Consorcios = () => {
     return m;
   }, [assessorOptions]);
   const [productsByAdmin, setProductsByAdmin] = useState<Record<string, string[]>>({});
+  const [productsCatalog, setProductsCatalog] = useState<ProdutoConsorcio[]>([]);
   const availableProducts = useMemo(() => productsByAdmin[form.administradora || ""] || [], [form.administradora, productsByAdmin]);
   const [viewing, setViewing] = useState<DadosConsorcio | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -89,8 +98,16 @@ const Consorcios = () => {
   const [adminOptions, setAdminOptions] = useState<string[]>([]);
   const [adminCommissions, setAdminCommissions] = useState<Record<string, number>>({});
   const [productDialogOpen, setProductDialogOpen] = useState(false);
-  const [productAdminId, setProductAdminId] = useState<number | null>(null);
-  const [productName, setProductName] = useState<string>("");
+  const [productAdmin, setProductAdmin] = useState<AdmConfig | null>(null);
+  const [productName, setProductName] = useState("");
+  const [editingProduct, setEditingProduct] = useState<ProdutoConsorcio | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<ProdutoConsorcio | null>(null);
+  const [productBusy, setProductBusy] = useState(false);
+
+  const productsForSelectedAdmin = useMemo(
+    () => (productAdmin ? productsCatalog.filter((p) => p.administradora_id === productAdmin.id) : []),
+    [productAdmin, productsCatalog],
+  );
 
   const formatCurrency = (n: number | null) => {
     if (n === null || n === undefined) return "-";
@@ -175,26 +192,70 @@ const Consorcios = () => {
   };
 
   const loadAdminProducts = async () => {
-    const { data: admins } = await supabase
-      .from("dados_consorcios_adm")
-      .select("id, administradora")
-      .order("administradora", { ascending: true });
-    const { data: prods } = await supabase
-      .from("dados_produtos_consorcio")
-      .select("administradora_id, nome_produto");
-    const map: Record<string, string[]> = {};
+    const [{ data: admins }, { data: prods }, { data: vendas }] = await Promise.all([
+      supabase
+        .from("dados_consorcios_adm")
+        .select("id, administradora")
+        .order("administradora", { ascending: true }),
+      supabase
+        .from("dados_produtos_consorcio")
+        .select("id, administradora_id, nome_produto")
+        .order("nome_produto", { ascending: true }),
+      supabase
+        .from("dados_consorcio")
+        .select("administradora, produto"),
+    ]);
+
     const idToName = new Map<number, string>();
+    const nameMap: Record<string, string[]> = {};
     (admins as { id: number; administradora: string }[] | null)?.forEach((a) => {
       idToName.set(a.id, a.administradora);
-      map[a.administradora] = [];
+      nameMap[a.administradora] = [];
     });
-    (prods as { administradora_id: number; nome_produto: string }[] | null)?.forEach((p) => {
+
+    const usage = new Map<string, number>();
+    (vendas as { administradora: string | null; produto: string | null }[] | null)?.forEach((row) => {
+      const adm = String(row.administradora ?? "").trim().toUpperCase();
+      const prod = String(row.produto ?? "").trim().toUpperCase();
+      if (!adm || !prod) return;
+      const key = `${adm}|${prod}`;
+      usage.set(key, (usage.get(key) ?? 0) + 1);
+    });
+
+    const catalog: ProdutoConsorcio[] = (
+      (prods as Array<{ id: number; administradora_id: number; nome_produto: string }> | null) ?? []
+    ).map((p) => {
+      const admName = idToName.get(p.administradora_id) ?? "";
+      const key = `${admName.trim().toUpperCase()}|${String(p.nome_produto ?? "").trim().toUpperCase()}`;
+      return {
+        id: p.id,
+        administradora_id: p.administradora_id,
+        nome_produto: p.nome_produto,
+        usageCount: usage.get(key) ?? 0,
+      };
+    });
+
+    catalog.forEach((p) => {
       const name = idToName.get(p.administradora_id);
-      if (name) {
-        (map[name] ||= []).push(p.nome_produto);
-      }
+      if (name) (nameMap[name] ||= []).push(p.nome_produto);
     });
-    setProductsByAdmin(map);
+
+    setProductsCatalog(catalog);
+    setProductsByAdmin(nameMap);
+  };
+
+  const openProductsForAdmin = (admin: AdmConfig) => {
+    setProductAdmin(admin);
+    setEditingProduct(null);
+    setDeletingProduct(null);
+    setProductName("");
+    setProductDialogOpen(true);
+  };
+
+  const resetProductForm = () => {
+    setEditingProduct(null);
+    setDeletingProduct(null);
+    setProductName("");
   };
 
   const loadRegistros = async () => {
@@ -463,21 +524,97 @@ const Consorcios = () => {
 
   const saveProduct = async () => {
     const name = productName.trim().toUpperCase();
-    if (!name || !productAdminId) {
+    if (!name || !productAdmin) {
       toast.error("Informe o nome do produto");
       return;
     }
-    const { error } = await supabase
-      .from("dados_produtos_consorcio")
-      .insert({ administradora_id: productAdminId, nome_produto: name });
-    if (error) {
-      toast.error("Erro ao salvar produto");
+
+    const duplicate = productsForSelectedAdmin.some(
+      (p) => p.nome_produto === name && p.id !== editingProduct?.id,
+    );
+    if (duplicate) {
+      toast.error("Já existe um produto com esse nome nesta administradora");
       return;
     }
-    toast.success("Produto adicionado");
-    setProductDialogOpen(false);
-    setProductName("");
-    await loadAdminProducts();
+
+    setProductBusy(true);
+    try {
+      if (editingProduct) {
+        const oldName = editingProduct.nome_produto;
+        const { error } = await supabase
+          .from("dados_produtos_consorcio")
+          .update({ nome_produto: name })
+          .eq("id", editingProduct.id);
+        if (error) throw error;
+
+        if (oldName !== name) {
+          const { error: cascadeError } = await supabase
+            .from("dados_consorcio")
+            .update({ produto: name })
+            .eq("administradora", productAdmin.administradora)
+            .eq("produto", oldName);
+          if (cascadeError) throw cascadeError;
+        }
+
+        toast.success("Produto atualizado");
+      } else {
+        const { error } = await supabase
+          .from("dados_produtos_consorcio")
+          .insert({ administradora_id: productAdmin.id, nome_produto: name });
+        if (error) throw error;
+        toast.success("Produto adicionado");
+      }
+
+      resetProductForm();
+      await loadAdminProducts();
+      await loadRegistros();
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error
+        ? error.message
+        : typeof error === "object" && error && "message" in error
+          ? String((error as { message?: string }).message ?? "")
+          : "";
+      if (/duplicate key|unique/i.test(message)) {
+        toast.error("Já existe um produto com esse nome nesta administradora");
+      } else if (/row-level security|permission denied|42501/i.test(message)) {
+        toast.error("Sem permissão para salvar o produto (RLS/grants)");
+      } else {
+        toast.error(message ? `Erro ao salvar produto: ${message}` : "Erro ao salvar produto");
+      }
+    } finally {
+      setProductBusy(false);
+    }
+  };
+
+  const deleteProduct = async () => {
+    if (!deletingProduct || !productAdmin) return;
+    if (deletingProduct.usageCount > 0) {
+      toast.error("Não dá para excluir: há lançamentos vinculados");
+      return;
+    }
+
+    setProductBusy(true);
+    try {
+      const { error } = await supabase
+        .from("dados_produtos_consorcio")
+        .delete()
+        .eq("id", deletingProduct.id);
+      if (error) throw error;
+      toast.success("Produto excluído");
+      setDeletingProduct(null);
+      await loadAdminProducts();
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error
+        ? error.message
+        : typeof error === "object" && error && "message" in error
+          ? String((error as { message?: string }).message ?? "")
+          : "";
+      toast.error(message ? `Erro ao excluir produto: ${message}` : "Erro ao excluir produto");
+    } finally {
+      setProductBusy(false);
+    }
   };
 
   return (
@@ -780,7 +917,7 @@ const Consorcios = () => {
         </Dialog>
 
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <DialogContent className={cn(dialogClass, "max-w-lg")}>
+          <DialogContent className={cn(dialogClass, "max-w-2xl")}>
             <DialogHeader>
               <DialogTitle className="text-2xl font-semibold tracking-tight">Administradoras</DialogTitle>
             </DialogHeader>
@@ -797,30 +934,36 @@ const Consorcios = () => {
                     <tr className="border-b border-white/10 bg-white/[0.03] text-[11px] uppercase tracking-wide text-white/40">
                       <th className="px-3 py-2.5 text-left font-medium">Administradora</th>
                       <th className="px-3 py-2.5 text-left font-medium">%</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Produto</th>
+                      <th className="px-3 py-2.5 text-left font-medium">Produtos</th>
+                      <th className="px-3 py-2.5 text-right font-medium">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {admConfigs.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-3 py-6 text-center text-white/40">Nenhuma configuração cadastrada</td>
+                        <td colSpan={4} className="px-3 py-6 text-center text-white/40">Nenhuma configuração cadastrada</td>
                       </tr>
                     ) : (
-                      admConfigs.map((c) => (
-                        <tr key={c.id} className="border-b border-white/[0.06] last:border-0">
-                          <td className="px-3 py-2.5 text-white">{c.administradora}</td>
-                          <td className="px-3 py-2.5 text-white/70">{formatPercent(c.comissao_percent)}</td>
-                          <td className="px-3 py-2.5 text-right">
-                            <button
-                              type="button"
-                              onClick={() => { setProductAdminId(c.id); setProductDialogOpen(true); }}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/60 hover:border-euro-gold/40 hover:text-euro-gold"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      admConfigs.map((c) => {
+                        const count = productsCatalog.filter((p) => p.administradora_id === c.id).length;
+                        return (
+                          <tr key={c.id} className="border-b border-white/[0.06] last:border-0">
+                            <td className="px-3 py-2.5 text-white">{c.administradora}</td>
+                            <td className="px-3 py-2.5 text-white/70">{formatPercent(c.comissao_percent)}</td>
+                            <td className="px-3 py-2.5 text-white/55">{count}</td>
+                            <td className="px-3 py-2.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => openProductsForAdmin(c)}
+                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-white/10 px-3 text-[11px] font-medium text-white/70 hover:border-euro-gold/40 hover:text-euro-gold"
+                              >
+                                <Package className="h-3.5 w-3.5" />
+                                Produtos
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -835,19 +978,146 @@ const Consorcios = () => {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-          <DialogContent className={cn(dialogClass, "max-w-md")}>
+        <Dialog
+          open={productDialogOpen}
+          onOpenChange={(open) => {
+            setProductDialogOpen(open);
+            if (!open) {
+              setProductAdmin(null);
+              resetProductForm();
+            }
+          }}
+        >
+          <DialogContent className={cn(dialogClass, "max-w-2xl")}>
             <DialogHeader>
-              <DialogTitle className="text-2xl font-semibold tracking-tight">Adicionar produto</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold tracking-tight">
+                Produtos · {productAdmin?.administradora || "—"}
+              </DialogTitle>
             </DialogHeader>
-            <Field label="Nome do produto">
-              <Input value={productName} onChange={(e) => setProductName(e.target.value.toUpperCase())} className={fieldClass} />
-            </Field>
-            <DialogFooter className="gap-2">
-              <GhostButton onClick={() => { setProductDialogOpen(false); setProductName(""); }}>Cancelar</GhostButton>
-              <button type="button" onClick={saveProduct} className="inline-flex h-11 items-center rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90">
-                Salvar
-              </button>
+
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-2xl border border-white/10">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.03] text-[11px] uppercase tracking-wide text-white/40">
+                      <th className="px-3 py-2.5 text-left font-medium">Produto</th>
+                      <th className="px-3 py-2.5 text-left font-medium">Lançamentos</th>
+                      <th className="px-3 py-2.5 text-right font-medium">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productsForSelectedAdmin.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-3 py-6 text-center text-white/40">Nenhum produto cadastrado</td>
+                      </tr>
+                    ) : (
+                      productsForSelectedAdmin.map((product) => (
+                        <tr key={product.id} className="border-b border-white/[0.06] last:border-0">
+                          <td className="px-3 py-2.5 text-white">{product.nome_produto}</td>
+                          <td className="px-3 py-2.5 text-white/55">{product.usageCount}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                title="Editar"
+                                onClick={() => {
+                                  setDeletingProduct(null);
+                                  setEditingProduct(product);
+                                  setProductName(product.nome_produto);
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/60 hover:border-euro-gold/40 hover:text-euro-gold"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title={product.usageCount > 0 ? "Há lançamentos vinculados" : "Excluir"}
+                                disabled={product.usageCount > 0 || productBusy}
+                                onClick={() => {
+                                  setEditingProduct(null);
+                                  setProductName("");
+                                  setDeletingProduct(product);
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/60 hover:border-red-400/40 hover:text-red-300 disabled:pointer-events-none disabled:opacity-30"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {deletingProduct ? (
+                <div className="space-y-3 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
+                  <p className="text-sm text-white/80">
+                    Excluir o produto <span className="font-medium text-white">{deletingProduct.nome_produto}</span>?
+                  </p>
+                  <p className="text-xs text-white/45">Só é permitido quando não há lançamentos vinculados.</p>
+                  <div className="flex gap-2">
+                    <GhostButton className="flex-1" onClick={() => setDeletingProduct(null)} disabled={productBusy}>
+                      Cancelar
+                    </GhostButton>
+                    <button
+                      type="button"
+                      onClick={() => void deleteProduct()}
+                      disabled={productBusy || deletingProduct.usageCount > 0}
+                      className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-red-500 px-5 text-sm font-semibold text-white hover:bg-red-500/90 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      Confirmar exclusão
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-sm font-medium text-white">
+                    {editingProduct ? "Editar produto" : "Novo produto"}
+                  </p>
+                  <Field label="Nome do produto">
+                    <Input
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value.toUpperCase())}
+                      className={fieldClass}
+                      placeholder="Ex.: CONSÓRCIO AUTO XP"
+                    />
+                  </Field>
+                  {editingProduct && editingProduct.usageCount > 0 && (
+                    <p className="text-xs text-white/40">
+                      Este produto tem {editingProduct.usageCount} lançamento(s). Ao renomear, os lançamentos também serão atualizados.
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    {editingProduct && (
+                      <GhostButton className="flex-1" onClick={resetProductForm} disabled={productBusy}>
+                        Cancelar edição
+                      </GhostButton>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void saveProduct()}
+                      disabled={productBusy || !productName.trim()}
+                      className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-euro-gold px-5 text-sm font-semibold text-euro-navy hover:bg-euro-gold/90 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      {editingProduct ? "Salvar alteração" : "Adicionar produto"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <GhostButton
+                onClick={() => {
+                  setProductDialogOpen(false);
+                  setProductAdmin(null);
+                  resetProductForm();
+                }}
+              >
+                Fechar
+              </GhostButton>
             </DialogFooter>
           </DialogContent>
         </Dialog>

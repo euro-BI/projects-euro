@@ -27,15 +27,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userCode, setUserCode] = useState<string | null>(null);
   const navigate = useNavigate();
   const requestIdRef = useRef(0);
+  const detailsUserIdRef = useRef<string | null>(null);
 
   const clearUserDetails = () => {
+    detailsUserIdRef.current = null;
     setUserRole(null);
     setIsActive(null);
     setUserCode(null);
   };
 
   const fetchUserAuthDetails = async (userId: string, requestId: number) => {
-    setDetailsLoading(true);
+    // Já temos role/perfil deste usuário: atualiza em background sem desmontar a rota.
+    const silent = detailsUserIdRef.current === userId;
+    if (!silent) setDetailsLoading(true);
     try {
       const [roleRes, profileRes] = await Promise.all([
         supabase.from("projects_user_roles").select("role").eq("user_id", userId).single(),
@@ -63,8 +67,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (active === false) {
           toast.error("Sua conta está inativa. Por favor, entre em contato com o administrador.");
           await signOut();
+          return;
         }
       }
+
+      detailsUserIdRef.current = userId;
     } finally {
       if (requestIdRef.current === requestId) setDetailsLoading(false);
     }
@@ -88,7 +95,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // Troca de aba / foco dispara TOKEN_REFRESHED; não recarregar perfil nem overlay.
+      if (event === "TOKEN_REFRESHED") {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        setInitialized(true);
+        return;
+      }
+
       void applySession(nextSession);
       setInitialized(true);
     });

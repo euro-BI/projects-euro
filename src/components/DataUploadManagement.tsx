@@ -14,28 +14,45 @@ const fieldClass =
 const dialogClass =
   "gap-5 border-white/10 bg-[#12141A] text-[#F4F1E8] sm:rounded-[28px] p-6 sm:p-8";
 
+/** Metadados fixos das cadências; o vínculo tabela→cadência vem do banco. */
+type UpdateCadence = "daily" | "every_2_days" | "weekly" | "monthly";
+
+const CADENCE_META: Record<UpdateCadence, { label: string; short: string; days: number; order: number }> = {
+  daily: { label: "Diário", short: "1d", days: 1, order: 1 },
+  every_2_days: { label: "A cada 2 dias", short: "2d", days: 2, order: 2 },
+  weekly: { label: "Semanal", short: "7d", days: 7, order: 3 },
+  monthly: { label: "Mensal", short: "30d", days: 31, order: 4 },
+};
+
+const CADENCE_ORDER = Object.keys(CADENCE_META) as UpdateCadence[];
+const DEFAULT_CADENCE: UpdateCadence = "weekly";
+
 const UPLOAD_TYPES = [
-  { value: "dados_captacoes", label: "Captações" },
-  { value: "positivador", label: "Positivador" },
-  { value: "cetipados", label: "Cetipados" },
-  { value: "dados_rv_executadas", label: "RV executadas" },
-  { value: "dados_transferencias", label: "Transferências" },
-  { value: "dados_rf_fluxo", label: "RF fluxo" },
-  { value: "dados_pj_custodia", label: "PJ custódia" },
-  { value: "dados_offshore_remessas", label: "Offshore remessas" },
-  { value: "dados_offshore_operacoes", label: "Offshore operações" },
-  { value: "dados_posicao_black", label: "Posição Black" },
-  { value: "dados_fundos_novo", label: "Fundos" },
-  { value: "dados_diversificador", label: "Diversificador" },
-  { value: "dados_rupturas", label: "Rupturas" },
-  { value: "dados_fp", label: "Financial Planning" },
-  { value: "dados_modelo_servir", label: "Modelo de servir" },
-  { value: "dados_habilitacoes", label: "Habilitações" },
-  { value: "dados_ativacoes", label: "Ativações" },
-  { value: "dados_nps", label: "NPS" },
-  { value: "dados_cambio", label: "Câmbio" },
-  { value: "dados_demonstrativo_full", label: "Demonstrativo", pending: true },
+  { value: "dados_captacoes", label: "Captações", tableKey: "dados_captacoes" },
+  { value: "positivador", label: "Positivador", tableKey: "dados_positivador" },
+  { value: "dados_rf_fluxo", label: "RF fluxo", tableKey: "dados_rf_fluxo" },
+  { value: "dados_rv_executadas", label: "RV executadas", tableKey: "dados_rv_executadas" },
+  { value: "dados_pj_custodia", label: "PJ custódia", tableKey: "dados_pj_custodia" },
+  { value: "dados_transferencias", label: "Transferências", tableKey: "dados_transferencias" },
+  { value: "dados_cambio", label: "Câmbio", tableKey: "dados_cambio" },
+  { value: "dados_offshore_remessas", label: "Offshore remessas", tableKey: "dados_offshore_remessas" },
+  { value: "dados_offshore_operacoes", label: "Offshore operações", tableKey: "dados_offshore_operacoes" },
+  { value: "cetipados", label: "Cetipados", tableKey: "dados_cetipados" },
+  { value: "dados_posicao_black", label: "Posição Black", tableKey: "dados_posicao_black" },
+  { value: "dados_nps", label: "NPS", tableKey: "dados_nps" },
+  { value: "dados_diversificador", label: "Diversificador", tableKey: "dados_diversificador_full" },
+  { value: "dados_fundos_novo", label: "Fundos", tableKey: "dados_fundos_novo" },
+  { value: "dados_habilitacoes", label: "Habilitações", tableKey: "dados_habilitacao_ativacao" },
+  { value: "dados_ativacoes", label: "Ativações", tableKey: "dados_habilitacao_ativacao" },
+  { value: "dados_rupturas", label: "Rupturas", tableKey: "dados_rupturas" },
+  { value: "dados_fp", label: "Financial Planning", tableKey: "dados_fp" },
+  { value: "dados_modelo_servir", label: "Modelo de servir", tableKey: "dados_modelo_servir" },
+  { value: "dados_demonstrativo_full", label: "Demonstrativo", tableKey: "dados_demonstrativo_full", pending: true },
 ] as const;
+
+function isUpdateCadence(value: string): value is UpdateCadence {
+  return value in CADENCE_META;
+}
 
 interface TabelaInfo {
   table_name: string;
@@ -59,7 +76,8 @@ type UploadResult = {
 const POSITIVADOR_MEDIA = 2400;
 
 type FreshnessFilter = "all" | "ok" | "warn" | "stale";
-type StatusSortKey = "base" | "ultimo_registro" | "atualizacao" | "registros";
+type CadenceFilter = "all" | UpdateCadence;
+type StatusSortKey = "base" | "cadencia" | "ultimo_registro" | "atualizacao" | "registros";
 
 type SnapshotMetric = {
   key: string;
@@ -138,6 +156,8 @@ export function DataUploadManagement() {
   const webhookFileInputRef = useRef<HTMLInputElement>(null);
 
   const [tabelasInfo, setTabelasInfo] = useState<TabelaInfo[]>([]);
+  const [cadenceByTable, setCadenceByTable] = useState<Record<string, UpdateCadence>>({});
+  const [savingCadenceTable, setSavingCadenceTable] = useState<string | null>(null);
   const [isLoadingTabelas, setIsLoadingTabelas] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [showRefreshConfirmModal, setShowRefreshConfirmModal] = useState(false);
@@ -151,29 +171,98 @@ export function DataUploadManagement() {
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [snapshotCompare, setSnapshotCompare] = useState<SnapshotCompare | null>(null);
   const [freshnessFilter, setFreshnessFilter] = useState<FreshnessFilter>("all");
+  const [cadenceFilter, setCadenceFilter] = useState<CadenceFilter>("all");
+  const [uploadCadenceFilter, setUploadCadenceFilter] = useState<CadenceFilter>("all");
   const [statusSort, setStatusSort] = useState<{ key: StatusSortKey; dir: "asc" | "desc" }>({
-    key: "base",
+    key: "cadencia",
     dir: "asc",
   });
+
+  const cadenceOf = (tableName: string): UpdateCadence =>
+    cadenceByTable[tableName] ?? DEFAULT_CADENCE;
+
+  const filteredUploadTypes = useMemo(() => {
+    const list = UPLOAD_TYPES.filter((item) => {
+      if (uploadCadenceFilter === "all") return true;
+      return cadenceOf(item.tableKey) === uploadCadenceFilter;
+    });
+    return [...list].sort((a, b) => {
+      const cadenceDiff = CADENCE_META[cadenceOf(a.tableKey)].order - CADENCE_META[cadenceOf(b.tableKey)].order;
+      if (cadenceDiff !== 0) return cadenceDiff;
+      return a.label.localeCompare(b.label, "pt-BR");
+    });
+  }, [uploadCadenceFilter, cadenceByTable]);
 
   const freshnessCounts = useMemo(() => {
     const counts = { ok: 0, warn: 0, stale: 0 };
     for (const tabela of tabelasInfo) {
-      const bucket = freshnessBucket(tabela.ultima_atualizacao);
+      const cadence = cadenceOf(tabela.table_name);
+      if (cadenceFilter !== "all" && cadence !== cadenceFilter) continue;
+      const bucket = freshnessBucket(tabela.ultima_atualizacao, cadence);
       if (bucket === "ok") counts.ok += 1;
       else if (bucket === "warn") counts.warn += 1;
       else if (bucket === "stale") counts.stale += 1;
     }
     return counts;
-  }, [tabelasInfo]);
+  }, [tabelasInfo, cadenceFilter, cadenceByTable]);
+
+  const cadenceCounts = useMemo(() => {
+    const counts: Record<UpdateCadence, number> = {
+      daily: 0,
+      every_2_days: 0,
+      weekly: 0,
+      monthly: 0,
+    };
+    for (const tabela of tabelasInfo) {
+      counts[cadenceOf(tabela.table_name)] += 1;
+    }
+    return counts;
+  }, [tabelasInfo, cadenceByTable]);
+
+  const dueCadenceCounts = useMemo(() => {
+    const counts: Record<UpdateCadence, number> = {
+      daily: 0,
+      every_2_days: 0,
+      weekly: 0,
+      monthly: 0,
+    };
+    for (const tabela of tabelasInfo) {
+      const cadence = cadenceOf(tabela.table_name);
+      const bucket = freshnessBucket(tabela.ultima_atualizacao, cadence);
+      if (bucket === "warn" || bucket === "stale") counts[cadence] += 1;
+    }
+    return counts;
+  }, [tabelasInfo, cadenceByTable]);
 
   const displayedTabelas = useMemo(() => {
-    const filtered = freshnessFilter === "all"
-      ? tabelasInfo
-      : tabelasInfo.filter((tabela) => freshnessBucket(tabela.ultima_atualizacao) === freshnessFilter);
+    const filtered = tabelasInfo.filter((tabela) => {
+      const cadence = cadenceOf(tabela.table_name);
+      if (cadenceFilter !== "all" && cadence !== cadenceFilter) return false;
+      if (freshnessFilter === "all") return true;
+      return freshnessBucket(tabela.ultima_atualizacao, cadence) === freshnessFilter;
+    });
 
     const direction = statusSort.dir === "asc" ? 1 : -1;
+    const urgencyRank = (bucket: string) => {
+      if (bucket === "stale") return 0;
+      if (bucket === "warn") return 1;
+      if (bucket === "ok") return 2;
+      return 3;
+    };
+
     return [...filtered].sort((a, b) => {
+      const cadenceA = cadenceOf(a.table_name);
+      const cadenceB = cadenceOf(b.table_name);
+      const bucketA = freshnessBucket(a.ultima_atualizacao, cadenceA);
+      const bucketB = freshnessBucket(b.ultima_atualizacao, cadenceB);
+
+      if (statusSort.key === "cadencia") {
+        const urgency = urgencyRank(bucketA) - urgencyRank(bucketB);
+        if (urgency !== 0) return urgency * (statusSort.dir === "asc" ? 1 : -1);
+        const byCadence = CADENCE_META[cadenceA].order - CADENCE_META[cadenceB].order;
+        if (byCadence !== 0) return byCadence * direction;
+        return prettyTableName(a.table_name).localeCompare(prettyTableName(b.table_name), "pt-BR");
+      }
       if (statusSort.key === "base") {
         return prettyTableName(a.table_name).localeCompare(prettyTableName(b.table_name), "pt-BR") * direction;
       }
@@ -187,13 +276,19 @@ export function DataUploadManagement() {
       if (!right) return -1;
       return left.localeCompare(right) * direction;
     });
-  }, [tabelasInfo, freshnessFilter, statusSort]);
+  }, [tabelasInfo, freshnessFilter, cadenceFilter, statusSort, cadenceByTable]);
+
+  useEffect(() => {
+    if (!selectedUploadName) return;
+    const stillVisible = filteredUploadTypes.some((item) => item.value === selectedUploadName);
+    if (!stillVisible) setSelectedUploadName("");
+  }, [filteredUploadTypes, selectedUploadName]);
 
   const toggleStatusSort = (key: StatusSortKey) => {
     setStatusSort((current) => (
       current.key === key
         ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: key === "base" ? "asc" : "desc" }
+        : { key, dir: key === "base" || key === "cadencia" ? "asc" : "desc" }
     ));
   };
 
@@ -235,17 +330,71 @@ export function DataUploadManagement() {
   const fetchTabelasInfo = async () => {
     setIsLoadingTabelas(true);
     try {
-      const { data, error } = await supabase.rpc("get_tabelas_atualizacao" as never);
+      const [{ data, error }, cadenceRes] = await Promise.all([
+        supabase.rpc("get_tabelas_atualizacao" as never),
+        supabase.from("atualizacao_cadencia" as never).select("table_name, cadence"),
+      ]);
       if (error) {
         console.error("Erro ao buscar informações das tabelas:", error);
         return;
       }
-      setTabelasInfo((data as TabelaInfo[]) || []);
+      if (cadenceRes.error) {
+        console.error("Erro ao buscar cadências:", cadenceRes.error);
+      }
+
+      const rows = (data as TabelaInfo[]) || [];
+      const nextCadence: Record<string, UpdateCadence> = {};
+      for (const row of ((cadenceRes.data as Array<{ table_name: string; cadence: string }> | null) ?? [])) {
+        if (isUpdateCadence(row.cadence)) nextCadence[row.table_name] = row.cadence;
+      }
+
+      const missing = rows
+        .map((row) => row.table_name)
+        .filter((name) => !nextCadence[name])
+        .map((table_name) => ({ table_name, cadence: DEFAULT_CADENCE }));
+
+      if (missing.length > 0) {
+        const { error: upsertError } = await supabase
+          .from("atualizacao_cadencia" as never)
+          .upsert(missing as never, { onConflict: "table_name" });
+        if (upsertError) {
+          console.error("Erro ao registrar cadências faltantes:", upsertError);
+        } else {
+          for (const row of missing) nextCadence[row.table_name] = DEFAULT_CADENCE;
+        }
+      }
+
+      setCadenceByTable(nextCadence);
+      setTabelasInfo(rows);
       setLastRefresh(new Date());
     } catch (error) {
       console.error("Erro ao buscar informações das tabelas:", error);
     } finally {
       setIsLoadingTabelas(false);
+    }
+  };
+
+  const saveTableCadence = async (tableName: string, cadence: UpdateCadence) => {
+    setSavingCadenceTable(tableName);
+    const previous = cadenceByTable[tableName] ?? DEFAULT_CADENCE;
+    setCadenceByTable((current) => ({ ...current, [tableName]: cadence }));
+    try {
+      const { error } = await supabase
+        .from("atualizacao_cadencia" as never)
+        .upsert(
+          {
+            table_name: tableName,
+            cadence,
+            updated_at: new Date().toISOString(),
+          } as never,
+          { onConflict: "table_name" },
+        );
+      if (error) throw error;
+    } catch (error) {
+      console.error("Erro ao salvar cadência:", error);
+      setCadenceByTable((current) => ({ ...current, [tableName]: previous }));
+    } finally {
+      setSavingCadenceTable(null);
     }
   };
 
@@ -494,17 +643,41 @@ export function DataUploadManagement() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="shrink-0 rounded-[28px] border border-white/10 bg-[#12141A] p-5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)]">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,280px)_1fr_auto] lg:items-end">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,300px)_minmax(0,380px)_1fr_auto] lg:items-end">
+          <div className="space-y-2">
+            <Label className="text-[13px] font-medium text-white/50">Cadência</Label>
+            <Select
+              value={uploadCadenceFilter}
+              onValueChange={(value) => setUploadCadenceFilter(value as CadenceFilter)}
+            >
+              <SelectTrigger className={fieldClass}><SelectValue placeholder="Todas" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as cadências</SelectItem>
+                {CADENCE_ORDER.map((cadence) => (
+                  <SelectItem key={cadence} value={cadence}>
+                    {CADENCE_META[cadence].label}
+                    {dueCadenceCounts[cadence] > 0 ? ` · ${dueCadenceCounts[cadence]} pendente(s)` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label className="text-[13px] font-medium text-white/50">Tipo de carga</Label>
             <Select value={selectedUploadName} onValueChange={setSelectedUploadName}>
               <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione a base" /></SelectTrigger>
               <SelectContent>
-                {UPLOAD_TYPES.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {"pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label}
-                  </SelectItem>
-                ))}
+                {filteredUploadTypes.length === 0 ? (
+                  <SelectItem value="__empty" disabled>Nenhuma base nesta cadência</SelectItem>
+                ) : (
+                  filteredUploadTypes.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {uploadCadenceFilter === "all"
+                        ? `${CADENCE_META[cadenceOf(item.tableKey)].short} · ${"pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label}`
+                        : ("pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label)}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -559,18 +732,60 @@ export function DataUploadManagement() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#12141A] shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)]">
-        <div className="flex shrink-0 flex-col gap-3 border-b border-white/[0.08] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white">Status das bases</p>
-            <p className="text-xs text-white/35">
-              {lastRefresh ? `Lido às ${lastRefresh.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "Freshness das cargas"}
-            </p>
+        <div className="flex shrink-0 flex-col gap-3 border-b border-white/[0.08] px-5 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-white">Status das bases</p>
+              <p className="text-xs text-white/35">
+                {lastRefresh
+                  ? `Lido às ${lastRefresh.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · alerta pela cadência de cada base`
+                  : "Freshness relativo à cadência de cada base"}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <GhostButton onClick={fetchTabelasInfo} disabled={isLoadingTabelas} className="h-10">
+                <RefreshCw className={cn("h-4 w-4", isLoadingTabelas && "animate-spin")} />
+                Atualizar
+              </GhostButton>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isRefreshingViews || isWebhookSending) return;
+                  setShowRefreshConfirmModal(true);
+                }}
+                disabled={isRefreshingViews || isWebhookSending}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-euro-gold px-4 text-sm font-semibold text-euro-navy transition-colors hover:bg-euro-gold/90 disabled:pointer-events-none disabled:opacity-35"
+              >
+                {isRefreshingViews ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+                Atualizar dashboards
+              </button>
+            </div>
           </div>
+
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wide text-white/30">Cadência</span>
+            <FreshnessFilterBadge
+              active={cadenceFilter === "all"}
+              onClick={() => setCadenceFilter("all")}
+              label={`${tabelasInfo.length} todas`}
+            />
+            {CADENCE_ORDER.map((cadence) => (
+              <FreshnessFilterBadge
+                key={cadence}
+                active={cadenceFilter === cadence}
+                onClick={() => setCadenceFilter((current) => (current === cadence ? "all" : cadence))}
+                label={`${CADENCE_META[cadence].label} (${cadenceCounts[cadence]})`}
+                dot={dueCadenceCounts[cadence] > 0 ? "bg-red-400" : "bg-white/30"}
+              />
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wide text-white/30">Situação</span>
             <FreshnessFilterBadge
               active={freshnessFilter === "all"}
               onClick={() => selectFreshnessFilter("all")}
-              label={`${tabelasInfo.length} todos`}
+              label="todas"
             />
             <FreshnessFilterBadge
               active={freshnessFilter === "ok"}
@@ -590,27 +805,12 @@ export function DataUploadManagement() {
               dot="bg-red-400"
               label={`${freshnessCounts.stale} atrasadas`}
             />
-            <GhostButton onClick={fetchTabelasInfo} disabled={isLoadingTabelas} className="h-10">
-              <RefreshCw className={cn("h-4 w-4", isLoadingTabelas && "animate-spin")} />
-              Atualizar
-            </GhostButton>
-            <button
-              type="button"
-              onClick={() => {
-                if (isRefreshingViews || isWebhookSending) return;
-                setShowRefreshConfirmModal(true);
-              }}
-              disabled={isRefreshingViews || isWebhookSending}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-euro-gold px-4 text-sm font-semibold text-euro-navy transition-colors hover:bg-euro-gold/90 disabled:pointer-events-none disabled:opacity-35"
-            >
-              {isRefreshingViews ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
-              Atualizar dashboards
-            </button>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-5 py-2 md:hidden">
           {([
+            ["cadencia", "Cadência"],
             ["base", "Base"],
             ["ultimo_registro", "Registro"],
             ["atualizacao", "Atualização"],
@@ -651,6 +851,7 @@ export function DataUploadManagement() {
                 <thead>
                   <tr className="border-b border-white/[0.08] bg-white/[0.025] text-[11px] uppercase tracking-wide text-white/40">
                     <StatusSortHeader label="Base" sortKey="base" current={statusSort} onSort={toggleStatusSort} className="px-5" />
+                    <StatusSortHeader label="Cadência" sortKey="cadencia" current={statusSort} onSort={toggleStatusSort} />
                     <StatusSortHeader label="Último registro" sortKey="ultimo_registro" current={statusSort} onSort={toggleStatusSort} />
                     <StatusSortHeader label="Atualização" sortKey="atualizacao" current={statusSort} onSort={toggleStatusSort} />
                     <StatusSortHeader label="Registros" sortKey="registros" current={statusSort} onSort={toggleStatusSort} align="right" className="px-5" />
@@ -658,43 +859,70 @@ export function DataUploadManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedTabelas.map((tabela) => (
-                    <tr key={tabela.table_name} className="border-b border-white/[0.06] last:border-0 hover:bg-white/[0.035]">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <FreshnessDot date={tabela.ultima_atualizacao} />
-                          <div>
-                            <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
-                            <p className="font-data text-[11px] text-white/35">{tabela.table_name}</p>
+                  {displayedTabelas.map((tabela) => {
+                    const cadence = cadenceOf(tabela.table_name);
+                    return (
+                      <tr key={tabela.table_name} className="border-b border-white/[0.06] last:border-0 hover:bg-white/[0.035]">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <FreshnessDot date={tabela.ultima_atualizacao} cadence={cadence} />
+                            <div>
+                              <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
+                              <p className="font-data text-[11px] text-white/35">{tabela.table_name}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 font-data text-sm text-white/75">{formatDateSafe(tabela.ultima_data_registro)}</td>
-                      <td className="px-4 py-4 font-data text-sm text-white/75">{formatDateSafe(tabela.ultima_atualizacao)}</td>
-                      <td className="px-5 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
-                        {tabela.total_registros.toLocaleString("pt-BR")}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <HubReportLink tableName={tabela.table_name} />
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-4 py-4">
+                          <CadenceSelect
+                            cadence={cadence}
+                            date={tabela.ultima_atualizacao}
+                            disabled={savingCadenceTable === tabela.table_name}
+                            onChange={(next) => void saveTableCadence(tabela.table_name, next)}
+                          />
+                        </td>
+                        <td className="px-4 py-4 font-data text-sm text-white/75">{formatDateSafe(tabela.ultima_data_registro)}</td>
+                        <td className="px-4 py-4 font-data text-sm text-white/75">
+                          <div className="flex flex-col gap-0.5">
+                            <span>{formatDateSafe(tabela.ultima_atualizacao)}</span>
+                            <span className="text-[11px] text-white/35">{freshnessAgeLabel(tabela.ultima_atualizacao, cadence)}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
+                          {tabela.total_registros.toLocaleString("pt-BR")}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <HubReportLink tableName={tabela.table_name} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
               <div className="divide-y divide-white/[0.06] md:hidden">
-                {displayedTabelas.map((tabela) => (
-                  <div key={tabela.table_name} className="flex items-start gap-3 px-5 py-4">
-                    <FreshnessDot date={tabela.ultima_atualizacao} />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
-                      <p className="mt-1 text-xs text-white/40">
-                        {formatDateSafe(tabela.ultima_atualizacao)} · {tabela.total_registros.toLocaleString("pt-BR")} registros
-                      </p>
+                {displayedTabelas.map((tabela) => {
+                  const cadence = cadenceOf(tabela.table_name);
+                  return (
+                    <div key={tabela.table_name} className="flex items-start gap-3 px-5 py-4">
+                      <FreshnessDot date={tabela.ultima_atualizacao} cadence={cadence} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
+                        <div className="mt-1.5">
+                          <CadenceSelect
+                            cadence={cadence}
+                            date={tabela.ultima_atualizacao}
+                            disabled={savingCadenceTable === tabela.table_name}
+                            onChange={(next) => void saveTableCadence(tabela.table_name, next)}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-white/40">
+                          {formatDateSafe(tabela.ultima_atualizacao)} · {freshnessAgeLabel(tabela.ultima_atualizacao, cadence)} · {tabela.total_registros.toLocaleString("pt-BR")} registros
+                        </p>
+                      </div>
+                      <HubReportLink tableName={tabela.table_name} />
                     </div>
-                    <HubReportLink tableName={tabela.table_name} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
@@ -2034,26 +2262,89 @@ function prettyTableName(name: string) {
   return name.replace(/^dados_/, "").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function freshnessBucket(date: string | null) {
-  if (!date) return "unknown";
+function daysSinceUpdate(date: string | null) {
+  if (!date) return null;
   const parsed = date.length === 10 ? new Date(`${date}T00:00:00`) : new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "unknown";
-  const days = (Date.now() - parsed.getTime()) / 86_400_000;
-  if (days <= 2) return "ok";
-  if (days <= 10) return "warn";
+  if (Number.isNaN(parsed.getTime())) return null;
+  return (Date.now() - parsed.getTime()) / 86_400_000;
+}
+
+function freshnessBucket(date: string | null, cadence: UpdateCadence = "weekly") {
+  const days = daysSinceUpdate(date);
+  if (days == null) return "unknown";
+  const expected = CADENCE_META[cadence].days;
+  if (days <= expected) return "ok";
+  if (days <= expected * 2) return "warn";
   return "stale";
 }
 
-function freshnessTone(date: string | null) {
-  const bucket = freshnessBucket(date);
+function freshnessTone(date: string | null, cadence: UpdateCadence = "weekly") {
+  const bucket = freshnessBucket(date, cadence);
   if (bucket === "ok") return "bg-emerald-400";
   if (bucket === "warn") return "bg-euro-gold";
   if (bucket === "stale") return "bg-red-400";
   return "bg-white/30";
 }
 
-function FreshnessDot({ date }: { date: string | null }) {
-  return <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", freshnessTone(date))} />;
+function freshnessAgeLabel(date: string | null, cadence: UpdateCadence) {
+  const days = daysSinceUpdate(date);
+  if (days == null) return "sem data";
+  const rounded = Math.max(0, Math.floor(days));
+  const expected = CADENCE_META[cadence].days;
+  const bucket = freshnessBucket(date, cadence);
+  if (bucket === "ok") {
+    return rounded <= 0 ? "hoje · em dia" : `há ${rounded}d · em dia`;
+  }
+  if (bucket === "warn") {
+    return `há ${rounded}d · esperado ≤ ${expected}d`;
+  }
+  return `há ${rounded}d · atrasada`;
+}
+
+function FreshnessDot({ date, cadence = "weekly" }: { date: string | null; cadence?: UpdateCadence }) {
+  return <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", freshnessTone(date, cadence))} />;
+}
+
+function CadenceSelect({
+  cadence,
+  date,
+  disabled,
+  onChange,
+}: {
+  cadence: UpdateCadence;
+  date: string | null;
+  disabled?: boolean;
+  onChange: (cadence: UpdateCadence) => void;
+}) {
+  const bucket = freshnessBucket(date, cadence);
+  return (
+    <Select
+      value={cadence}
+      disabled={disabled}
+      onValueChange={(value) => {
+        if (isUpdateCadence(value)) onChange(value);
+      }}
+    >
+      <SelectTrigger
+        className={cn(
+          "h-8 w-[148px] rounded-full border px-2.5 text-[11px] font-medium",
+          bucket === "stale" && "border-red-400/30 bg-red-400/10 text-red-300",
+          bucket === "warn" && "border-euro-gold/30 bg-euro-gold/10 text-euro-gold",
+          bucket === "ok" && "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
+          bucket === "unknown" && "border-white/10 bg-white/[0.04] text-white/50",
+        )}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {CADENCE_ORDER.map((item) => (
+          <SelectItem key={item} value={item}>
+            {CADENCE_META[item].label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 function FreshnessFilterBadge({
