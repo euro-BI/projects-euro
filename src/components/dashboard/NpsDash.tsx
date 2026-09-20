@@ -67,8 +67,10 @@ export default function NpsDash({
     queryKey: ["nps-dash-data", selectedMonth, targetAssessors],
     enabled: !!selectedMonth,
     queryFn: async () => {
-      const startDate = selectedMonth;
-      const endDate = format(endOfMonth(parseISO(selectedMonth)), "yyyy-MM-dd");
+      // selectedMonth pode ser data_posicao (ex.: 2026-09-16); NPS sempre usa o mês civil inteiro
+      const monthDate = parseISO(selectedMonth);
+      const startDate = format(startOfMonth(monthDate), "yyyy-MM-dd");
+      const endDate = format(endOfMonth(monthDate), "yyyy-MM-dd");
 
       let query = supabase
         .from("vw_nps_tratado" as any)

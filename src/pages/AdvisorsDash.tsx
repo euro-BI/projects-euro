@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AssessorResumo } from "@/types/dashboard";
-import { parseISO, addMonths, format } from "date-fns";
+import { parseISO, addMonths, format, startOfMonth, endOfMonth } from "date-fns";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft,
@@ -1400,10 +1400,10 @@ export default function AdvisorsDash() {
     queryKey: ["dash-advisors-nps", selectedMonth, scopedAssessorIds],
     enabled: !!selectedMonth && !!filtersData,
     queryFn: async () => {
-      const startDate = parseISO(selectedMonth);
-      const endDate = addMonths(startDate, 1);
-      const startStr = format(startDate, "yyyy-MM-dd");
-      const endStr = format(endDate, "yyyy-MM-dd");
+      // selectedMonth pode ser data_posicao (ex.: 2026-09-16); NPS sempre usa o mês civil inteiro
+      const monthDate = parseISO(selectedMonth);
+      const startStr = format(startOfMonth(monthDate), "yyyy-MM-dd");
+      const endStr = format(endOfMonth(monthDate), "yyyy-MM-dd");
 
       const assessorCodes = scopedAssessorIds;
 
@@ -1415,7 +1415,7 @@ export default function AdvisorsDash() {
         .from("vw_nps_tratado")
         .select("assessor, conta, jornada, tipo_convite, status, data_envio, data_resposta, data_real, abriu_email, continha_pergunta, nota_score, classificacao_nps")
         .gte("data_real", startStr)
-        .lt("data_real", endStr)
+        .lte("data_real", endStr)
         .in("assessor", assessorCodes);
 
       const { data, error } = await query;
