@@ -21,7 +21,7 @@ export default function Atualizacao() {
             Início
           </button>
           <h1 className="text-[2rem] font-semibold tracking-tight text-white sm:text-4xl">Atualizações</h1>
-          <p className="mt-2 text-sm text-white/45">Cargas das bases e freshness do BI.</p>
+          <p className="mt-2 text-sm text-white/45">Cargas das bases, freshness do BI e migração de clientes.</p>
         </header>
         <DataUploadManagement />
       </div>

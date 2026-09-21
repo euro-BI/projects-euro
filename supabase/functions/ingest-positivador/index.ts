@@ -9,71 +9,15 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 500;
-const ASSESSOR_REALOCADO = "11111";
-const REALOCACAO_DESDE = "2026-02-01";
-const CLIENTES_REALOCADOS = new Set([
-  "2027196",
-  "59745",
-  "566688",
-  "322517",
-  "371085",
-  "333786",
-  "416490",
-  "334618",
-  "11377756",
-  "7845094",
-  "3986673",
-  "18993165",
-  "8925931",
-  "18320228",
-  "3290256",
-  "2452604",
-  "384345",
-  "2612319",
-  "2335724",
-  "2135974",
-  "4691282",
-  "50539",
-  "2031993",
-  "6085999",
-  "4397795",
-  "22122",
-  "15422445",
-  "2162204",
-  "2999982",
-  "11368017",
-  "3240761",
-  "2233629",
-  "333095",
-  "583780",
-  "2203938",
-  "4769320",
-  "9613295",
-  "2197784",
-  "91474",
-  "4341205",
-  "4270022",
-  "2244558",
-  "5175938",
-  "2082397",
-  "64715",
-  "5245530",
-  "7222328",
-  "9840182",
-  "12197862",
-  "2751183",
-  "481744",
-  "4949366",
-  "590633",
-  "5583966",
-  "2592427",
-  "15111807",
-  "331190",
-  "2262981",
-  "2254896",
-]);
 
 type IncomingRow = Record<string, unknown>;
+
+type MigracaoRegra = {
+  cliente: string;
+  assessor_destino: string;
+  assessor_origem: string | null;
+  desde_data: string;
+};
 
 type PositivadorRow = {
   assessor: string;
@@ -184,20 +128,42 @@ function nextMonthStart(date: string) {
   return `${year}-${String(month + 1).padStart(2, "0")}-01`;
 }
 
-function assessorComRegra(assessor: string, cliente: string, dataPosicao: string) {
-  if (CLIENTES_REALOCADOS.has(cliente) && dataPosicao >= REALOCACAO_DESDE) {
-    return ASSESSOR_REALOCADO;
+function normalizeCliente(value: unknown) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits || null;
+}
+
+function assessorDigits(value: string) {
+  return String(value ?? "").trim().toUpperCase().replace(/^A/, "").replace(/\D/g, "");
+}
+
+function assessorComRegra(
+  assessor: string,
+  cliente: string,
+  dataPosicao: string,
+  regras: Map<string, MigracaoRegra>,
+) {
+  const regra = regras.get(cliente);
+  if (!regra) return assessor;
+  if (dataPosicao < regra.desde_data) return assessor;
+  if (regra.assessor_origem) {
+    const origem = assessorDigits(regra.assessor_origem);
+    if (origem && assessorDigits(assessor) !== origem) return assessor;
   }
-  return assessor;
+  const destino = assessorDigits(regra.assessor_destino);
+  return destino || assessor;
 }
 
 function rowKey(row: Pick<PositivadorRow, "assessor" | "cliente" | "data_posicao">) {
   return `${row.assessor}|${row.cliente}|${row.data_posicao}`;
 }
 
-function mapRow(row: IncomingRow): Omit<PositivadorRow, "data_atualizacao"> | null {
+function mapRow(
+  row: IncomingRow,
+  regras: Map<string, MigracaoRegra>,
+): Omit<PositivadorRow, "data_atualizacao"> | null {
   const assessor = normalizeAssessor(pick(row, "assessor", "Assessor", "Cod Assessor", "Código Assessor"));
-  const cliente = String(pick(
+  const cliente = normalizeCliente(pick(
     row,
     "cliente",
     "Cliente",
@@ -207,12 +173,12 @@ function mapRow(row: IncomingRow): Omit<PositivadorRow, "data_atualizacao"> | nu
     "Codigo Cliente",
     "Código do Cliente",
     "Codigo do Cliente",
-  ) ?? "").trim();
+  ));
   const dataPosicao = parseDate(pick(row, "data_posicao", "Data Posição", "Data Posicao", "Data"));
   if (!assessor || !cliente || !dataPosicao) return null;
 
   return {
-    assessor: assessorComRegra(assessor, cliente, dataPosicao),
+    assessor: assessorComRegra(assessor, cliente, dataPosicao, regras),
     cliente,
     sexo: toStringValue(pick(row, "sexo", "Sexo")),
     data_cadastro: parseDate(pick(row, "data_cadastro", "Data de Cadastro")),
@@ -273,7 +239,30 @@ Deno.serve(async (req) => {
     const replaceMonths = chunked ? body?.replace_months === true : true;
     const aplicarRealocacao = chunked ? body?.aplicar_realocacao === true : true;
 
-    const mapped = incoming.map(mapRow);
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      db: { schema: "euro_dash" },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { data: regrasRows, error: regrasError } = await supabase
+      .from("cliente_assessor_regra")
+      .select("cliente, assessor_destino, assessor_origem, desde_data")
+      .eq("ativo", true);
+    if (regrasError) throw regrasError;
+
+    const regras = new Map<string, MigracaoRegra>();
+    for (const row of (regrasRows ?? []) as MigracaoRegra[]) {
+      const cliente = normalizeCliente(row.cliente);
+      if (!cliente) continue;
+      regras.set(cliente, {
+        cliente,
+        assessor_destino: row.assessor_destino,
+        assessor_origem: row.assessor_origem,
+        desde_data: String(row.desde_data).slice(0, 10),
+      });
+    }
+
+    const mapped = incoming.map((row) => mapRow(row, regras));
     const valid = mapped.filter((row): row is Omit<PositivadorRow, "data_atualizacao"> => row != null);
     const unique = new Map<string, Omit<PositivadorRow, "data_atualizacao">>();
     for (const row of valid) unique.set(rowKey(row), row);
@@ -299,11 +288,6 @@ Deno.serve(async (req) => {
       : [];
     const months = requestedMonths.length > 0 ? requestedMonths : monthsFromRows;
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
-      db: { schema: "euro_dash" },
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
     if (replaceMonths) {
       for (const mes of months) {
         const { error: deleteError } = await supabase
@@ -326,15 +310,24 @@ Deno.serve(async (req) => {
     }
 
     let realocados = 0;
-    if (aplicarRealocacao) {
-      const { error: realocacaoError, count } = await supabase
-        .from("dados_positivador")
-        .update({ assessor: ASSESSOR_REALOCADO }, { count: "exact" })
-        .in("cliente", [...CLIENTES_REALOCADOS])
-        .gte("data_posicao", REALOCACAO_DESDE)
-        .neq("assessor", ASSESSOR_REALOCADO);
-      if (realocacaoError) throw realocacaoError;
-      realocados = count ?? 0;
+    if (aplicarRealocacao && regras.size > 0) {
+      for (const regra of regras.values()) {
+        const destino = assessorDigits(regra.assessor_destino);
+        if (!destino) continue;
+        let query = supabase
+          .from("dados_positivador")
+          .update({ assessor: destino }, { count: "exact" })
+          .eq("cliente", regra.cliente)
+          .gte("data_posicao", regra.desde_data)
+          .neq("assessor", destino);
+        if (regra.assessor_origem) {
+          const origem = assessorDigits(regra.assessor_origem);
+          if (origem) query = query.eq("assessor", origem);
+        }
+        const { error: realocacaoError, count } = await query;
+        if (realocacaoError) throw realocacaoError;
+        realocados += count ?? 0;
+      }
     }
 
     return json(200, {
@@ -345,7 +338,8 @@ Deno.serve(async (req) => {
       duplicadas,
       meses_substituidos: months,
       data_atualizacao: dataAtualizacao,
-      clientes_realocados: realocados ?? 0,
+      clientes_realocados: realocados,
+      regras_ativas: regras.size,
       total_linhas_enviadas: gravadas,
       user_id: userData.user.id,
     });

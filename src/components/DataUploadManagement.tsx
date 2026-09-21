@@ -3,11 +3,14 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Layers, Loader2, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, ArrowRightLeft, CheckCircle2, ExternalLink, Layers, Loader2, RefreshCw, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
+import { ClienteAssessorMigracao } from "./ClienteAssessorMigracao";
+
+type AtualizacaoTab = "cargas" | "migracao";
 
 const fieldClass =
   "h-11 rounded-2xl border-white/10 bg-white/[0.04] text-[#F4F1E8] placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-euro-gold/40 focus-visible:ring-offset-0";
@@ -170,7 +173,8 @@ function hubOf(tableName: string): HubSource {
 }
 
 export function DataUploadManagement() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const canMigrate = userRole === "admin_master" || userRole === "admin";
 
   const [selectedUploadName, setSelectedUploadName] = useState<string>("");
   const [webhookFile, setWebhookFile] = useState<File | null>(null);
@@ -184,6 +188,7 @@ export function DataUploadManagement() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [fileLineCount, setFileLineCount] = useState<number>(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [atualizacaoTab, setAtualizacaoTab] = useState<AtualizacaoTab>("cargas");
   const webhookFileInputRef = useRef<HTMLInputElement>(null);
 
   const [tabelasInfo, setTabelasInfo] = useState<TabelaInfo[]>([]);
@@ -656,7 +661,6 @@ export function DataUploadManagement() {
 
       let webhookUrl = "https://n8n-n8n.ffder9.easypanel.host/webhook/uploads";
       if (selectedUploadName === "dados_fundos_novo") webhookUrl = "https://n8n-n8n.ffder9.easypanel.host/webhook/fundos";
-      else if (selectedUploadName === "dados_diversificador") webhookUrl = "https://n8n-n8n.ffder9.easypanel.host/webhook/diversificador";
 
       const formData = new FormData();
       const fileExtension = webhookFile.name.split(".").pop();
@@ -710,6 +714,41 @@ export function DataUploadManagement() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex shrink-0 gap-1 rounded-2xl border border-white/10 bg-[#12141A] p-1">
+        <button
+          type="button"
+          onClick={() => setAtualizacaoTab("cargas")}
+          className={cn(
+            "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors",
+            atualizacaoTab === "cargas"
+              ? "bg-white/[0.08] text-white"
+              : "text-white/45 hover:bg-white/[0.04] hover:text-white/75",
+          )}
+        >
+          <Send className="h-3.5 w-3.5" />
+          Cargas
+        </button>
+        {canMigrate && (
+          <button
+            type="button"
+            onClick={() => setAtualizacaoTab("migracao")}
+            className={cn(
+              "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors",
+              atualizacaoTab === "migracao"
+                ? "bg-white/[0.08] text-white"
+                : "text-white/45 hover:bg-white/[0.04] hover:text-white/75",
+            )}
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5" />
+            Migração
+          </button>
+        )}
+      </div>
+
+      {atualizacaoTab === "migracao" && canMigrate ? (
+        <ClienteAssessorMigracao />
+      ) : (
+        <>
       <div className="shrink-0 rounded-[28px] border border-white/10 bg-[#12141A] p-5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)]">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,300px)_minmax(0,380px)_1fr_auto] lg:items-end">
           <div className="space-y-2">
@@ -1035,6 +1074,8 @@ export function DataUploadManagement() {
           )}
         </div>
       </div>
+        </>
+      )}
 
       <Dialog open={showRefreshConfirmModal} onOpenChange={setShowRefreshConfirmModal}>
         <DialogContent className={cn(dialogClass, "sm:max-w-md")}>
@@ -1283,6 +1324,45 @@ function slimPositivadorRows(rows: Record<string, unknown>[]) {
 
 function slimCetipadosRows(rows: Record<string, unknown>[]) {
   return slimRowsByHeader(rows, CETIPADOS_HEADERS);
+}
+
+const DIVERSIFICADOR_HEADERS = new Set([
+  "assessor",
+  "cliente",
+  "conta",
+  "produto",
+  "sub produto",
+  "subproduto",
+  "cnpj fundo",
+  "cnpj",
+  "ativo",
+  "emissor",
+  "data de vencimento",
+  "data vencimento",
+  "vencimento",
+  "quantidade",
+  "net",
+  "data",
+  "data posicao",
+  "fator risco",
+  "fator de risco",
+]);
+
+function slimDiversificadorRows(rows: Record<string, unknown>[]) {
+  return slimRowsByHeader(rows, DIVERSIFICADOR_HEADERS);
+}
+
+async function invokeIngestDiversificador(
+  rows: Record<string, unknown>[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  const slim = slimDiversificadorRows(rows);
+  return invokeChunkedIngest(
+    "ingest-diversificador",
+    slim,
+    ["Data", "data", "data_posicao", "Data Posição", "Data Posicao"],
+    onProgress,
+  );
 }
 
 const RF_FLUXO_HEADERS = new Set([
@@ -1578,7 +1658,8 @@ function isEdgeUpload(name: string) {
     || name === "dados_habilitacoes"
     || name === "dados_ativacoes"
     || name === "dados_cambio"
-    || name === "dados_nps";
+    || name === "dados_nps"
+    || name === "dados_diversificador";
 }
 
 function chunkRows<T>(rows: T[], size: number) {
@@ -2046,6 +2127,7 @@ async function invokeSelectedEdgeIngest(
   if (name === "dados_ativacoes") return invokeIngestHabAtiv("ativacao", rows, onProgress);
   if (name === "dados_cambio") return invokeIngestCambio(rows, onProgress);
   if (name === "dados_nps") return invokeIngestNps(rows, onProgress);
+  if (name === "dados_diversificador") return invokeIngestDiversificador(rows, onProgress);
   throw new Error(`Base sem ingestão direta: ${name}`);
 }
 
