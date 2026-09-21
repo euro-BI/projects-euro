@@ -1,7 +1,7 @@
-import { useMemo, useState, useRef, useEffect, type ButtonHTMLAttributes } from "react";
+import { useMemo, useState, useRef, useEffect, Fragment, type ButtonHTMLAttributes } from "react";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Layers, Loader2, RefreshCw, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -116,27 +116,58 @@ const HUB_NPS = "https://xpcx.yul1.qualtrics.com/reporting-dashboard/web/69485f0
 const HUB_CAMBIO = "https://hub.xpi.com.br/cambio/#/relatorios";
 const HUB_GERENCIAIS = "https://hub.xpi.com.br/new/relatorios/#/relatorios-gerencias";
 
-const HUB_LINKS: Record<string, string> = {
-  dados_captacoes: HUB_RELATORIOS_OPERACOES,
-  dados_positivador: HUB_RELATORIOS_OPERACOES,
-  dados_diversificador: HUB_RELATORIOS_OPERACOES,
-  dados_diversificador_full: HUB_RELATORIOS_OPERACOES,
-  dados_cetipados: HUB_CUSTODIA_FII,
-  dados_offshore_remessas: HUB_OFFSHORE,
-  dados_offshore_operacoes: HUB_OFFSHORE,
-  dados_rf_fluxo: HUB_RENDA_FIXA,
-  dados_pj_custodia: HUB_RENDA_FIXA,
-  dados_fp: HUB_TERMOS,
-  dados_modelo_servir: HUB_ESFORCOS,
-  dados_rupturas: HUB_ESFORCOS,
-  dados_rv_executadas: HUB_BLACK,
-  dados_posicao_black: HUB_BLACK,
-  dados_transferencias: HUB_TRANSFERENCIAS,
-  dados_nps: HUB_NPS,
-  dados_cambio: HUB_CAMBIO,
-  dados_demonstrativo_full: HUB_GERENCIAIS,
-  dados_habilitacao_ativacao: HUB_GERENCIAIS,
+type HubSource = {
+  id: string;
+  label: string;
+  url: string | null;
+  order: number;
 };
+
+const HUB_SOURCES: HubSource[] = [
+  { id: "operacoes", label: "Relatórios de operações", url: HUB_RELATORIOS_OPERACOES, order: 1 },
+  { id: "renda_fixa", label: "Renda fixa", url: HUB_RENDA_FIXA, order: 2 },
+  { id: "black", label: "Produtos estruturados (Black)", url: HUB_BLACK, order: 3 },
+  { id: "offshore", label: "Offshore digital", url: HUB_OFFSHORE, order: 4 },
+  { id: "custodia_fii", label: "Custódia FII", url: HUB_CUSTODIA_FII, order: 5 },
+  { id: "termos", label: "Relatórios / termos", url: HUB_TERMOS, order: 6 },
+  { id: "esforcos", label: "Índice de esforços", url: HUB_ESFORCOS, order: 7 },
+  { id: "transferencias", label: "Transferência de clientes", url: HUB_TRANSFERENCIAS, order: 8 },
+  { id: "cambio", label: "Câmbio", url: HUB_CAMBIO, order: 9 },
+  { id: "gerenciais", label: "Relatórios gerenciais", url: HUB_GERENCIAIS, order: 10 },
+  { id: "nps", label: "NPS (Qualtrics)", url: HUB_NPS, order: 11 },
+  { id: "sem_link", label: "Sem link no Hub", url: null, order: 99 },
+];
+
+const HUB_SOURCE_BY_ID = Object.fromEntries(HUB_SOURCES.map((hub) => [hub.id, hub])) as Record<string, HubSource>;
+
+/** tableKey / table_name → fonte do Hub (mesmo URL = mesmo grupo) */
+const TABLE_HUB_ID: Record<string, string> = {
+  dados_captacoes: "operacoes",
+  dados_positivador: "operacoes",
+  dados_diversificador: "operacoes",
+  dados_diversificador_full: "operacoes",
+  dados_rf_fluxo: "renda_fixa",
+  dados_pj_custodia: "renda_fixa",
+  dados_rv_executadas: "black",
+  dados_posicao_black: "black",
+  dados_offshore_remessas: "offshore",
+  dados_offshore_operacoes: "offshore",
+  dados_cetipados: "custodia_fii",
+  dados_fp: "termos",
+  dados_modelo_servir: "esforcos",
+  dados_rupturas: "esforcos",
+  dados_transferencias: "transferencias",
+  dados_cambio: "cambio",
+  dados_demonstrativo_full: "gerenciais",
+  dados_habilitacao_ativacao: "gerenciais",
+  dados_nps: "nps",
+  dados_fundos_novo: "sem_link",
+};
+
+function hubOf(tableName: string): HubSource {
+  const id = TABLE_HUB_ID[tableName] ?? "sem_link";
+  return HUB_SOURCE_BY_ID[id] ?? HUB_SOURCE_BY_ID.sem_link;
+}
 
 export function DataUploadManagement() {
   const { user } = useAuth();
@@ -187,11 +218,29 @@ export function DataUploadManagement() {
       return cadenceOf(item.tableKey) === uploadCadenceFilter;
     });
     return [...list].sort((a, b) => {
+      const hubDiff = hubOf(a.tableKey).order - hubOf(b.tableKey).order;
+      if (hubDiff !== 0) return hubDiff;
       const cadenceDiff = CADENCE_META[cadenceOf(a.tableKey)].order - CADENCE_META[cadenceOf(b.tableKey)].order;
       if (cadenceDiff !== 0) return cadenceDiff;
       return a.label.localeCompare(b.label, "pt-BR");
     });
   }, [uploadCadenceFilter, cadenceByTable]);
+
+  const groupedUploadTypes = useMemo(() => {
+    const groups: { hub: HubSource; items: typeof filteredUploadTypes }[] = [];
+    const byId = new Map<string, (typeof groups)[number]>();
+    for (const item of filteredUploadTypes) {
+      const hub = hubOf(item.tableKey);
+      let group = byId.get(hub.id);
+      if (!group) {
+        group = { hub, items: [] };
+        byId.set(hub.id, group);
+        groups.push(group);
+      }
+      group.items.push(item);
+    }
+    return groups;
+  }, [filteredUploadTypes]);
 
   const freshnessCounts = useMemo(() => {
     const counts = { ok: 0, warn: 0, stale: 0 };
@@ -251,6 +300,9 @@ export function DataUploadManagement() {
     };
 
     return [...filtered].sort((a, b) => {
+      const hubDiff = hubOf(a.table_name).order - hubOf(b.table_name).order;
+      if (hubDiff !== 0) return hubDiff;
+
       const cadenceA = cadenceOf(a.table_name);
       const cadenceB = cadenceOf(b.table_name);
       const bucketA = freshnessBucket(a.ultima_atualizacao, cadenceA);
@@ -277,6 +329,22 @@ export function DataUploadManagement() {
       return left.localeCompare(right) * direction;
     });
   }, [tabelasInfo, freshnessFilter, cadenceFilter, statusSort, cadenceByTable]);
+
+  const groupedDisplayedTabelas = useMemo(() => {
+    const groups: { hub: HubSource; tables: TabelaInfo[] }[] = [];
+    const byId = new Map<string, (typeof groups)[number]>();
+    for (const tabela of displayedTabelas) {
+      const hub = hubOf(tabela.table_name);
+      let group = byId.get(hub.id);
+      if (!group) {
+        group = { hub, tables: [] };
+        byId.set(hub.id, group);
+        groups.push(group);
+      }
+      group.tables.push(tabela);
+    }
+    return groups;
+  }, [displayedTabelas]);
 
   useEffect(() => {
     if (!selectedUploadName) return;
@@ -667,15 +735,23 @@ export function DataUploadManagement() {
             <Select value={selectedUploadName} onValueChange={setSelectedUploadName}>
               <SelectTrigger className={fieldClass}><SelectValue placeholder="Selecione a base" /></SelectTrigger>
               <SelectContent>
-                {filteredUploadTypes.length === 0 ? (
+                {groupedUploadTypes.length === 0 ? (
                   <SelectItem value="__empty" disabled>Nenhuma base nesta cadência</SelectItem>
                 ) : (
-                  filteredUploadTypes.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {uploadCadenceFilter === "all"
-                        ? `${CADENCE_META[cadenceOf(item.tableKey)].short} · ${"pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label}`
-                        : ("pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label)}
-                    </SelectItem>
+                  groupedUploadTypes.map((group) => (
+                    <SelectGroup key={group.hub.id}>
+                      <SelectLabel className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-white/35">
+                        {group.hub.label}
+                        {group.items.length > 1 ? ` · ${group.items.length}` : ""}
+                      </SelectLabel>
+                      {group.items.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {uploadCadenceFilter === "all"
+                            ? `${CADENCE_META[cadenceOf(item.tableKey)].short} · ${"pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label}`
+                            : ("pending" in item && item.pending ? `${item.label} · ainda falta configurar` : item.label)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))
                 )}
               </SelectContent>
@@ -859,70 +935,101 @@ export function DataUploadManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedTabelas.map((tabela) => {
-                    const cadence = cadenceOf(tabela.table_name);
-                    return (
-                      <tr key={tabela.table_name} className="border-b border-white/[0.06] last:border-0 hover:bg-white/[0.035]">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <FreshnessDot date={tabela.ultima_atualizacao} cadence={cadence} />
-                            <div>
-                              <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
-                              <p className="font-data text-[11px] text-white/35">{tabela.table_name}</p>
-                            </div>
+                  {groupedDisplayedTabelas.map((group) => (
+                    <Fragment key={group.hub.id}>
+                      <tr className="border-b border-white/[0.08] bg-white/[0.04]">
+                        <td colSpan={5} className="px-5 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-white/55">
+                              {group.hub.label}
+                            </span>
+                            <span className="text-[11px] text-white/30">
+                              {group.tables.length} {group.tables.length === 1 ? "base" : "bases"}
+                            </span>
                           </div>
                         </td>
-                        <td className="px-4 py-4">
-                          <CadenceSelect
-                            cadence={cadence}
-                            date={tabela.ultima_atualizacao}
-                            disabled={savingCadenceTable === tabela.table_name}
-                            onChange={(next) => void saveTableCadence(tabela.table_name, next)}
-                          />
-                        </td>
-                        <td className="px-4 py-4 font-data text-sm text-white/75">{formatDateSafe(tabela.ultima_data_registro)}</td>
-                        <td className="px-4 py-4 font-data text-sm text-white/75">
-                          <div className="flex flex-col gap-0.5">
-                            <span>{formatDateSafe(tabela.ultima_atualizacao)}</span>
-                            <span className="text-[11px] text-white/35">{freshnessAgeLabel(tabela.ultima_atualizacao, cadence)}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
-                          {tabela.total_registros.toLocaleString("pt-BR")}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <HubReportLink tableName={tabela.table_name} />
+                        <td className="px-5 py-2.5 text-right">
+                          <HubSourceLink hub={group.hub} />
                         </td>
                       </tr>
-                    );
-                  })}
+                      {group.tables.map((tabela) => {
+                        const cadence = cadenceOf(tabela.table_name);
+                        return (
+                          <tr key={tabela.table_name} className="border-b border-white/[0.06] last:border-0 hover:bg-white/[0.035]">
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-3">
+                                <FreshnessDot date={tabela.ultima_atualizacao} cadence={cadence} />
+                                <div>
+                                  <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
+                                  <p className="font-data text-[11px] text-white/35">{tabela.table_name}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <CadenceSelect
+                                cadence={cadence}
+                                date={tabela.ultima_atualizacao}
+                                disabled={savingCadenceTable === tabela.table_name}
+                                onChange={(next) => void saveTableCadence(tabela.table_name, next)}
+                              />
+                            </td>
+                            <td className="px-4 py-4 font-data text-sm text-white/75">{formatDateSafe(tabela.ultima_data_registro)}</td>
+                            <td className="px-4 py-4 font-data text-sm text-white/75">
+                              <div className="flex flex-col gap-0.5">
+                                <span>{formatDateSafe(tabela.ultima_atualizacao)}</span>
+                                <span className="text-[11px] text-white/35">{freshnessAgeLabel(tabela.ultima_atualizacao, cadence)}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
+                              {tabela.total_registros.toLocaleString("pt-BR")}
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <span className="text-xs text-white/15">·</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
                 </tbody>
               </table>
 
               <div className="divide-y divide-white/[0.06] md:hidden">
-                {displayedTabelas.map((tabela) => {
-                  const cadence = cadenceOf(tabela.table_name);
-                  return (
-                    <div key={tabela.table_name} className="flex items-start gap-3 px-5 py-4">
-                      <FreshnessDot date={tabela.ultima_atualizacao} cadence={cadence} />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
-                        <div className="mt-1.5">
-                          <CadenceSelect
-                            cadence={cadence}
-                            date={tabela.ultima_atualizacao}
-                            disabled={savingCadenceTable === tabela.table_name}
-                            onChange={(next) => void saveTableCadence(tabela.table_name, next)}
-                          />
-                        </div>
-                        <p className="mt-1 text-xs text-white/40">
-                          {formatDateSafe(tabela.ultima_atualizacao)} · {freshnessAgeLabel(tabela.ultima_atualizacao, cadence)} · {tabela.total_registros.toLocaleString("pt-BR")} registros
+                {groupedDisplayedTabelas.map((group) => (
+                  <div key={group.hub.id}>
+                    <div className="flex items-center justify-between gap-3 bg-white/[0.04] px-5 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-white/55">{group.hub.label}</p>
+                        <p className="text-[11px] text-white/30">
+                          {group.tables.length} {group.tables.length === 1 ? "base" : "bases"}
                         </p>
                       </div>
-                      <HubReportLink tableName={tabela.table_name} />
+                      <HubSourceLink hub={group.hub} />
                     </div>
-                  );
-                })}
+                    {group.tables.map((tabela) => {
+                      const cadence = cadenceOf(tabela.table_name);
+                      return (
+                        <div key={tabela.table_name} className="flex items-start gap-3 px-5 py-4">
+                          <FreshnessDot date={tabela.ultima_atualizacao} cadence={cadence} />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-white">{prettyTableName(tabela.table_name)}</p>
+                            <div className="mt-1.5">
+                              <CadenceSelect
+                                cadence={cadence}
+                                date={tabela.ultima_atualizacao}
+                                disabled={savingCadenceTable === tabela.table_name}
+                                onChange={(next) => void saveTableCadence(tabela.table_name, next)}
+                              />
+                            </div>
+                            <p className="mt-1 text-xs text-white/40">
+                              {formatDateSafe(tabela.ultima_atualizacao)} · {freshnessAgeLabel(tabela.ultima_atualizacao, cadence)} · {tabela.total_registros.toLocaleString("pt-BR")} registros
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -2411,12 +2518,11 @@ function StatusSortHeader({
   );
 }
 
-function HubReportLink({ tableName }: { tableName: string }) {
-  const href = HUB_LINKS[tableName];
-  if (!href) return <span className="text-xs text-white/20">—</span>;
+function HubSourceLink({ hub }: { hub: HubSource }) {
+  if (!hub.url) return <span className="text-xs text-white/20">—</span>;
   return (
     <a
-      href={href}
+      href={hub.url}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-[11px] font-medium text-white/70 transition-colors hover:border-euro-gold/30 hover:bg-euro-gold/10 hover:text-euro-gold"

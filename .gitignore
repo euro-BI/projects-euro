@@ -38,3 +38,6 @@ dist-ssr
 
 # Fluxos n8n locais (podem conter chaves)
 automacao-n8n/
+
+# Templates locais de carga (xlsx)
+templates/
