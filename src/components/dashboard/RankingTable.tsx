@@ -3,12 +3,12 @@ import { AssessorResumo } from "@/types/dashboard";
 import { cn } from "@/lib/utils";
 import { 
   Trophy, 
-  User, 
   Grid,
   Check,
   ChevronsUpDown,
-  Filter,
-  Users
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,9 +37,27 @@ interface RankingTableProps {
   selectedMonth?: string;
 }
 
+type SortKey =
+  | "rank"
+  | "nome_assessor"
+  | "latest_custodia"
+  | "pontos_total"
+  | "pontos_captacao"
+  | "captacao_liquida_total"
+  | "pontos_roa_invest"
+  | "pontos_roa_cs"
+  | "pontos_ativacoes"
+  | "ativacao_300k"
+  | "ativacao_1kk"
+  | "pontos_lider";
+
 export default function RankingTable({ data, selectedYear, periodType, selectedMonth }: RankingTableProps) {
   const [selectedCluster, setSelectedCluster] = useState<string | null>("A");
   const [openClusterCombobox, setOpenClusterCombobox] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" }>({
+    key: "pontos_total",
+    direction: "desc",
+  });
 
   const isAssessorInelegivel = (elegibilidade: AssessorResumo["elegibilidade"]) =>
     elegibilidade === false || elegibilidade === "false";
@@ -116,8 +134,67 @@ export default function RankingTable({ data, selectedYear, periodType, selectedM
       return acc;
     }, {});
 
-    return Object.values(grouped).sort((a: any, b: any) => b.pontos_total - a.pontos_total);
+    return Object.values(grouped);
   }, [data, selectedYear, selectedCluster, periodType, selectedMonth]);
+
+  const sortedRankingData = useMemo(() => {
+    const rows = [...rankingData];
+    const { key, direction } = sortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+
+    rows.sort((a: any, b: any) => {
+      if (key === "rank" || key === "pontos_total") {
+        return ((a.pontos_total || 0) - (b.pontos_total || 0)) * dir;
+      }
+      if (key === "nome_assessor") {
+        return String(a.nome_assessor || "").localeCompare(String(b.nome_assessor || ""), "pt-BR") * dir;
+      }
+      const av = Number(a[key] ?? 0);
+      const bv = Number(b[key] ?? 0);
+      return (av - bv) * dir;
+    });
+
+    return rows;
+  }, [rankingData, sortConfig]);
+
+  const toggleSort = (key: SortKey) => {
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="w-3 h-3 opacity-20" />;
+    return sortConfig.direction === "asc"
+      ? <ArrowUp className="w-3 h-3 text-euro-gold" />
+      : <ArrowDown className="w-3 h-3 text-euro-gold" />;
+  };
+
+  const SortableTh = ({
+    column,
+    children,
+    align = "left",
+  }: {
+    column: SortKey;
+    children: React.ReactNode;
+    align?: "left" | "right";
+  }) => (
+    <th className={cn("p-4 font-normal", align === "right" && "text-right")}>
+      <button
+        type="button"
+        onClick={() => toggleSort(column)}
+        className={cn(
+          "inline-flex items-center gap-1.5 uppercase tracking-wider transition-colors hover:text-euro-gold",
+          align === "right" && "ml-auto flex-row-reverse",
+          sortConfig.key === column && "text-euro-gold",
+        )}
+      >
+        <span>{children}</span>
+        <SortIcon column={column} />
+      </button>
+    </th>
+  );
 
   const formatCaptacaoAbreviada = (value: number) => {
     const absValue = Math.abs(value);
@@ -212,22 +289,22 @@ export default function RankingTable({ data, selectedYear, periodType, selectedM
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 z-10 bg-euro-card/95 backdrop-blur-md border-b border-white/10">
             <tr className="text-xs font-data text-[#8A8A7A] uppercase tracking-wider">
-              <th className="p-4 font-normal">#</th>
-              <th className="p-4 font-normal">Assessor</th>
-              <th className="p-4 font-normal text-right">Net</th>
-              <th className="p-4 font-normal text-right">Pontos Totais</th>
-              <th className="p-4 font-normal text-right">P. Captação</th>
-              <th className="p-4 font-normal text-right">Captação Liq.</th>
-              <th className="p-4 font-normal text-right">P. ROA Invest</th>
-              <th className="p-4 font-normal text-right">P. ROA CS</th>
-              <th className="p-4 font-normal text-right">Ativ.</th>
-              <th className="p-4 font-normal text-right">Ativ 300k+</th>
-              <th className="p-4 font-normal text-right">Ativ 1M</th>
-              <th className="p-4 font-normal text-right">P. Líder</th>
+              <SortableTh column="rank">#</SortableTh>
+              <SortableTh column="nome_assessor">Assessor</SortableTh>
+              <SortableTh column="latest_custodia" align="right">Net</SortableTh>
+              <SortableTh column="pontos_total" align="right">Pontos Totais</SortableTh>
+              <SortableTh column="pontos_captacao" align="right">P. Captação</SortableTh>
+              <SortableTh column="captacao_liquida_total" align="right">Captação Liq.</SortableTh>
+              <SortableTh column="pontos_roa_invest" align="right">P. ROA Invest</SortableTh>
+              <SortableTh column="pontos_roa_cs" align="right">P. ROA CS</SortableTh>
+              <SortableTh column="pontos_ativacoes" align="right">Ativ.</SortableTh>
+              <SortableTh column="ativacao_300k" align="right">Ativ 300k+</SortableTh>
+              <SortableTh column="ativacao_1kk" align="right">Ativ 1M</SortableTh>
+              <SortableTh column="pontos_lider" align="right">P. Líder</SortableTh>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.05]">
-            {rankingData.map((assessor: any, idx) => {
+            {sortedRankingData.map((assessor: any, idx) => {
               const isInelegivel = isAssessorInelegivel(assessor.elegibilidade);
 
               return (
@@ -301,7 +378,7 @@ export default function RankingTable({ data, selectedYear, periodType, selectedM
         </table>
       </div>
       
-      {rankingData.length === 0 && (
+      {sortedRankingData.length === 0 && (
         <div className="p-12 text-center">
           <p className="text-sm font-data text-white/20 uppercase tracking-[0.2em]">
             Nenhum dado encontrado para os filtros selecionados

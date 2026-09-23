@@ -158,6 +158,36 @@ function rowKey(row: Pick<PositivadorRow, "assessor" | "cliente" | "data_posicao
   return `${row.assessor}|${row.cliente}|${row.data_posicao}`;
 }
 
+function numericAbs(value: string | null) {
+  if (value == null || value === "") return 0;
+  const parsed = Number(String(value).trim().replace(/\s/g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
+}
+
+/** Quando a regra de migração colapsa 2 linhas no mesmo assessor+cliente+data, prefere a mais completa. */
+function rowRichness(row: Omit<PositivadorRow, "data_atualizacao">) {
+  let score = 0;
+  score += numericAbs(row.net_em_m) * 1_000;
+  score += numericAbs(row.receita_bovespa);
+  score += numericAbs(row.receita_futuros);
+  score += numericAbs(row.receita_rf_bancarios);
+  score += numericAbs(row.receita_rf_privados);
+  score += numericAbs(row.receita_rf_publicos);
+  if (row.status) score += 10;
+  if (row.tipo_pessoa) score += 5;
+  if (row.sexo) score += 1;
+  if (row.data_cadastro) score += 1;
+  if (row.data_nascimento) score += 1;
+  return score;
+}
+
+function preferRow(
+  current: Omit<PositivadorRow, "data_atualizacao">,
+  incoming: Omit<PositivadorRow, "data_atualizacao">,
+) {
+  return rowRichness(incoming) > rowRichness(current) ? incoming : current;
+}
+
 function mapRow(
   row: IncomingRow,
   regras: Map<string, MigracaoRegra>,
@@ -265,7 +295,11 @@ Deno.serve(async (req) => {
     const mapped = incoming.map((row) => mapRow(row, regras));
     const valid = mapped.filter((row): row is Omit<PositivadorRow, "data_atualizacao"> => row != null);
     const unique = new Map<string, Omit<PositivadorRow, "data_atualizacao">>();
-    for (const row of valid) unique.set(rowKey(row), row);
+    for (const row of valid) {
+      const key = rowKey(row);
+      const prev = unique.get(key);
+      unique.set(key, prev ? preferRow(prev, row) : row);
+    }
     const deduped = [...unique.values()];
     const ignoradas = incoming.length - valid.length;
     const duplicadas = valid.length - deduped.length;
