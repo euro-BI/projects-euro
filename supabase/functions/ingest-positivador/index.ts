@@ -188,6 +188,37 @@ function preferRow(
   return rowRichness(incoming) > rowRichness(current) ? incoming : current;
 }
 
+async function mergeBatchWithExisting(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  rows: PositivadorRow[],
+): Promise<PositivadorRow[]> {
+  if (rows.length === 0) return rows;
+
+  const clientes = [...new Set(rows.map((row) => row.cliente))];
+  const datas = [...new Set(rows.map((row) => row.data_posicao))];
+  const { data: existing, error } = await supabase
+    .from("dados_positivador")
+    .select(
+      "assessor,cliente,sexo,data_cadastro,data_nascimento,status,receita_bovespa,receita_futuros,receita_rf_bancarios,receita_rf_privados,receita_rf_publicos,net_em_m,tipo_pessoa,data_posicao,data_atualizacao",
+    )
+    .in("cliente", clientes)
+    .in("data_posicao", datas);
+  if (error) throw error;
+
+  const existingMap = new Map<string, PositivadorRow>();
+  for (const row of (existing ?? []) as PositivadorRow[]) {
+    existingMap.set(rowKey(row), row);
+  }
+
+  return rows.map((row) => {
+    const prev = existingMap.get(rowKey(row));
+    if (!prev) return row;
+    const preferred = preferRow(prev, row);
+    return { ...preferred, data_atualizacao: row.data_atualizacao || prev.data_atualizacao };
+  });
+}
+
 function mapRow(
   row: IncomingRow,
   regras: Map<string, MigracaoRegra>,
@@ -335,7 +366,7 @@ Deno.serve(async (req) => {
 
     let gravadas = 0;
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const batch = rows.slice(i, i + BATCH_SIZE);
+      const batch = await mergeBatchWithExisting(supabase, rows.slice(i, i + BATCH_SIZE));
       const { error: upsertError } = await supabase
         .from("dados_positivador")
         .upsert(batch, { onConflict: "assessor,cliente,data_posicao" });
