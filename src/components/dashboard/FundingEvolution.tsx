@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import FundingAssessorTable from "@/components/dashboard/FundingAssessorTable";
 import { FundingAssessorCaptacaoDialog } from "@/components/dashboard/FundingAssessorCaptacaoDialog";
+import { NnmCaptacao12mDialog } from "@/components/dashboard/NnmCaptacao12mDialog";
 
 interface FundingEvolutionProps {
   data: AssessorResumo[];
@@ -35,6 +36,8 @@ interface FundingEvolutionProps {
   tableData?: AssessorResumo[];
   teamPhotos?: Map<string, string>;
   selectedMonth?: string;
+  selectedTeam?: string[];
+  selectedAssessorId?: string[];
 }
 
 export default function FundingEvolution({
@@ -43,6 +46,8 @@ export default function FundingEvolution({
   tableData,
   teamPhotos,
   selectedMonth,
+  selectedTeam = [],
+  selectedAssessorId = [],
 }: FundingEvolutionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -274,33 +279,39 @@ export default function FundingEvolution({
           </p>
         </div>
 
-        <div className="bg-euro-elevated p-1 rounded-lg border border-white/5 shadow-inner flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setMode("chart")}
-            className={cn(
-              "px-4 py-2 text-xs font-data uppercase tracking-widest transition-all rounded-md inline-flex items-center gap-2",
-              mode === "chart"
-                ? "bg-euro-gold text-euro-navy shadow-lg font-bold"
-                : "text-[#5C5C50] hover:text-[#A0A090]",
-            )}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            Gráfico
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("table")}
-            className={cn(
-              "px-4 py-2 text-xs font-data uppercase tracking-widest transition-all rounded-md inline-flex items-center gap-2",
-              mode === "table"
-                ? "bg-euro-gold text-euro-navy shadow-lg font-bold"
-                : "text-[#5C5C50] hover:text-[#A0A090]",
-            )}
-          >
-            <Table2 className="w-3.5 h-3.5" />
-            Listagem
-          </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0">
+          <NnmCaptacao12mDialog
+            selectedTeam={selectedTeam}
+            selectedAssessorId={selectedAssessorId}
+          />
+          <div className="bg-euro-elevated p-1 rounded-lg border border-white/5 shadow-inner flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setMode("chart")}
+              className={cn(
+                "px-4 py-2 text-xs font-data uppercase tracking-widest transition-all rounded-md inline-flex items-center gap-2",
+                mode === "chart"
+                  ? "bg-euro-gold text-euro-navy shadow-lg font-bold"
+                  : "text-[#5C5C50] hover:text-[#A0A090]",
+              )}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Gráfico
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("table")}
+              className={cn(
+                "px-4 py-2 text-xs font-data uppercase tracking-widest transition-all rounded-md inline-flex items-center gap-2",
+                mode === "table"
+                  ? "bg-euro-gold text-euro-navy shadow-lg font-bold"
+                  : "text-[#5C5C50] hover:text-[#A0A090]",
+              )}
+            >
+              <Table2 className="w-3.5 h-3.5" />
+              Listagem
+            </button>
+          </div>
         </div>
       </div>
 

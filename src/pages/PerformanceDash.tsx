@@ -1252,6 +1252,8 @@ export default function PerformanceDash() {
                   tableData={dashData.current}
                   teamPhotos={dashData.teamPhotos}
                   selectedMonth={selectedMonth}
+                  selectedTeam={effectiveTeam}
+                  selectedAssessorId={effectiveAssessorId}
                 />
               </Card>
 
