@@ -29,9 +29,10 @@ import { PosicaoBlack } from "@/components/dashboard/PosicaoBlack";
 import RendaVariavelDash from "@/components/dashboard/RendaVariavelDash";
 import RendaFixaDash from "@/components/dashboard/RendaFixaDash";
 import ProdutosRFDash from "@/components/dashboard/ProdutosRFDash";
-import ConsorciosDash from "@/components/dashboard/ConsorciosDash";
+import ConsorciosHub from "@/components/dashboard/ConsorciosHub";
 import ProductsGeralDash from "@/components/dashboard/ProductsGeralDash";
 import SegurosDash from "@/components/dashboard/SegurosDash";
+import RoaClientes12mDash from "@/components/dashboard/RoaClientes12mDash";
 
 export default function ProductsDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,6 +115,10 @@ export default function ProductsDashboard() {
   }, [persistKey, selectedYear, selectedMonth, selectedTeam, selectedAssessorId, activeTab, isMaximized]);
 
   React.useEffect(() => {
+    if (activeTab === "consorcios-daniel") {
+      setActiveTab("consorcios");
+      return;
+    }
     if (userRole === "consorcio" && activeTab !== "consorcios") {
       setActiveTab("consorcios");
     }
@@ -309,6 +314,7 @@ export default function ProductsDashboard() {
     { id: "consorcios", label: "Consórcios" },
     { id: "seguros", label: "Seguros" },
     { id: "posicao-black", label: "Posição Black" },
+    { id: "roa-clientes", label: "ROA Clientes" },
   ];
 
   const tabs = useMemo(() => {
@@ -462,7 +468,7 @@ export default function ProductsDashboard() {
                   teamPhotos={teamPhotos}
                 />
               ) : tab.id === "consorcios" ? (
-                <ConsorciosDash
+                <ConsorciosHub
                   selectedMonth={selectedMonth}
                   selectedYear={selectedYear}
                   selectedTeam={selectedTeam}
@@ -476,6 +482,11 @@ export default function ProductsDashboard() {
                   selectedTeam={selectedTeam}
                   selectedAssessorId={effectiveAssessorId}
                   teamPhotos={teamPhotos}
+                />
+              ) : tab.id === "roa-clientes" ? (
+                <RoaClientes12mDash
+                  selectedTeam={selectedTeam}
+                  selectedAssessorId={effectiveAssessorId}
                 />
               ) : (
                 <Card className="bg-gradient-to-b from-white/[0.08] to-transparent bg-euro-card/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl relative min-h-[400px] flex items-center justify-center">

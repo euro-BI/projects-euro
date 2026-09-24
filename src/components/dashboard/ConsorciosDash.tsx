@@ -61,7 +61,16 @@ interface ConsorciosDashProps {
   selectedTeam: string[];
   selectedAssessorId: string[];
   teamPhotos?: Map<string, string>;
+  /** legacy = Berté (sem created_by); owned = responsável específico (Daniel). */
+  ownerMode?: "legacy" | "owned";
+  ownerUserId?: string;
+  showHabilitacaoAtivacao?: boolean;
+  title?: string;
+  subtitle?: string;
 }
+
+/** User UUID do Daniel Carvalho (responsável atual de consórcios). */
+export const DANIEL_CONSORCIO_USER_ID = "cd6439f3-3947-450c-980e-ee28c9029b23";
 
 type ChartMetric = "contratos_ativos" | "vs_meta" | "contratos_novos" | "previsao_receita";
 
@@ -514,6 +523,11 @@ export default function ConsorciosDash({
   selectedTeam,
   selectedAssessorId,
   teamPhotos,
+  ownerMode = "legacy",
+  ownerUserId,
+  showHabilitacaoAtivacao = true,
+  title = "Consórcios",
+  subtitle = "Volumetria e Receita Consolidada",
 }: ConsorciosDashProps) {
   const { map: breakEvenMap } = useBreakEvenTargets(selectedYear);
 
@@ -527,6 +541,32 @@ export default function ConsorciosDash({
 
   // Convert selectedMonth to guaranteed YYYY-MM
   const selectedMonthKey = selectedMonth ? selectedMonth.substring(0, 7) : `${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+
+  // Ownership: IDs das vendas do Berté (sem created_by) ou do Daniel
+  const { data: ownerSaleIds, isLoading: isLoadingOwnerIds } = useQuery({
+    queryKey: ["consorcios-owner-sale-ids", ownerMode, ownerUserId],
+    placeholderData: keepPreviousData,
+    enabled: ownerMode === "legacy" || Boolean(ownerUserId),
+    queryFn: async () => {
+      let query = supabase.from("dados_consorcio" as any).select("id");
+      if (ownerMode === "legacy") {
+        query = query.is("created_by", null);
+      } else {
+        query = query.eq("created_by", ownerUserId!);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return new Set<string>((data || []).map((row: any) => String(row.id)));
+    },
+  });
+
+  const belongsToOwner = React.useCallback(
+    (saleId: number | string | null | undefined) => {
+      if (saleId == null || !ownerSaleIds) return false;
+      return ownerSaleIds.has(String(saleId));
+    },
+    [ownerSaleIds],
+  );
 
   // 1. Fetch Assessor -> Team mapping to filter properly
   const { data: activeAssessorsData } = useQuery({
@@ -557,18 +597,26 @@ export default function ConsorciosDash({
   });
 
   // 2. Fetch Base View (Dimensão) - All sales in selectedYear
-  const { data: consorcioData, isLoading: isLoadingDim } = useQuery({
-    queryKey: ["consorcios-dim", selectedYear],
+  const { data: consorcioDataRaw, isLoading: isLoadingDim } = useQuery({
+    queryKey: ["consorcios-dim", selectedYear, ownerMode, ownerUserId],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const startDate = `${selectedYear}-01-01`;
       const endDate = `${selectedYear}-12-31`;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("dados_consorcio" as any)
         .select("*")
         .gte("data_venda", startDate)
         .lte("data_venda", endDate);
+
+      if (ownerMode === "legacy") {
+        query = query.is("created_by", null);
+      } else if (ownerUserId) {
+        query = query.eq("created_by", ownerUserId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data as any[]) || [];
@@ -576,8 +624,8 @@ export default function ConsorciosDash({
   });
 
   // 3. Fetch Comissões View (Fato) - All commissions falling in selectedMonth
-  const { data: comissoesDataMes, isLoading: isLoadingFact } = useQuery({
-    queryKey: ["consorcios-fact", selectedMonthKey],
+  const { data: comissoesDataMesRaw, isLoading: isLoadingFact } = useQuery({
+    queryKey: ["consorcios-fact", selectedMonthKey, ownerMode, ownerUserId],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       if (!selectedMonthKey) return [];
@@ -599,8 +647,8 @@ export default function ConsorciosDash({
   });
 
   // 4. Fetch Comissões for the entire Year (for Chart)
-  const { data: comissoesDataAno } = useQuery({
-    queryKey: ["consorcios-fact-ano", selectedYear],
+  const { data: comissoesDataAnoRaw } = useQuery({
+    queryKey: ["consorcios-fact-ano", selectedYear, ownerMode, ownerUserId],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data } = await supabase
@@ -612,9 +660,20 @@ export default function ConsorciosDash({
     }
   });
 
+  const consorcioData = consorcioDataRaw || [];
+  const comissoesDataMes = useMemo(
+    () => (comissoesDataMesRaw || []).filter((row: any) => belongsToOwner(row.id)),
+    [comissoesDataMesRaw, belongsToOwner],
+  );
+  const comissoesDataAno = useMemo(
+    () => (comissoesDataAnoRaw || []).filter((row: any) => belongsToOwner(row.id)),
+    [comissoesDataAnoRaw, belongsToOwner],
+  );
+
   const { data: haData } = useQuery({
     queryKey: ["consorcios-habilitacao-ativacao-pj", selectedYear],
     placeholderData: keepPreviousData,
+    enabled: showHabilitacaoAtivacao,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vw_habilitacao_ativacao" as any)
@@ -1089,7 +1148,7 @@ export default function ConsorciosDash({
       : <ArrowDown className="w-3 h-3 text-euro-gold ml-auto" />;
   };
 
-  const isLoading = isLoadingDim || isLoadingFact;
+  const isLoading = isLoadingDim || isLoadingFact || isLoadingOwnerIds;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
@@ -1101,11 +1160,13 @@ export default function ConsorciosDash({
             <span className="w-12 h-12 rounded-2xl bg-euro-gold/20 flex items-center justify-center border border-euro-gold/30">
               <Briefcase className="w-6 h-6 text-euro-gold" />
             </span>
-            Consórcios
+            {title}
           </h2>
-          <p className="text-white/40 font-data tracking-widest uppercase text-xs mt-2 ml-15">
-            Volumetria e Receita Consolidada
-          </p>
+          {subtitle ? (
+            <p className="text-white/40 font-data tracking-widest uppercase text-xs mt-2 ml-15">
+              {subtitle}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -1150,37 +1211,39 @@ export default function ConsorciosDash({
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-data text-euro-gold uppercase tracking-[0.2em] opacity-80 pl-2">
-              Habilitações e Ativações · PJ ({format(parseISO(`${selectedMonthKey}-01`), "MMM/yyyy", { locale: ptBR })})
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <KpiCard
-                title="Habilitações"
-                value={formatNumber(haMetrics.habilitacoes)}
-                subtitle={`${formatNumber(haMetrics.habilitacoesAtivadas)} já com conta ativada`}
-                icon={UserPlus}
-                color="#3B82F6"
-                delay={0.25}
-                tooltipInfo="Abertura de contas PJ no mês selecionado."
-                trend={{ value: haMetrics.habilitacoesTrend, label: "vs mês anterior" }}
-                ring={{
-                  percent: haMetrics.conversao,
-                  color: haMetrics.conversao >= 50 ? "#22C55E" : "#3B82F6",
-                }}
-              />
-              <KpiCard
-                title="Ativações"
-                value={formatNumber(haMetrics.ativacoes)}
-                subtitle="Contas que receberam aporte e deixaram de estar zeradas"
-                icon={Wallet}
-                color="#10B981"
-                delay={0.3}
-                tooltipInfo="Contas PJ que receberam aporte e saíram de saldo zerado."
-                trend={{ value: haMetrics.ativacoesTrend, label: "vs mês anterior" }}
-              />
+          {showHabilitacaoAtivacao && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-data text-euro-gold uppercase tracking-[0.2em] opacity-80 pl-2">
+                Habilitações e Ativações · PJ ({format(parseISO(`${selectedMonthKey}-01`), "MMM/yyyy", { locale: ptBR })})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <KpiCard
+                  title="Habilitações"
+                  value={formatNumber(haMetrics.habilitacoes)}
+                  subtitle={`${formatNumber(haMetrics.habilitacoesAtivadas)} já com conta ativada`}
+                  icon={UserPlus}
+                  color="#3B82F6"
+                  delay={0.25}
+                  tooltipInfo="Abertura de contas PJ no mês selecionado."
+                  trend={{ value: haMetrics.habilitacoesTrend, label: "vs mês anterior" }}
+                  ring={{
+                    percent: haMetrics.conversao,
+                    color: haMetrics.conversao >= 50 ? "#22C55E" : "#3B82F6",
+                  }}
+                />
+                <KpiCard
+                  title="Ativações"
+                  value={formatNumber(haMetrics.ativacoes)}
+                  subtitle="Contas que receberam aporte e deixaram de estar zeradas"
+                  icon={Wallet}
+                  color="#10B981"
+                  delay={0.3}
+                  tooltipInfo="Contas PJ que receberam aporte e saíram de saldo zerado."
+                  trend={{ value: haMetrics.ativacoesTrend, label: "vs mês anterior" }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="w-full h-px bg-white/5 my-8"></div>
 
@@ -1711,7 +1774,7 @@ export default function ConsorciosDash({
         </div>
       )}
 
-      {!isLoading && (
+      {!isLoading && showHabilitacaoAtivacao && (
         <div className="space-y-10 mt-10">
           <HaDetailTable
             title="Detalhamento de Habilitações"

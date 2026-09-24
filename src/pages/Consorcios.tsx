@@ -744,6 +744,7 @@ const Consorcios = () => {
                   <th className="px-4 py-3.5 font-medium">Produto</th>
                   <th className="px-4 py-3.5 font-medium">Venda</th>
                   <th className="px-4 py-3.5 font-medium">Registrado por</th>
+                  <th className="px-4 py-3.5 font-medium text-right">Valor Carta</th>
                   <th className="px-4 py-3.5 font-medium text-right">Comissão</th>
                   <th className="px-4 py-3.5 font-medium">Status</th>
                   <th className="px-5 py-3.5 font-medium text-right">Ações</th>
@@ -752,11 +753,11 @@ const Consorcios = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-5 py-16 text-center text-white/40">Carregando registros...</td>
+                    <td colSpan={10} className="px-5 py-16 text-center text-white/40">Carregando registros...</td>
                   </tr>
                 ) : pageItems.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</td>
+                    <td colSpan={10} className="px-5 py-16 text-center text-white/40">Nenhum registro encontrado</td>
                   </tr>
                 ) : (
                   pageItems.map((r) => {
@@ -788,6 +789,9 @@ const Consorcios = () => {
                         <td className="px-4 py-4 text-sm text-white/75">{r.produto || "—"}</td>
                         <td className="px-4 py-4 font-data text-sm tabular-nums text-white/75">{formatDateBR(r.data_venda)}</td>
                         <td className="px-4 py-4 text-sm text-white/75">{r.created_by_nome || "—"}</td>
+                        <td className="px-4 py-4 text-right font-data text-sm tabular-nums text-white/85">
+                          {formatCurrency(r.valor_carta)}
+                        </td>
                         <td className="px-4 py-4 text-right font-data text-sm tabular-nums text-euro-gold">
                           {formatCurrency(r.valor_comissao_total)}
                         </td>
@@ -836,8 +840,15 @@ const Consorcios = () => {
                       <span>{r.produto || "—"}</span>
                       <span>· {r.created_by_nome || "sem registro"}</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="font-data text-sm tabular-nums text-euro-gold">{formatCurrency(r.valor_comissao_total)}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] uppercase tracking-wide text-white/40">Valor carta</p>
+                        <p className="font-data text-sm tabular-nums text-white/85">{formatCurrency(r.valor_carta)}</p>
+                      </div>
+                      <div className="space-y-0.5 text-right">
+                        <p className="text-[10px] uppercase tracking-wide text-white/40">Comissão</p>
+                        <p className="font-data text-sm tabular-nums text-euro-gold">{formatCurrency(r.valor_comissao_total)}</p>
+                      </div>
                       <RowActions
                         cancelled={cancelled}
                         onView={() => setViewing(r)}
